@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.png binary
+vendor/social-media-skills/** -text
