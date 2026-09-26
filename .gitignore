@@ -1,0 +1,20 @@
+# Personal content and runtime state
+outputs/panel/data/
+outputs/backups/
+backups/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+*.pid
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.agents/skills/
+node_modules/
+work/
+test-results/
+playwright-report/

@@ -1,0 +1,84 @@
+{
+  "repo": "https://github.com/charlie947/social-media-skills",
+  "commit": "8cefb5b6d03757885faa6918bd8bfaef202a83db",
+  "skills": 17,
+  "files": [
+    {
+      "path": "vendor/social-media-skills/skills/voice-builder/SKILL.md",
+      "sha256": "ab29a3ff969a877395d4e48a270d66041fc9a49f139daca96dc306988031d919"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/voice-builder/references/sample-content.md",
+      "sha256": "e9bb88c2e1080249a908ba5365756fd797dc18d41caf2a444ef3fc53bef35f24"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/newsletter-voice/SKILL.md",
+      "sha256": "3e2ad44ad1f485590f276cbd117c3deba08a3304e3d610243cb00e4b09c15641"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/newsletter-voice/references/archetypes.md",
+      "sha256": "f4c4da5347934d044f3c8405c517815d2bfd5bf449db8843b38775e7432c4b11"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/profile-optimizer/SKILL.md",
+      "sha256": "3d56fa4538d6b3274b7150b7168835537bbb24e80e2b147cb8b6dc0826bc57e9"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/post-writer/SKILL.md",
+      "sha256": "2dd4206ca5a1e5fcad5c8e88c7871587700dec57fa878eb133f4d785f3bf7c6f"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/graphic-designer/SKILL.md",
+      "sha256": "b1cf213bfdda3a2cd677c5c4bc71ce46dbacf98391e6507cb771c2211f5ef860"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/post-formatter/SKILL.md",
+      "sha256": "b1758f553da892e5e6ce1c8ec398cfaef87e71bb7bd0b5bd658a36e14bca3922"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/reels-scripting/SKILL.md",
+      "sha256": "ae923f7d031c1eac12deca14a421e70ca0f2e56292c3f147ff76dccee896ae94"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/youtube-thumbnail/SKILL.md",
+      "sha256": "b57a1412b3aa9207330dc5059ae13140434a4ab0a13d1e0c1a0c1d38abbad038"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/post-scorer/SKILL.md",
+      "sha256": "cf2aa27595394896627f53f5ba2a884e03abcd8d770b8e9fd7e632784f58702c"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/analytics-dashboard/SKILL.md",
+      "sha256": "db925010f27f23df071dafbc68de0e1ccd7a8d142ef0b89ca609748cfdc706bd"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/pinned-comment/SKILL.md",
+      "sha256": "93344afb6f64064bca5b7c249130ad20f7700507703944c2ef3a6bb708e833cd"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/hook-generator/SKILL.md",
+      "sha256": "519ffccfba96990ebd5c906db3ebc235a2ee50b2477e8aedb311903a0dd9a3e8"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/content-matrix/SKILL.md",
+      "sha256": "ce22a57f4a375d1568dd85f279d76279074f5c46fe0fb4817867908458aa7b95"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/niche-research/SKILL.md",
+      "sha256": "bda918f69f3f8990ca106d26dcfa9a4f7f85bf54474e6ab73e04217337536844"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/gemini-carousel/SKILL.md",
+      "sha256": "3d6e7071f9c9df5e2013ff4b412ad6baf47ddd8480e55592e19d7bd1528f4790"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/gemini-infographic/SKILL.md",
+      "sha256": "a17ed6f5aedc59c879039d1d50c8c546053c6045338339a1409e5106295ad0cc"
+    },
+    {
+      "path": "vendor/social-media-skills/skills/quote-post/SKILL.md",
+      "sha256": "847685f15231cfea810a1cc4d05c82f2e88bb48a42957c4c65c7c7c1ad0a2ab7"
+    }
+  ],
+  "note": "Historical successful installation on the original workstation; clones must run scripts/install_skills.py. Vendored files preserve original hashes."
+}
