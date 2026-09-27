@@ -134,7 +134,7 @@
         "media-ingest"
       ],
       "blocker": null,
-      "note": "model_size configurable via job payload; UI config pending"
+      "note": "model_size configurable via job payload; UI config pending; GPU needs cuDNN debugging (falls back to CPU automatically and correctly)"
     },
     {
       "id": "research-script",
@@ -414,7 +414,7 @@
   "last_commit": "2ee5f3c (plus docs/status commit)",
   "known_blockers_environment": [
     "Windows Python and FFmpeg were missing; installed via winget 2026-09-27",
-    "nvidia-cublas/cudnn wheels not installed yet (pypi/mirror timeouts); CPU fallback verified working, GPU engages automatically once present",
+    "CUDA wheels installed (cublas 12.9, cudnn 9.26); GPU inference still errors and auto-falls back to CPU (fast+correct); GPU tuning deferred",
     "Persian TTS voice unavailable on machine; real-engine verification used English SAPI speech"
   ],
   "credentials_required": [

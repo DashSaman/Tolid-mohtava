@@ -26,13 +26,13 @@ Phase 2 تکمیل شد (P0 «Execution واقعی»). فاز بعدی: P1 — r
 
 - `python -m unittest discover -s tests` → **47/47 OK** (شامل integration واقعی FFmpeg: silencedetect روی فایل صوتی تولیدشده + رندر واقعی با کنترل مدت).
 - `node tests/ui-flow.cjs` → PASS با بخش‌های جدید رسانه/کارها (Chrome واقعی).
-- تبدیل گفتار واقعی: faster-whisper 1.2.1 روی واو گفتار تولیدشده با SAPI → متن و timestamp درست (device=cpu چون CUDA wheelها هنوز نصب نشده‌اند؛ با نصبشان GPU خودکار فعال می‌شود). خروجی واقعی در گزارش Session ثبت شده است.
+- تبدیل گفتار واقعی: faster-whisper 1.2.1 روی واو گفتار تولیدشده با SAPI → متن و timestamp دقیق در ۵.۷ ثانیه (device=cpu). CUDA wheels نصب شدند (cublas 12.9/cudnn 9.26) و مسیر GPU فعال می‌شود ولی inference روی GPU خطا می‌دهد و به‌صورت خودکار و صحیح به CPU برمی‌گردد؛ دیباگ GPU به P1 منتقل شد (اولویت اجرایی نیست چون CPU برای مدل small کافی است).
 - GPU/FFmpeg/NVENC: `avtools` هر سه را پیدا می‌کند (RTX 3070، FFmpeg 9.0.2، h264_nvenc موجود).
 
 ## Environment changes made (برای شفافیت)
 
 - Python 3.12.10 + FFmpeg 9.0.2 با winget نصب شد (پیش‌نیاز اعلام‌شده پروژه؛ روی این ماشین وجود نداشت).
-- pip: faster-whisper نصب شد. nvidia-cublas/cudnn wheels به‌دلیل محدودیت شبکه هنوز نصب نشده‌اند (تلاش با mirror ادامه دارد)؛ بدون آنها GPU fallback به CPU می‌شود و هیچ چیزی نمی‌شکند.
+- pip: faster-whisper + nvidia-cublas-cu12 + nvidia-cudnn-cu12 نصب شد (mirror). GPU inference خطای زمان اجرا می‌دهد؛ fallback خودکار CPU صحیح کار می‌کند.
 
 ## Remaining P1 (فاز بعد، به‌ترتیب پیشنهادی)
 
@@ -43,6 +43,7 @@ Phase 2 تکمیل شد (P0 «Execution واقعی»). فاز بعدی: P1 — r
 5. Storage Manager + آرشیو روی My Passport با checksum و تأیید (هرگز حذف خودکار).
 6. Remote access با Tailscale/Cloudflare Tunnel + حداقل auth (user/pass هش‌شده).
 7. Media Sync چند دوربین (فیس‌کم/صفحه/صدای جدا) با waveform/timestamp.
+8. رفع خطای GPU whisper روی این ماشین (احتمال ناسازگاری cuDNN/درایور) و افزودن انتخاب مدل در UI.
 
 ## Remaining P2
 
