@@ -5,11 +5,19 @@ import json, mimetypes, os, secrets, socket
 from store import Store
 from registry import skill_registry
 from jobs import JobManager
+from media import MediaLibrary, KINDS as MEDIA_KINDS
+from transcribe import Transcripts
+from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
 PORT=int(os.environ.get('TEHNET_PANEL_PORT','8766'))
 DB=Store(os.environ.get('TEHNET_PANEL_DB',str(ROOT/'data/content.sqlite')))
-JM=JobManager(DB.path,workers=2)
+DATA=Path(DB.path).parent
+MEDIA=MediaLibrary(DB.path,DATA/'media')
+TRANSCRIPTS=Transcripts(DB.path)
+JM=JobManager(DB.path,handlers=build_handlers(),workers=2,
+              services={'media':MEDIA,'transcripts':TRANSCRIPTS})
+MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 
 class Handler(BaseHTTPRequestHandler):
@@ -26,19 +34,46 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
         return self.headers.get('Host') in (f'127.0.0.1:{PORT}',f'localhost:{PORT}')
+    def serve_media(self,q):
+        m=MEDIA.get(q.get('id',[''])[0])
+        if not m or not Path(m['path']).exists(): return self.respond({'error':'رسانه پیدا نشد.'},404)
+        mime=m['mime'] or (mimetypes.guess_type(m['orig_name'])[0] or 'application/octet-stream')
+        size=m['size']; rng=self.headers.get('Range')
+        start,end=0,size-1
+        if rng and rng.startswith('bytes='):
+            part=rng[6:].split(',')[0].split('-')
+            if part[0]: start=int(part[0])
+            if len(part)>1 and part[1]: end=int(part[1])
+            start=max(0,min(start,size-1)); end=max(start,min(end,size-1))
+        with open(m['path'],'rb') as f:
+            f.seek(start); data=f.read(end-start+1)
+        self.send_response(206 if rng else 200)
+        self.send_header('Content-Type',mime)
+        self.send_header('Content-Length',str(len(data)))
+        self.send_header('Accept-Ranges','bytes')
+        if rng: self.send_header('Content-Range',f'bytes {start}-{end}/{size}')
+        self.send_header('X-Content-Type-Options','nosniff')
+        self.send_header('Cache-Control','no-store')
+        self.end_headers(); self.wfile.write(data)
     def do_GET(self):
         if not self.valid_host(): return self.respond({'error':'میزبان مجاز نیست.'},403)
         url=urlsplit(self.path); q=parse_qs(url.query)
         try:
             if url.path=='/api/session': return self.respond({'token':TOKEN,'app':'tehnet-content-panel'})
             if url.path=='/api/skills': return self.respond(skill_registry())
-            if url.path=='/api/items': return self.respond(DB.list(q.get('brand',['tehran-network'])[0]))
+            if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
+            if url.path=='/api/media/file': return self.serve_media(q)
+            if url.path=='/api/transcripts':
+                t=TRANSCRIPTS.get(q.get('media_id',[''])[0],int(q['revision'][0]) if 'revision' in q else None)
+                if not t: return self.respond({'error':'متن پیدا نشد.'},404)
+                return self.respond(t)
             if url.path=='/api/jobs': return self.respond(JM.list(q.get('status',[None])[0]))
             if url.path=='/api/job':
                 job=JM.get(q.get('id',[''])[0])
                 if not job: return self.respond({'error':'کار پیدا نشد.'},404)
                 return self.respond(job)
             if url.path=='/api/history': return self.respond(DB.history(q.get('id',[''])[0]))
+            if url.path=='/api/items': return self.respond(DB.list(q.get('brand',['tehran-network'])[0]))
             if url.path=='/api/export': return self.respond(DB.export(q.get('brand',['tehran-network'])[0]))
             if url.path=='/api/profile':
                 brand=q.get('brand',[''])[0]
@@ -57,6 +92,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.valid_host() or self.headers.get('X-Panel-Token')!=TOKEN or self.headers.get('Origin') not in (None,f'http://127.0.0.1:{PORT}',f'http://localhost:{PORT}'):
             return self.respond({'error':'درخواست مجاز نیست؛ پنل را دوباره باز کنید.'},403)
+        if urlsplit(self.path).path=='/api/media': return self.upload_media()
         if self.headers.get_content_type()!='application/json': return self.respond({'error':'قالب درخواست معتبر نیست.'},415)
         try:
             size=int(self.headers.get('Content-Length','0'))
@@ -75,6 +111,23 @@ class Handler(BaseHTTPRequestHandler):
             self.respond({'error':'عملیات پیدا نشد.'},404)
         except (ValueError,TypeError) as e: self.respond({'error':str(e) if isinstance(e,ValueError) and not isinstance(e,json.JSONDecodeError) else 'داده درخواست معتبر نیست.'},400)
         except Exception: self.respond({'error':'ذخیره ناموفق بود. فضای دیسک و اجرای پنل را بررسی کنید.'},500)
+    def upload_media(self):
+        try:
+            size=int(self.headers.get('Content-Length','0'))
+            if size<1 or size>MAX_UPLOAD: raise ValueError('حجم فایل معتبر نیست.')
+            kind=self.headers.get('X-Media-Kind','')
+            name=self.headers.get('X-Media-Name','file')
+            cid=self.headers.get('X-Content-Id') or None
+            remaining=[size]
+            def reader(n):
+                if remaining[0]<=0: return b''
+                chunk=self.rfile.read(min(n,remaining[0]))
+                remaining[0]-=len(chunk)
+                return chunk
+            row=MEDIA.ingest(reader,name,kind,cid,size_limit=MAX_UPLOAD,mime=self.headers.get('X-Media-Mime',''))
+            return self.respond(row)
+        except ValueError as e: self.respond({'error':str(e)},400)
+        except Exception: self.respond({'error':'ذخیره رسانه ناموفق بود؛ فضای دیسک را بررسی کنید.'},500)
 
 if __name__=='__main__':
     server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)

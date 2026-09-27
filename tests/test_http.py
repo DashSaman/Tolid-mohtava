@@ -57,5 +57,31 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/api/job?id=missing')[0],404)
         self.assertEqual(self.request('/api/jobs/decision',{'id':'x','approved':'yes'},h)[0],400)
         self.assertEqual(self.request('/api/jobs/cancel',{'id':'missing'},h)[0],400)
+    def test_media_upload_and_serve(self):
+        h={'Content-Type':'application/json','X-Panel-Token':self.token}
+        code,body,_=self.request('/api/items',dict(title='پرونده رسانه',brands=['tehran-network'],body=''),h)
+        cid=json.loads(body)['id']
+        payload='دادهٔ صوتی آزمایشی ۱۲۳'.encode()
+        def up(headers,data):
+            req=urllib.request.Request(self.base+'/api/media',data=data,headers=headers,method='POST')
+            try:
+                with urllib.request.urlopen(req,timeout=5) as r:return r.status,json.loads(r.read())
+            except urllib.error.HTTPError as e:return e.code,json.loads(e.read())
+        base={'X-Panel-Token':self.token,'X-Media-Kind':'voice','X-Media-Name':'note.wav',
+              'X-Media-Mime':'audio/wav','X-Content-Id':cid,'Content-Type':'application/octet-stream'}
+        code,row=up(dict(base),payload)
+        self.assertEqual(code,200,'token alone gates raw upload (no-Origin local clients allowed)')
+        self.assertEqual(row['size'],len(payload))
+        self.assertEqual(row['sha256'],__import__('hashlib').sha256(payload).hexdigest())
+        listing=json.loads(self.request(f'/api/media?content_id={cid}')[1])
+        self.assertEqual(len(listing),1)
+        with urllib.request.urlopen(self.base+f"/api/media/file?id={row['id']}") as r:
+            self.assertEqual(r.read(),payload)
+        req=urllib.request.Request(self.base+f"/api/media/file?id={row['id']}",headers={'Range':'bytes=0-3'})
+        with urllib.request.urlopen(req) as r:
+            self.assertEqual(r.status,206); self.assertEqual(r.read(),payload[:4])
+        self.assertEqual(up({**base,'X-Media-Kind':'wrong'},payload)[0],400)
+        bad=dict(base,Origin=f'http://127.0.0.1:{self.base.split(":")[2]}'); bad.pop('X-Panel-Token')
+        self.assertEqual(up(bad,payload)[0],403)
 
 if __name__=='__main__':unittest.main()

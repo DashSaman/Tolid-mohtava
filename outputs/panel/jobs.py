@@ -21,9 +21,9 @@ class DependencyMissing(Exception):
     """A required local engine (faster-whisper, FFmpeg, ...) is not available."""
 
 class Ctx:
-    """Handler view of a running job: logging, progress, cancel checks."""
+    """Handler view of a running job: logging, progress, cancel checks, services."""
     def __init__(self,mgr,jid,job):
-        self.id=jid; self.payload=job['payload']; self._m=mgr
+        self.id=jid; self.payload=job['payload']; self._m=mgr; self.services=mgr.services
     def log(self,msg): self._m.log(self.id,msg)
     def progress(self,pct):
         try: pct=max(0,min(100,int(pct)))
@@ -32,9 +32,9 @@ class Ctx:
     def cancelled(self): return self._m.cancel_requested(self.id)
 
 class JobManager:
-    def __init__(self,path,handlers=None,workers=2):
+    def __init__(self,path,handlers=None,workers=2,services=None):
         self.path=Path(path); self.path.parent.mkdir(parents=True,exist_ok=True)
-        self.handlers=dict(handlers or {})
+        self.handlers=dict(handlers or {}); self.services=dict(services or {})
         self._q=Queue(); self._stop=threading.Event()
         self._cancels=set(); self._cancels_lock=threading.Lock()
         with self.connect() as c:
