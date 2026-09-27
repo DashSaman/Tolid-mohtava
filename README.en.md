@@ -4,7 +4,7 @@
 
 A local **Persian, right-to-left** content workspace for ideas, scripts, recording transcripts, sources, and version-specific human approvals. Includes 17 pinned Codex content skills and separate **Tehran Network / tehnet.ir** and **MyTel / mytel.one** profiles.
 
-**Actual capability:** content editing, SQLite persistence, revision history, explicit brand sharing, script/publication approval records, JSON export, and personalized skill prompts work. In-panel AI execution, audio transcription, editing, social publishing, notifications, and live analytics are **not connected**. Approving an item never publishes it.
+**Actual capability:** content editing, SQLite persistence, revision history, explicit brand sharing, script/publication approval records, JSON export, and personalized skill prompts work. Local automation also works end to end on this machine: immutable media upload, local speech-to-text (faster-whisper, GPU when CUDA libs are present), conservative non-destructive edit decisions with real restore, preview/final rendering (FFmpeg, NVENC when available), a persistent job queue with live progress, and a labelled DRY-RUN publication package. Nothing is ever published to the internet; real publishing adapters, notifications, and live analytics remain **not connected** and are not claimed anywhere.
 
 ![Persian dashboard](docs/images/dashboard.png)
 

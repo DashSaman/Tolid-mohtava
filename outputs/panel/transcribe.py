@@ -36,20 +36,57 @@ def detect_device():
         pass
     return 'cpu'
 
-def run_engine(path,segments_cb=None,model_size='small'):
-    """Real transcription. Returns dict with segments and metadata."""
-    if not engine_available():
-        raise DependencyMissing('faster-whisper نصب نیست. برای تبدیل گفتار به متن، این بسته را نصب کنید یا متن را دستی وارد کنید.')
+def _ensure_cuda_dlls():
+    """Make pip-installed CUDA wheels (cublas/cudnn) loadable on Windows."""
+    import sys, os
+    tried=[]
+    for base in list(sys.path):
+        if not base or 'site-packages' not in base: continue
+        nvidia=Path(base)/'nvidia'
+        if not nvidia.is_dir(): continue
+        for sub in ('cublas','cudnn'):
+            d=nvidia/sub/'bin'
+            if d.is_dir():
+                tried.append(str(d))
+                try: os.add_dll_directory(str(d))
+                except Exception: pass
+    return tried
+
+def load_model(model_size='small'):
     from faster_whisper import WhisperModel
     device=detect_device()
+    if device=='cuda': _ensure_cuda_dlls()
     compute='float16' if device=='cuda' else 'int8'
-    model=WhisperModel(model_size,device=device,compute_type=compute)
+    try:
+        return WhisperModel(model_size,device=device,compute_type=compute),device
+    except Exception:
+        if device=='cuda':
+            return WhisperModel(model_size,device='cpu',compute_type='int8'),'cpu'
+        raise
+
+def _transcribe_with(model,path,segments_cb=None):
     seg_iter,info=model.transcribe(str(path),language=LANG,vad_filter=True)
     segments=[]; last=time.time()
     for s in seg_iter:
         segments.append({'start':round(s.start,3),'end':round(s.end,3),'text':s.text.strip()})
         if segments_cb and time.time()-last>2:
             segments_cb(min(99,int(s.end/max(info.duration,0.001)*100))); last=time.time()
+    return segments,info
+
+def run_engine(path,segments_cb=None,model_size='small'):
+    """Real transcription. Returns dict with segments and metadata."""
+    if not engine_available():
+        raise DependencyMissing('faster-whisper نصب نیست. برای تبدیل گفتار به متن، این بسته را نصب کنید یا متن را دستی وارد کنید.')
+    model,device=load_model(model_size)
+    try:
+        segments,info=_transcribe_with(model,path,segments_cb)
+    except RuntimeError as e:
+        msg=str(e).lower()
+        gpu_broken=device=='cuda' and any(k in msg for k in ('cublas','cudnn','cuda'))
+        if not gpu_broken: raise
+        from faster_whisper import WhisperModel
+        model=WhisperModel(model_size,device='cpu',compute_type='int8'); device='cpu'
+        segments,info=_transcribe_with(model,path,segments_cb)
     return {'engine':dict(engine_info(),device=device,model=model_size),
             'language':info.language,'duration':round(info.duration,3),
             'segments':segments,'text':'\n'.join(s['text'] for s in segments if s['text'])}

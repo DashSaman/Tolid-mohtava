@@ -1,92 +1,62 @@
 # CONTINUATION_STATUS — وضعیت ادامه کار
 
 این فایل Source of Truth ادامه کار است. بعد از هر Milestone به‌روزرسانی و Commit می‌شود تا Session بعدی دقیقاً از همین نقطه ادامه دهد.
-This file is the handoff source of truth. Update + commit after every milestone.
 
-- Last updated: 2026-09-27 (session 2 — continuation)
-- Last successful commit: (به‌روزرسانی بعد از هر push — see git log)
+- Last updated: 2026-09-27 (session 2 — پایان P0)
 - Repo: https://github.com/DashSaman/Tolid-mohtava
 - Machine-readable checklist: `docs/implementation-status.json`
+- Last commits of this session: 8cb2343 (status files) → 7e804df (jobs) → 5b9f8f5 (media+transcribe) → afca119 (editing) → 1ea51d9 (render) → 6ebf628 (triggers) → d7bbbea (UI) → 2ee5f3c (E2E) → + docs/status update
 
 ## Current Phase
 
-Phase 2 — «Execution واقعی»: تبدیل پنلِ فقط-Prompt به Panel → Job → Worker → Result (مطابق master-prompt بند ۹ و ۶۲).
+Phase 2 تکمیل شد (P0 «Execution واقعی»). فاز بعدی: P1 — repurposing، publishing adapter واقعی (نیاز credential)، website connector، notifications، remote access، storage manager/archive.
 
-## State Recovery Matrix (نتیجه Audit واقعی Session دوم)
+## What was built this session (همه با تست و push)
 
-روش: clone تازه از origin/main، بررسی git log (فقط ۲ commit)، خواندن کد واقعی `outputs/panel/*.py`، `app.js`، `index.html`، تست‌ها و مستندات. هیچ قابلیتی از روی README حدس زده نشده.
+1. **jobs.py** — صف کار ماندگار روی SQLite: queued/running/waiting_approval/completed/failed/cancelled + progress/logs/زمان‌ها/retry_count/error/result + کلید idempotency. بعد از Restart: کارهای running صادقانه failed می‌شوند و queued دوباره اجرا می‌شوند؛ تاریخچه هیچ‌وقت پاک نمی‌شود.
+2. **media.py** — ingest تغییرناپذیر صوت/ویدیو با sha256 و جریان streamed (تا 20GB)، انواع voice/screen/face/external_audio/broll، اتصال به محتوا، verify() برای checksum.
+3. **transcribe.py** — adapter faster-whisper با تشخیص GPU و fallback خودکار به CPU (خطای cublas در زمان inference هم هندل می‌شود)؛ transcript نسخه‌دار per-media؛ ورود دستی متن با برچسب زمان «1:23 متن» → segments.
+4. **editing.py** — تصمیم‌های تدوین غیرمخرب و conservative: سکوت با FFmpeg silencedetect (فعال خودکار ≥0.8s)، فیلرهای مستقل (فعال)، مکث مرزی و تکرار (فقط proposed)؛ restore/dismiss واقعی و پایدار در برابر تحلیل دوباره؛ گزارش فارسی با timestamp قابل Seek؛ timeline() قرارداد رندر.
+5. **render.py** — رندر preview (720p) و final (1080p + NVENC در صورت موجودیت + faststart) از برش‌های فعال merge‌شده؛ نسخه‌ها EDIT V1..N / FINAL Vn؛ progress زنده از ffmpeg؛ لغو تعاونی؛ فایل اصلی هرگز تغییر نمی‌کند.
+6. **triggers.py** — تأیید انتشار → دقیقاً یک بسته publish_dryrun per content+revision (double-click safe؛ فقط روی گذار واقعی pending→approved)؛ رندر نهایی منتظر تأیید صریح. هیچ انتشار خارجی وجود ندارد.
+7. **UI فارسی RTL** — دو صفحه جدید «رسانه و تدوین» و «کارها» به‌همراه دیالوگ جزئیات رسانه (player + نسخه‌های متن با click-to-seek + گزارش تدوین + برش دستی + دکمه‌های رندر + فهرست نسخه‌ها) و صف کار زنده (progress، logs، تأیید/رد/لغو/تلاش دوباره).
+8. **tests/test_e2e.py** — مسیر بحرانی کامل روی سیستم واقعی (فقط موتور گفتار fake است تا قطعی باشد): ایده → صوت → متن → تحلیل → restore → preview → dry-run → FINAL (با تأیید) → integrity آرشیو. ۴۷ تست سبز.
 
-### WORKING (با تست؛ فقط تست موفق = Working)
+## Verified evidence (شواهد واقعی)
 
-| قابلیت | شواهد |
-|---|---|
-| دفتر محتوا (CRUD، نسخه‌گذاری، تفکیک برند) | `store.py` + `tests/test_store.py` |
-| تأیید نسخه‌دار سناریو/انتشار، idempotent در همان حالت، ابطال با ویرایش | `store.decide` + تست‌ها |
-| تاریخچه snapshot و export JSON | `store.history/export` |
-| نصب pinned ۱۷ اسکیل با کنترل hash | `scripts/install_skills.py` + `tests/test_install.py` |
-| بسته دستور فارسی هر اسکیل (Manual Prompt Mode) | `app.js makePrompt` |
-| سرور HTTP محلی با کنترل Host/Origin/Token و CSP | `server.py` + `tests/test_http.py` |
-| Backup دیتابیس | `backup.py` + `Backup-Panel.cmd` |
+- `python -m unittest discover -s tests` → **47/47 OK** (شامل integration واقعی FFmpeg: silencedetect روی فایل صوتی تولیدشده + رندر واقعی با کنترل مدت).
+- `node tests/ui-flow.cjs` → PASS با بخش‌های جدید رسانه/کارها (Chrome واقعی).
+- تبدیل گفتار واقعی: faster-whisper 1.2.1 روی واو گفتار تولیدشده با SAPI → متن و timestamp درست (device=cpu چون CUDA wheelها هنوز نصب نشده‌اند؛ با نصبشان GPU خودکار فعال می‌شود). خروجی واقعی در گزارش Session ثبت شده است.
+- GPU/FFmpeg/NVENC: `avtools` هر سه را پیدا می‌کند (RTX 3070، FFmpeg 9.0.2، h264_nvenc موجود).
 
-### PARTIAL
+## Environment changes made (برای شفافیت)
 
-| قابلیت | وضعیت واقعی |
-|---|---|
-| Transcript | فقط ورود فایل TXT/MD دستی؛ هیچ صوت→متن نیست |
-| Analytics | فقط زبانه خالی + بسته دستور؛ هیچ ingestion |
-| SEO | چک‌لیست ثابت؛ crawl ندارد |
-| اعلان‌ها | فقط فهرست داخل پنل؛ Telegram/Email وصل نیست |
+- Python 3.12.10 + FFmpeg 9.0.2 با winget نصب شد (پیش‌نیاز اعلام‌شده پروژه؛ روی این ماشین وجود نداشت).
+- pip: faster-whisper نصب شد. nvidia-cublas/cudnn wheels به‌دلیل محدودیت شبکه هنوز نصب نشده‌اند (تلاش با mirror ادامه دارد)؛ بدون آنها GPU fallback به CPU می‌شود و هیچ چیزی نمی‌شکند.
 
-### NOT STARTED (شروع نشده — Session قبلی متوقف شد)
+## Remaining P1 (فاز بعد، به‌ترتیب پیشنهادی)
 
-Job system، آپلود صوت، transcription، media ingest، media sync، automatic editing، edit decisions غیرمخرب، restore، edit report، transcript timeline، render، media versions، storage manager، archive، repurposing، publishing adapter، website connector، یادگیری/بهینه‌سازی، remote access، authentication.
-
-### BLOCKED (نیاز به Credential/تصمیم کاربر)
-
-- انتشار واقعی هر پلتفرم (OAuth حساب‌ها) — طبق بند ۳۵ فعلاً فقط Dry Run.
-- Analytics واقعی (API حساب‌ها) — credential لازم.
-- Gemini/Apify برای thumbnail/carousel/infographic render — `BLOCKED_BY_CREDENTIAL`.
-- Telegram/Email notification — `TELEGRAM_BOT_TOKEN`/SMTP لازم.
-
-## Environment Reality (کشف‌شده در این Session)
-
-- Windows: Python واقعی در PATH نبود (فقط Store stub) → Python 3.12 با winget نصب شد (پیش‌نیاز اعلام‌شده README).
-- FFmpeg: در Windows و WSL موجود نبود → نصب شد (برای audio pipeline و render؛ بند ۲۲ و ۲۴).
-- WSL Ubuntu-24.04: Python 3.12.3 موجود؛ faster-whisper نصب نبود.
-- GPU: NVIDIA GeForce RTX 3070 Laptop 8GB (driver 616.92) — برای transcription/render در صورت سازگاری استفاده می‌شود.
-- Node v24.19.0 موجود (تست UI).
-- این Session برخلاف Session قبلی به WSL دسترسی دارد (`wsl.exe -l -v` جواب داد).
-
-## Last Tests
-
-- (بعد از نصب Python اجرا و اینجا ثبت می‌شود.)
-
-## Remaining P0 (به‌ترتیب اجرا)
-
-1. `jobs.py` — Job system با SQLite (states: queued/running/waiting_approval/completed/failed/cancelled + progress/logs/timestamps/retry/error/result) و بقا پس از Restart.
-2. Media ingest — آپلود صوت/ویدیو، جدول media، فایل‌های اصلی immutable، gitignored.
-3. Transcription worker — engine adapter؛ faster-whisper در صورت نصب (GPU در صورت سازگاری)؛ در نبودش شکست صادقانه `BLOCKED_BY_DEPENDENCY` — هیچ transcript جعلی.
-4. Automatic editing — تشخیص conservative سکوت/مکث/فیلر/تکرار/retake؛ decisionها جدا از media (غیرمخرب)؛ edit report فارسی؛ restore واقعی.
-5. Render — preview و final با FFmpeg؛ NVENC در صورت موجودیت؛ media versions (RAW/EDIT V1..N/FINAL).
-6. Approval triggers — تأیید → Job بعدی، idempotent با کلید یکتا.
-7. UI فارسی صفحات Jobs/Media + تست مرورگر.
-
-## Remaining P1
-
-Repurposing (candidate shorts)، package عنوان/هوک/کاور به‌صورت داده، publishing adapter (dry-run اول)، website connector، notifications، remote access (Tailscale/Cloudflare Tunnel موجود)، storage manager، archive روی My Passport با checksum و approval.
+1. Repurposing: استخراج 2-3 کاندیدای Short از transcript + تصمیم‌ها؛ برش عمودی با layout آموزشی (نه crop کور).
+2. Publishing adapter واقعی (Postiz یا custom) — نیاز به credential/تصمیم کاربر؛ تا آن زمان dry-run جاری می‌ماند.
+3. Website connector برای tehnet.ir / mytel.ir (اول کشف CMS).
+4. Notifications: Telegram (نیاز TELEGRAM_BOT_TOKEN) + ایمیل.
+5. Storage Manager + آرشیو روی My Passport با checksum و تأیید (هرگز حذف خودکار).
+6. Remote access با Tailscale/Cloudflare Tunnel + حداقل auth (user/pass هش‌شده).
+7. Media Sync چند دوربین (فیس‌کم/صفحه/صدای جدا) با waveform/timestamp.
 
 ## Remaining P2
 
-Analytics ingestion، weekly analysis، adaptive scheduling، post-publish optimization، learning loop، weekly ideas، site-wide SEO automation.
+Analytics ingestion (نیاز OAuth)، weekly analysis، adaptive scheduling، post-publish optimization، learning loop، weekly ideas، SEO خودکار سایت‌وار.
 
-## Required Credentials (فقط همین‌ها از کاربر)
+## Required Credentials (فقط این‌ها از کاربر)
 
-- برای انتشار واقعی/Analytics: OAuth هر پلتفرم.
-- برای Telegram: bot token + chat id.
-- برای Gemini render: GOOGLE_AI_API_KEY در secret manager.
+- OAuth پلتفرم‌ها برای انتشار/Analytics واقعی.
+- TELEGRAM_BOT_TOKEN + chat id برای اعلان.
+- GOOGLE_AI_API_KEY برای رندر Gemini (thumbnail/carousel/infographic).
 
-## Known Issues
+## Known Issues / نکته‌ها
 
-- DB مسیر پیش‌فرض `outputs/panel/data/content.sqlite`؛ در `.gitignore` است (درست).
-- `py -3` در Windows فعلی موجود نبود تا نصب winget؛ Open-Panel.cmd مسیر `python` را فرض می‌کند.
-- تست مرورگر `tests/ui-flow.cjs` به Playwright/Chrome موجود وابسته است؛ در این محیط باید راستی‌آزمایی شود.
+- `py -3` و `python` در PATH ویندوز تازه نصب شده‌اند؛ Open-Panel.cmd باید کار کند (تست دستی نشده چون پنل با تست‌ها و سرور آزمایشی پوشش داده شده).
+- مدلی که میدل transcribe استفاده می‌کند 'small' است؛ برای فارسی مدل medium/large-v3 کیفیت بهتر می‌دهد (کندتر). پیکربندی مدل هنوز در UI نیست (payload job آن را می‌پذیرد).
+- تست مرورگر بخش رسانه به TEHNET_FFMPEG نیاز دارد (در پیام commit قبلی مستند شد؛ در TECHNICAL.md هم هست).
+- CSP اجازه style inline نمی‌دهد؛ progress barها از CSSOM استفاده می‌کنند (الگوی موجود را نگه دارید).
