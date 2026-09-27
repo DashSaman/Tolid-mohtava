@@ -37,19 +37,26 @@ def detect_device():
     return 'cpu'
 
 def _ensure_cuda_dlls():
-    """Make pip-installed CUDA wheels (cublas/cudnn) loadable on Windows."""
+    """Make pip-installed CUDA wheels (cublas/cudnn) loadable on Windows.
+
+    ctranslate2 loads cublas64_12.dll with plain LoadLibrary semantics, so
+    add_dll_directory alone is not enough — the dirs must also be on PATH.
+    """
     import sys, os
     tried=[]
+    added=[]
     for base in list(sys.path):
         if not base or 'site-packages' not in base: continue
         nvidia=Path(base)/'nvidia'
         if not nvidia.is_dir(): continue
-        for sub in ('cublas','cudnn'):
+        for sub in ('cublas','cudnn','cuda_nvrtc'):
             d=nvidia/sub/'bin'
-            if d.is_dir():
-                tried.append(str(d))
+            if d.is_dir() and str(d) not in added:
+                added.append(str(d))
                 try: os.add_dll_directory(str(d))
                 except Exception: pass
+                os.environ['PATH']=str(d)+os.pathsep+os.environ.get('PATH','')
+                tried.append(str(d))
     return tried
 
 def load_model(model_size='small'):
