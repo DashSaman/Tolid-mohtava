@@ -120,8 +120,10 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data,dict): raise ValueError('درخواست معتبر نیست.')
             if self.path=='/api/items': return self.respond(DB.save(data))
             if self.path=='/api/decide':
+                before=DB.get(data.get('id')) if isinstance(data.get('id'),str) else None
+                prev=before.get(data.get('gate')+'_status') if before else None
                 item=DB.decide(data.get('id'),data.get('revision'),data.get('gate'),data.get('status'))
-                if data.get('gate')=='publish' and data.get('status')=='approved':
+                if data.get('gate')=='publish' and data.get('status')=='approved' and prev!='approved':
                     try: on_publish_approved(JM,item['id'],item['revision'])
                     except ValueError: pass
                 return self.respond(item)
