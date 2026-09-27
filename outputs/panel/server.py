@@ -8,6 +8,7 @@ from jobs import JobManager
 from media import MediaLibrary, KINDS as MEDIA_KINDS
 from transcribe import Transcripts
 from editing import EditDecisions, report_lines
+from render import Renders
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -17,8 +18,9 @@ DATA=Path(DB.path).parent
 MEDIA=MediaLibrary(DB.path,DATA/'media')
 TRANSCRIPTS=Transcripts(DB.path)
 DECISIONS=EditDecisions(DB.path)
+RENDERS=Renders(DB.path,DATA/'renders')
 JM=JobManager(DB.path,handlers=build_handlers(),workers=2,
-              services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS})
+              services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 
@@ -36,18 +38,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
         return self.headers.get('Host') in (f'127.0.0.1:{PORT}',f'localhost:{PORT}')
-    def serve_media(self,q):
-        m=MEDIA.get(q.get('id',[''])[0])
-        if not m or not Path(m['path']).exists(): return self.respond({'error':'رسانه پیدا نشد.'},404)
-        mime=m['mime'] or (mimetypes.guess_type(m['orig_name'])[0] or 'application/octet-stream')
-        size=m['size']; rng=self.headers.get('Range')
+    def stream_file(self,path,size,mime):
+        rng=self.headers.get('Range')
         start,end=0,size-1
         if rng and rng.startswith('bytes='):
             part=rng[6:].split(',')[0].split('-')
             if part[0]: start=int(part[0])
             if len(part)>1 and part[1]: end=int(part[1])
             start=max(0,min(start,size-1)); end=max(start,min(end,size-1))
-        with open(m['path'],'rb') as f:
+        with open(path,'rb') as f:
             f.seek(start); data=f.read(end-start+1)
         self.send_response(206 if rng else 200)
         self.send_header('Content-Type',mime)
@@ -57,6 +56,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Cache-Control','no-store')
         self.end_headers(); self.wfile.write(data)
+    def serve_media(self,q):
+        m=MEDIA.get(q.get('id',[''])[0])
+        if not m or not Path(m['path']).exists(): return self.respond({'error':'رسانه پیدا نشد.'},404)
+        mime=m['mime'] or (mimetypes.guess_type(m['orig_name'])[0] or 'application/octet-stream')
+        return self.stream_file(m['path'],m['size'],mime)
     def do_GET(self):
         if not self.valid_host(): return self.respond({'error':'میزبان مجاز نیست.'},403)
         url=urlsplit(self.path); q=parse_qs(url.query)
@@ -65,6 +69,11 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
             if url.path=='/api/media/file': return self.serve_media(q)
+            if url.path=='/api/renders': return self.respond(RENDERS.list(q.get('media_id',[''])[0]))
+            if url.path=='/api/renders/file':
+                r=RENDERS.get(q.get('id',[''])[0])
+                if not r or not Path(r['path']).exists(): return self.respond({'error':'خروجی پیدا نشد.'},404)
+                return self.stream_file(r['path'],r['size'],'video/mp4')
             if url.path=='/api/decisions': return self.respond(DECISIONS.list(q.get('media_id',[''])[0],q.get('state',[None])[0]))
             if url.path=='/api/editreport': return self.respond({'media_id':q.get('media_id',[''])[0],'lines':report_lines(DECISIONS,q.get('media_id',[''])[0])})
             if url.path=='/api/transcripts':
