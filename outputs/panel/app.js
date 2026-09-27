@@ -635,14 +635,26 @@ async function jobAction(act,id){
 
 /* ── publishing ──────────────────────────────────────────────── */
 async function pagePublishing(view){
- const drys=(await api('/api/jobs')).filter(j=>j.kind==='publish_dryrun').slice(0,10);
+ const [drys,dests]=await Promise.all([api('/api/jobs').then(js=>js.filter(j=>j.kind==='publish_dryrun').slice(0,10)),api('/api/publishing')]);
  view.innerHTML=`
- <div class="grid3">${['YouTube','Instagram','Telegram','Facebook','LinkedIn','Website'].map(p=>`
- <div class="card" style="margin:0"><h2>${p}</h2><span class="badge warn">نیازمند Credential</span>
- <p class="small muted">اتصال OAuth انجام نشده است. تا آن زمان هیچ درخواست خارجی ارسال نمی‌شود.</p></div>`).join('')}</div>
+ <div class="grid3">${dests.map(d=>`
+ <div class="card" style="margin:0"><h2>${esc(d.destination)}</h2>
+ <span class="badge ${d.state==='ready'?'ok':'warn'}">${d.state==='ready'?'آماده — Credential ثبت شده':'نیازمند Credential'}</span>
+ <p class="small muted">${esc(d.detail)}</p></div>`).join('')}</div>
+ <div class="card"><h2>${icon('i-send')} پیش‌نویس وردپرس</h2>
+ <p class="small muted">هر دو سایت وردپرس هستند (wp-json فعال). درخواست پیش‌نویس پس از تأیید انتشار ثبت می‌شود و اجرای واقعی دوباره در مرکز تأیید تأیید می‌شود؛ به Application Password در environment نیاز دارد.</p>
+ <div class="row"><label>سایت<select id="wp-site" style="max-width:180px"><option value="tehnet.ir">tehnet.ir</option><option value="mytel.one">mytel.one</option></select></label>
+ <label>پروژه<select id="wp-content" style="max-width:280px">${items.filter(x=>x.publish_status==='approved').map(x=>`<option value="${x.id}">${esc(x.title)} (نسخه ${fa(x.revision)})</option>`).join('')||'<option value="">پروژه تأییدشده‌ای نیست</option>'}</select></label>
+ <button class="sm primary" id="wp-draft">درخواست پیش‌نویس</button></div></div>
  <div class="card"><h2>${icon('i-send')} بسته‌های dry-run</h2>
  <p class="small muted">پس از تأیید انتشار، یک بسته بازبینی ساخته می‌شود که دقیقاً مشخص می‌کند چه چیزی کجا می‌رفت — بدون ارسال واقعی.</p>
  <div class="rows">${drys.map(j=>`<div class="rowitem"><div class="t"><strong>${esc(j.result?.platform||'بسته')} — نسخه ${fa(j.result?.revision||1)}</strong><small>${faDate(j.created_at)}${j.result?.warnings?.length?' · هشدار: '+esc(j.result.warnings.join('، ')):''}</small></div><div class="actions"><span class="badge ${j.status==='completed'?'ok':jobBadge[j.status]}">${jobStatus[j.status]}</span></div></div>`).join('')||empty('i-send','بسته‌ای ساخته نشده','تأیید انتشار در مرکز تأیید، بسته dry-run می‌سازد.')}</div></div>`;
+ $('#wp-draft').onclick=async()=>{
+  const cid=$('#wp-content').value,x=items.find(i=>i.id===cid);
+  if(!x){toast('اول پروژه تأییدشده را انتخاب کنید','err');return;}
+  const j=await enqueueJob('website_publish',{content_id:x.id,revision:x.revision,site:$('#wp-site').value},'website:'+x.id+':'+x.revision+':'+$('#wp-site').value);
+  if(j){toast('درخواست پیش‌نویس ثبت شد؛ اجرای واقعی در مرکز تأیید تأیید می‌شود','ok');}
+ };
 }
 
 /* ── calendar / analytics / seo ──────────────────────────────── */

@@ -13,6 +13,7 @@ from triggers import on_publish_approved
 from transcribe import parse_timed_text
 from shorts import shorts_candidates, render_short_handler
 from system import health_payload, gpu_probe, drives, dir_size
+from publishing import status as publishing_status, SITES as PUBLISH_SITES
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -95,6 +96,7 @@ class Handler(BaseHTTPRequestHandler):
                     'data':{'media':dir_size(data/'media'),'renders':dir_size(data/'renders'),
                             'dryrun':dir_size(data/'dryrun'),'db':Path(DB.path).stat().st_size if Path(DB.path).exists() else 0},
                     'passport':{'connected':bool(passport),'detail':passport[0] if passport else 'آرشیو خارجی در دسترس نیست'}})
+            if url.path=='/api/publishing': return self.respond(publishing_status())
             if url.path=='/api/health':
                 qc={}
                 for st in ('queued','running','waiting_approval','completed','failed','cancelled'):

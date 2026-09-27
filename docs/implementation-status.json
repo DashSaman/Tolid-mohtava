@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-27 (UI product milestone)",
+  "updated": "2026-09-27 (P1: shorts render, publishing adapter, storage/health, wizard UI)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -323,7 +323,7 @@
       "priority": "P1",
       "status": "partial",
       "tests": [],
-      "evidence": "approval -> single DRY RUN package per revision; no external adapter yet",
+      "evidence": "dry-run packages live; WordPress draft adapter live (credential-gated); social OAuth still missing",
       "dependencies": [
         "job-system"
       ],
@@ -333,13 +333,13 @@
       "id": "website-connector",
       "name": "tehnet.ir / mytel.one CMS discovery + draft->approval->publish",
       "priority": "P1",
-      "status": "not_started",
+      "status": "partial",
       "tests": [],
-      "evidence": null,
+      "evidence": "publishing.py wordpress_draft adapter + approval-gated website_publish job + /api/publishing statuses; CMS probed 2026-09-27: both sites WordPress (wp-json live)",
       "dependencies": [
         "publishing-adapters"
       ],
-      "blocker": "CMS type unverified"
+      "blocker": "WP Application Password not set (adapter live: WordPress REST verified on both sites)"
     },
     {
       "id": "analytics-ingestion",
