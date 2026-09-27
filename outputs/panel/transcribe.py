@@ -113,3 +113,23 @@ def transcribe_audio_handler(ctx):
     return {'transcript_id':t['id'],'media_id':m['id'],'revision':t['revision'],
             'segments':len(result['segments']),'language':result['language'],
             'duration':result['duration'],'engine':result['engine']}
+
+TS_LINE=__import__('re').compile(r'^\s*((?P<h>\d{1,2}):)?(?P<m>[0-5]?\d):(?P<s>[0-5]\d)\s+(?P<t>.*)$')
+
+def parse_timed_text(text):
+    """Lines like '1:23 متن' or '01:02:03 متن' become segments; plain lines keep order."""
+    segs=[]
+    for line in (text or '').splitlines():
+        m=TS_LINE.match(line)
+        if m:
+            start=int(m.group('h') or 0)*3600+int(m.group('m'))*60+int(m.group('s'))
+            segs.append({'start':float(start),'end':None,'text':m.group('t').strip()})
+        elif segs and line.strip():
+            segs[-1]['text']+='\n'+line.strip()
+        elif line.strip():
+            segs.append({'start':None,'end':None,'text':line.strip()})
+    for i,seg in enumerate(segs):
+        if seg['start'] is None: seg['start']=0.0
+        nxt=segs[i+1]['start'] if i+1<len(segs) else None
+        seg['end']=nxt if nxt is not None else seg['start']+5.0
+    return segs

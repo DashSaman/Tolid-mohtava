@@ -10,6 +10,7 @@ from transcribe import Transcripts
 from editing import EditDecisions, report_lines
 from render import Renders
 from triggers import on_publish_approved
+from transcribe import parse_timed_text
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -79,7 +80,10 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/decisions': return self.respond(DECISIONS.list(q.get('media_id',[''])[0],q.get('state',[None])[0]))
             if url.path=='/api/editreport': return self.respond({'media_id':q.get('media_id',[''])[0],'lines':report_lines(DECISIONS,q.get('media_id',[''])[0])})
             if url.path=='/api/transcripts':
-                t=TRANSCRIPTS.get(q.get('media_id',[''])[0],int(q['revision'][0]) if 'revision' in q else None)
+                mid=q.get('media_id',[''])[0]
+                if not mid: return self.respond({'error':'رسانه پیدا نشد.'},404)
+                if 'all' in q: return self.respond(TRANSCRIPTS.list(mid))
+                t=TRANSCRIPTS.get(mid,int(q['revision'][0]) if 'revision' in q else None)
                 if not t: return self.respond({'error':'متن پیدا نشد.'},404)
                 return self.respond(t)
             if url.path=='/api/jobs': return self.respond(JM.list(q.get('status',[None])[0]))
@@ -126,6 +130,13 @@ class Handler(BaseHTTPRequestHandler):
                 jid=data.get('id')
                 if not isinstance(jid,str) or not isinstance(data.get('approved'),bool): raise ValueError('درخواست معتبر نیست.')
                 return self.respond(JM.decide(jid,data['approved']))
+            if self.path=='/api/transcripts':
+                m=MEDIA.get(data.get('media_id'))
+                if not m: raise ValueError('رسانه پیدا نشد.')
+                text=data.get('text')
+                if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
+                t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
+                return self.respond(t)
             if self.path=='/api/decisions/manual':
                 return self.respond(DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
                     'manual',1.0,'manual','active',reason=data.get('reason')))
