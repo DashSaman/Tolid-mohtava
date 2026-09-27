@@ -81,8 +81,11 @@ class RenderPipelineTests(unittest.TestCase):
         self.assertAlmostEqual(probe_duration(out2),5.0,delta=0.4)
         labels=[r['label'] for r in self.rd.list(m['id'])]
         self.assertEqual(labels,['EDIT V1','EDIT V2'])
-        # final render
+        # final render is approval-gated
         j3=self.mgr.enqueue('render_cut',{'media_id':m['id'],'kind':'final'})
+        j3=self.wait(j3['id'])
+        self.assertEqual(j3['status'],'waiting_approval','final must wait for explicit approval')
+        self.mgr.decide(j3['id'],True)
         j3=self.wait(j3['id'])
         self.assertEqual(j3['status'],'completed',j3.get('error'))
         self.assertEqual(j3['result']['label'],'FINAL')

@@ -9,6 +9,7 @@ from media import MediaLibrary, KINDS as MEDIA_KINDS
 from transcribe import Transcripts
 from editing import EditDecisions, report_lines
 from render import Renders
+from triggers import on_publish_approved
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -20,7 +21,8 @@ TRANSCRIPTS=Transcripts(DB.path)
 DECISIONS=EditDecisions(DB.path)
 RENDERS=Renders(DB.path,DATA/'renders')
 JM=JobManager(DB.path,handlers=build_handlers(),workers=2,
-              services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS})
+              services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
+                        'store':DB,'dryrun_root':str(DATA/'dryrun')})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 
@@ -113,7 +115,12 @@ class Handler(BaseHTTPRequestHandler):
             data=json.loads(self.rfile.read(size))
             if not isinstance(data,dict): raise ValueError('درخواست معتبر نیست.')
             if self.path=='/api/items': return self.respond(DB.save(data))
-            if self.path=='/api/decide': return self.respond(DB.decide(data.get('id'),data.get('revision'),data.get('gate'),data.get('status')))
+            if self.path=='/api/decide':
+                item=DB.decide(data.get('id'),data.get('revision'),data.get('gate'),data.get('status'))
+                if data.get('gate')=='publish' and data.get('status')=='approved':
+                    try: on_publish_approved(JM,item['id'],item['revision'])
+                    except ValueError: pass
+                return self.respond(item)
             if self.path=='/api/jobs': return self.respond(JM.enqueue(data.get('kind'),data.get('payload') if isinstance(data.get('payload'),dict) else {},data.get('idempotency_key')))
             if self.path=='/api/jobs/decision':
                 jid=data.get('id')

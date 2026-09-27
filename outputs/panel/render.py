@@ -116,6 +116,8 @@ def render_cut_handler(ctx):
     if not m: raise ValueError('رسانه پیدا نشد.')
     kind=ctx.payload.get('kind','preview')
     if kind not in ('preview','final'): raise ValueError('نوع رندر معتبر نیست.')
+    if kind=='final' and not ctx.payload.get('approved'):
+        return {'waiting_approval':True,'question':'رندر نهایی اجرا شود؟ خروجی نسخه FINAL با برش‌های فعال ساخته می‌شود.'}
     cuts=dec.timeline(m['id'])
     has_video=not (m['orig_name'].lower().endswith(('.wav','.mp3','.m4a','.ogg','.flac')) or (m['mime'] or '').startswith('audio/'))
     nvenc=has_video and avtools.nvenc_available()
