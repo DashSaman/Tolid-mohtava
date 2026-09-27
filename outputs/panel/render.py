@@ -92,9 +92,17 @@ class Renders:
             c.execute('INSERT INTO renders VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                       tuple(row[k] for k in ('id','media_id','label','kind','path','size','cuts','duration','encoder','job_id','created_at')))
         return row
-    def list(self,media_id):
+    def list(self,media_id=None):
         with self.connect() as c:
-            return [self._row(r) for r in c.execute('SELECT * FROM renders WHERE media_id=? ORDER BY created_at',(media_id,)).fetchall()]
+            if media_id is None:
+                cur=c.execute('SELECT * FROM renders ORDER BY created_at DESC')
+            else:
+                cur=c.execute('SELECT * FROM renders WHERE media_id=? ORDER BY created_at',(media_id,))
+            keys=[d[0] for d in cur.description]
+            return [dict(zip(keys,r)) for r in cur.fetchall()]
+    def media_names(self):
+        with self.connect() as c:
+            return dict(c.execute('SELECT id,orig_name FROM media').fetchall())
     def get(self,rid):
         with self.connect() as c:
             r=c.execute('SELECT * FROM renders WHERE id=?',(rid,)).fetchone()
@@ -104,6 +112,9 @@ class Renders:
         if kind=='final':
             n=sum(1 for r in rows if r['kind']=='final')
             return 'FINAL' if n==0 else f'FINAL V{n+1}'
+        if kind=='short':
+            n=sum(1 for r in rows if r['kind']=='short')
+            return f'SHORT V{n+1}'
         n=sum(1 for r in rows if r['kind']=='preview')
         return f'EDIT V{n+1}'
 

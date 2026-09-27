@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from contextlib import contextmanager
 
-KINDS=('voice','screen','face','external_audio','broll')
+KINDS=('voice','screen','face','external_audio','broll','thumbnail')
 MAX_NAME=180
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -22,6 +22,11 @@ class MediaLibrary:
                 orig_name TEXT, path TEXT NOT NULL, size INTEGER NOT NULL,
                 sha256 TEXT NOT NULL, mime TEXT, created_at TEXT)''')
             c.execute('CREATE INDEX IF NOT EXISTS media_content ON media(content_id)')
+            try: c.execute('ALTER TABLE media ADD COLUMN duration REAL')
+            except sqlite3.OperationalError: pass
+            c.execute('''CREATE TABLE IF NOT EXISTS assets(
+                media_id TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT 'pending',
+                label TEXT, updated_at TEXT)''')
     @contextmanager
     def connect(self):
         c=sqlite3.connect(self.path,timeout=30)
@@ -51,19 +56,23 @@ class MediaLibrary:
                 h.update(chunk); f.write(chunk)
         if size==0:
             dest.unlink(missing_ok=True); raise ValueError('فایل خالی است.')
+        duration=None
+        try:
+            import avtools
+            if avtools.ffprobe_path() and not (mime or '').startswith('image/'):
+                duration=round(__import__('render').probe_duration(dest),3)
+        except Exception: duration=None
         row=dict(id=mid,content_id=content_id,kind=kind,orig_name=name,path=str(dest),
-                 size=size,sha256=h.hexdigest(),mime=mime or '',created_at=now())
+                 size=size,sha256=h.hexdigest(),mime=mime or '',created_at=now(),duration=duration)
         with self.connect() as c:
-            c.execute('INSERT INTO media(id,content_id,kind,orig_name,path,size,sha256,mime,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
-                      tuple(row[k] for k in ('id','content_id','kind','orig_name','path','size','sha256','mime','created_at')))
+            cols=','.join(row.keys()); qs=','.join('?'*len(row))
+            c.execute(f'INSERT INTO media({cols}) VALUES({qs})',tuple(row.values()))
         return row
-    def _row(self,r):
-        keys=('id','content_id','kind','orig_name','path','size','sha256','mime','created_at')
-        return dict(zip(keys,r))
     def get(self,mid):
         with self.connect() as c:
-            r=c.execute('SELECT * FROM media WHERE id=?',(mid,)).fetchone()
-        return self._row(r) if r else None
+            cur=c.execute('SELECT * FROM media WHERE id=?',(mid,))
+            keys=[d[0] for d in cur.description]; r=cur.fetchone()
+        return dict(zip(keys,r)) if r else None
     def list(self,content_id=None,kind=None):
         q='SELECT * FROM media'; conds=[]; args=[]
         if content_id is not None: conds.append('content_id=?'); args.append(content_id)
@@ -73,7 +82,29 @@ class MediaLibrary:
         if conds: q+=' WHERE '+' AND '.join(conds)
         q+=' ORDER BY created_at DESC'
         with self.connect() as c:
-            return [self._row(r) for r in c.execute(q,args).fetchall()]
+            cur=c.execute(q,args); keys=[d[0] for d in cur.description]
+            return [dict(zip(keys,r)) for r in cur.fetchall()]
+    def set_asset_state(self,media_id,state,label=None):
+        if state not in ('pending','approved','rejected'): raise ValueError('وضعیت معتبر نیست.')
+        if not self.get(media_id): raise ValueError('رسانه پیدا نشد.')
+        with self.connect() as c:
+            c.execute('INSERT INTO assets(media_id,state,label,updated_at) VALUES(?,?,?,?) '
+                      'ON CONFLICT(media_id) DO UPDATE SET state=?,label=?,updated_at=?',
+                      (media_id,state,label,now(),state,label,now()))
+        return self.get_asset(media_id)
+    def get_asset(self,media_id):
+        with self.connect() as c:
+            cur=c.execute('SELECT * FROM assets WHERE media_id=?',(media_id,))
+            keys=[d[0] for d in cur.description]; r=cur.fetchone()
+        return dict(zip(keys,r)) if r else None
+    def list_assets(self,state=None):
+        q='SELECT a.media_id,a.state,a.label,a.updated_at,m.orig_name,m.mime,m.size FROM assets a JOIN media m ON m.id=a.media_id'
+        args=()
+        if state: q+=' WHERE a.state=?'; args=(state,)
+        q+=' ORDER BY a.updated_at DESC'
+        with self.connect() as c:
+            cur=c.execute(q,args); keys=[d[0] for d in cur.description]
+            return [dict(zip(keys,r)) for r in cur.fetchall()]
     def verify(self,mid):
         m=self.get(mid)
         if not m: raise ValueError('رسانه پیدا نشد.')

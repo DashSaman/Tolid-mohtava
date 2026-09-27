@@ -2,14 +2,22 @@
 
 این فایل Source of Truth ادامه کار است. بعد از هر Milestone به‌روزرسانی و Commit می‌شود تا Session بعدی دقیقاً از همین نقطه ادامه دهد.
 
-- Last updated: 2026-09-27 (session 2 — پایان P0)
+- Last updated: 2026-09-27 (session 2 — P0 + بازطراحی محصول UI)
+- Last commits of UI milestone: (see git log — «product: professional Persian RTL UI…»)
 - Repo: https://github.com/DashSaman/Tolid-mohtava
 - Machine-readable checklist: `docs/implementation-status.json`
 - Last commits of this session: 8cb2343 (status files) → 7e804df (jobs) → 5b9f8f5 (media+transcribe) → afca119 (editing) → 1ea51d9 (render) → 6ebf628 (triggers) → d7bbbea (UI) → 2ee5f3c (E2E) → + docs/status update
 
 ## Current Phase
 
-Phase 2 تکمیل شد (P0 «Execution واقعی»). فاز بعدی: P1 — repurposing، publishing adapter واقعی (نیاز credential)، website connector، notifications، remote access، storage manager/archive.
+Phase 2 تکمیل شد و کل P0 از طریق UI قابل استفاده است (تست مرورگر جامع PASS). فاز بعدی: P1 — publishing adapter واقعی (credential)، website connector، notifications، remote access، دیباگ GPU whisper، مدل transcribe قابل انتخاب در UI.
+
+## UI Product Milestone (جلسه دوم - بازطراحی)
+
+- علت «ظاهر خام HTML»: باز کردن مستقیم index.html از دیسک (file://) که در آن style/app/api بارگذاری نمی‌شوند. راه‌حل: مسیرهای نسبی + گارد file:// با پیام راهنمای فارسی + سخت‌سازی Open-Panel.cmd (یافتن python از سه مسیر + باز کردن خودکار http://127.0.0.1:8766).
+- بازطراحی کامل UI: سیستم طراحی RTL (Vazirmatn self-hosted، توکن‌های رنگ، کارت/جدول/badge/tabs/stepper/toast/skeleton)، نوار کنار گروه‌بندی‌شده با ۲۱ بخش، داشبورد واقعی، ویزارد ۴ مرحله‌ای «تولید محتوا» (شامل ضبط مستقیم از میکروفون با MediaRecorder)، صفحه پروژه ۱۲ تبی با خط زمان، فضای تدوین، نسخه‌ها، Shorts (کاندیدای واقعی از transcript + رندر ۹:۱۶ با پس‌زمینه محو)، تصاویر (آپلود + تأیید؛ تولید BLOCKED Credential)، مرکز تأیید واقعی، انتشار، کارها (جدول + فیلتر)، Storage واقعی (درایوها + My Passport E:\ شناسایی شد)، سلامت سیستم واقعی + آزمون GPU.
+- GPU root cause پیدا و رفع شد: ctranslate2 روی Windows با LoadLibrary ساده cublas64_12.dll را load می‌کند؛ add_dll_directory کافی نیست و پوشه باید در PATH باشد. نتیجه: transcription 2.8s روی RTX 3070 (cuda) در مقابل 5.7s CPU.
+- تست مرورگر جدید (tests/ui-flow.cjs) کل سفر کاربر را در UI واقعی اجرا می‌کند: ویزارد ← آپلود صوت ← transcription واقعی ← transcript ← ذخیره/تأیید سناریو ← آپلود رسانه ← متن دستی ← تحلیل تدوین ← بازگردانی برش ← رندر preview (پخش 206) ← تأیید رندر نهایی ← تأیید انتشار ← dry-run ← صفحات jobs/storage/health ← نمای موبایل. خروجی: بدون خطای console. اسکرین‌شات‌ها در docs/images/ به‌روزرسانی شدند.
 
 ## What was built this session (همه با تست و push)
 

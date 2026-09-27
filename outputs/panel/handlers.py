@@ -2,10 +2,12 @@
 from transcribe import transcribe_audio_handler
 from editing import edit_detect_handler
 from render import render_cut_handler
+from shorts import render_short_handler
 from triggers import publish_dryrun_handler
 
 def build_handlers():
     return {'transcribe_audio': transcribe_audio_handler,
             'edit_detect': edit_detect_handler,
             'render_cut': render_cut_handler,
+            'render_short': render_short_handler,
             'publish_dryrun': publish_dryrun_handler}

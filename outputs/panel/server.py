@@ -11,6 +11,8 @@ from editing import EditDecisions, report_lines
 from render import Renders
 from triggers import on_publish_approved
 from transcribe import parse_timed_text
+from shorts import shorts_candidates, render_short_handler
+from system import health_payload, gpu_probe, drives, dir_size
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -37,7 +39,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length',str(len(data)))
         self.send_header('Cache-Control','no-store')
         self.send_header('X-Content-Type-Options','nosniff')
-        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
         return self.headers.get('Host') in (f'127.0.0.1:{PORT}',f'localhost:{PORT}')
@@ -71,6 +73,33 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/session': return self.respond({'token':TOKEN,'app':'tehnet-content-panel'})
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
+            if url.path=='/api/assets': return self.respond(MEDIA.list_assets(q.get('state',[None])[0]))
+            if url.path=='/api/shorts':
+                mid=q.get('media_id',[''])[0]
+                m=MEDIA.get(mid)
+                if not m: return self.respond({'error':'رسانه پیدا نشد.'},404)
+                t=TRANSCRIPTS.get(mid)
+                segs=t['segments'] if t else []
+                return self.respond({'media_id':mid,'candidates':shorts_candidates(segs,m.get('duration'))})
+            if url.path=='/api/renders':
+                mid=q.get('media_id',[None])[0]
+                rows=RENDERS.list(mid)
+                names=RENDERS.media_names()
+                for r in rows: r['media_name']=names.get(r['media_id'],'')
+                return self.respond(rows)
+            if url.path=='/api/storage':
+                data=Path(DB.path).parent
+                ssd=[d for d in drives() if str(data).lower().startswith(d['letter'].lower())]
+                passport=[d for d in drives() if 'passport' in (d['label'] or '').lower()]
+                return self.respond({'drives':drives(),
+                    'data':{'media':dir_size(data/'media'),'renders':dir_size(data/'renders'),
+                            'dryrun':dir_size(data/'dryrun'),'db':Path(DB.path).stat().st_size if Path(DB.path).exists() else 0},
+                    'passport':{'connected':bool(passport),'detail':passport[0] if passport else 'آرشیو خارجی در دسترس نیست'}})
+            if url.path=='/api/health':
+                qc={}
+                for st in ('queued','running','waiting_approval','completed','failed','cancelled'):
+                    qc[st]=len(JM.list(status=st))
+                return self.respond(health_payload(DB.path,qc,len(JM._threads)))
             if url.path=='/api/media/file': return self.serve_media(q)
             if url.path=='/api/renders': return self.respond(RENDERS.list(q.get('media_id',[''])[0]))
             if url.path=='/api/renders/file':
@@ -100,10 +129,14 @@ class Handler(BaseHTTPRequestHandler):
                 d=ROOT.parent/'brands'/brand
                 return self.respond({k:(d/(k+'.md')).read_text(encoding='utf-8') for k in ('about-me','voice','brand-kit')})
             if url.path=='/api/policy': return self.respond({'text':(ROOT.parent/'content-policy.fa.md').read_text(encoding='utf-8')})
-            allowed={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css','/audit':'../audit.fa.md','/guide':'../README.fa.md'}
+            allowed={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css',
+                     '/fonts/Vazirmatn-Regular.woff2':'fonts/Vazirmatn-Regular.woff2',
+                     '/fonts/Vazirmatn-Medium.woff2':'fonts/Vazirmatn-Medium.woff2',
+                     '/fonts/OFL.txt':'fonts/OFL.txt',
+                     '/audit':'../audit.fa.md','/guide':'../README.fa.md'}
             if url.path not in allowed: return self.respond({'error':'صفحه پیدا نشد.'},404)
             file=ROOT/allowed[url.path]
-            mime=mimetypes.guess_type(file)[0] or 'text/plain'
+            mime={'woff2':'font/woff2','.txt':'text/plain'}.get(file.suffix.lstrip('.')) or mimetypes.guess_type(file)[0] or 'text/plain'
             if file.suffix=='.md': mime='text/plain'
             self.send(file.read_bytes(),mime+'; charset=utf-8')
         except ValueError as e: self.respond({'error':str(e)},400)
@@ -139,6 +172,10 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
                 t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
                 return self.respond(t)
+            if self.path=='/api/assets/state':
+                return self.respond(MEDIA.set_asset_state(data.get('media_id'),data.get('state'),data.get('label')))
+            if self.path=='/api/health/gpu':
+                return self.respond(gpu_probe())
             if self.path=='/api/decisions/manual':
                 return self.respond(DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
                     'manual',1.0,'manual','active',reason=data.get('reason')))

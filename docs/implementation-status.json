@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-27",
+  "updated": "2026-09-27 (UI product milestone)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -118,7 +118,8 @@
       "dependencies": [
         "job-system"
       ],
-      "blocker": null
+      "blocker": null,
+      "note": "duration probing at ingest; thumbnail kind for image assets"
     },
     {
       "id": "voice-transcription",
@@ -262,9 +263,9 @@
       "id": "storage-manager",
       "name": "SSD usage, project sizes, archive suggestions with approval",
       "priority": "P1",
-      "status": "not_started",
+      "status": "working",
       "tests": [],
-      "evidence": null,
+      "evidence": "real drive enumeration (ctypes), panel data sizes, My Passport detection (E:\\ found); archive execution remains P1",
       "dependencies": [
         "media-ingest"
       ],
@@ -286,9 +287,11 @@
       "id": "repurpose-shorts",
       "name": "Short/Reel candidates 2-3, 9:16 layout for screen tutorials",
       "priority": "P1",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
+      "status": "working",
+      "tests": [
+        "tests/ui-flow.cjs"
+      ],
+      "evidence": "candidate heuristic from real transcript + 9:16 blurred-bg render (render_short) + versions; browser-tested",
       "dependencies": [
         "render-pipeline"
       ],
@@ -422,5 +425,5 @@
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "python -m unittest discover -s tests -> 47/47 OK; node tests/ui-flow.cjs -> PASS (with media section); python tests/check_docs.py -> PASS"
+  "last_tests": "python unittest 47/47 OK; node tests/ui-flow.cjs FULL JOURNEY PASS (wizard→transcription→editing→restore→renders→approvals→dry-run→storage/health→mobile, zero console errors)"
 }

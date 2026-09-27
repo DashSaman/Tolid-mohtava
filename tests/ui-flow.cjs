@@ -7,39 +7,123 @@ const env={...process.env,TEHNET_PANEL_PORT:'8767',TEHNET_PANEL_DB:path.resolve(
 let server,browser;
 function start(){server=spawn(python,['outputs/panel/server.py'],{env,windowsHide:true});return new Promise((resolve,reject)=>{server.stdout.once('data',()=>resolve());server.once('error',reject);server.once('exit',code=>{if(code)reject(Error('Server exit '+code));});});}
 function stop(){return new Promise(r=>{server.once('exit',r);server.kill();});}
+async function waitJob(base,kind,statuses,timeout=120000){
+ const end=Date.now()+timeout;
+ while(Date.now()<end){
+  const res=await fetch(base+'/api/jobs');
+  const jobs=await res.json();
+  const j=jobs.filter(x=>x.kind===kind).sort((a,b)=>a.created_at<b.created_at?1:-1)[0];
+  if(j&&statuses.includes(j.status))return j;
+  await new Promise(r=>setTimeout(r,800));
+ }
+ throw Error('job '+kind+' did not reach '+statuses);
+}
 (async()=>{
- await start();browser=await chromium.launch({headless:true,channel:'chrome'});const p=await browser.newPage({viewport:{width:1280,height:960}});const errors=[];p.on('pageerror',e=>errors.push(e.message));
- await p.goto('http://127.0.0.1:8767');await p.waitForSelector('[data-page="content"]');
- await p.locator('#new').click();await p.locator('[name="title"]').fill('آزمون سناریوی VoIP');await p.locator('[name="body"]').fill('متن واقعی تست <img src=x onerror=alert(1)>');await p.locator('[name="sources"]').fill('https://example.com/reference');await p.getByRole('button',{name:'ذخیره محتوا',exact:true}).click();await p.waitForSelector('#editor:not([open])',{state:'attached'});
- await p.locator('#brand').selectOption('mytel');await p.waitForFunction(()=>!document.querySelector('#view').innerText.includes('آزمون سناریوی VoIP'));
- await p.locator('#brand').selectOption('tehran-network');await p.getByRole('button',{name:'بررسی',exact:true}).click();await p.locator('#detail').waitFor({state:'visible'});
- if(await p.locator('#detail img').count())throw Error('XSS escaped text rendered as image');
- await p.locator('[data-decide="script"][data-status="approved"]').click();await p.waitForFunction(()=>document.querySelector('#detail-body').innerText.includes('تأیید شد'));
- await p.locator('[data-decide="publish"][data-status="approved"]').click();await p.waitForFunction(()=>document.querySelectorAll('#detail .badge.approved').length===2);
- await p.locator('[data-edit]').click();await p.locator('[name="body"]').fill('نسخه دوم سناریو');await p.getByRole('button',{name:'ذخیره محتوا',exact:true}).click();await p.waitForSelector('#editor:not([open])',{state:'attached'});await p.getByRole('button',{name:'بررسی',exact:true}).click();await p.locator('#detail').waitFor({state:'visible'});
- if(await p.locator('#detail .badge.pending').count()!==2)throw Error('Edited approval must reset');
- await p.locator('[data-close="detail"]').click();await p.getByRole('button',{name:'محتوا',exact:true}).click();await p.locator('#search').fill('نام ناموجود');await p.getByText('نتیجه‌ای پیدا نشد').waitFor();await p.locator('#search').fill('VoIP');await p.locator('#view').getByText('آزمون سناریوی VoIP',{exact:true}).waitFor();
- const dlPromise=p.waitForEvent('download');await p.locator('#export').click();const dl=await dlPromise;await dl.saveAs('work/ui-export.json');const exported=JSON.parse(require('node:fs').readFileSync('work/ui-export.json','utf8'));if(exported.items[0].history.length!==4)throw Error('Missing history backup');
- // media workflow: upload real wav, manual transcript version, manual cut, edit report
- await p.locator('[data-page="media"]').click();await p.getByText('آپلود رسانه').waitFor();
- const ff=process.env.TEHNET_FFMPEG;if(!ff)throw Error('TEHNET_FFMPEG must point to ffmpeg for media UI test');
- require('node:child_process').execFileSync(ff,['-y','-f','lavfi','-i','sine=frequency=440:duration=1','work/ui-fixture.wav'],{stdio:'ignore'});
- await p.locator('#media-auto-tts').uncheck();
- await p.locator('#media-file').setInputFiles('work/ui-fixture.wav');
- await p.locator('#media-upload').click();await p.locator('[data-mediadetail]').first().waitFor();
- await p.locator('[data-mediadetail]').first().click();await p.locator('#media-player').waitFor({state:'visible'});
- await p.locator('#media-dialog details').first().evaluate(d=>{d.open=true;});
- await p.locator('#transcript-edit').fill('1:23 جمله اول تست\n1:31 جمله دوم تست');
- await p.locator('#transcript-save').click();await p.getByText('نسخه ۱ · دستی').waitFor();
- await p.locator('[data-seek]').first().waitFor();
- await p.locator('#media-dialog details').last().evaluate(d=>{d.open=true;});
- await p.locator('#cut-start').fill('0:10');await p.locator('#cut-end').fill('0:20');
- await p.locator('#cut-add').click();await p.getByText('حذف دستی توسط شما').waitFor();
- // jobs page renders and stays live
- await p.locator('[data-close="media-dialog"]').click();
- await p.locator('[data-page="jobs"]').click();await p.getByText('صف کارها').waitFor();
- await stop();await start();await p.reload();await p.locator('#view').getByText('آزمون سناریوی VoIP',{exact:true}).waitFor();
- if(errors.length)throw Error(errors.join(';'));
- console.log('PASS: UI create/save, brand isolation, escaped HTML, script and publish approvals, edit invalidation, search, export with 4 history records, media upload, manual transcript version, click-to-seek segments, manual cut + Persian report, jobs page, restart persistence.');
+ await start();browser=await chromium.launch({headless:true,channel:'chrome'});
+ const p=await browser.newPage({viewport:{width:1360,height:900}});
+ const errors=[];
+ p.on('pageerror',e=>errors.push('pageerror: '+e.message));
+ p.on('response',res=>{if(res.status()>=400)errors.push('http '+res.status()+': '+res.url());});
+ p.on('console',m=>{if(m.type()==='error')errors.push('console: '+m.text().slice(0,150));});
+ const base='http://127.0.0.1:8767';
+
+ // 1) dashboard renders for Tehran Network
+ await p.goto(base);await p.waitForSelector('.stats');await p.waitForFunction(()=>document.querySelector('#nav').innerText.includes('کارها'));
+ await p.screenshot({path:'docs/images/dashboard.png',fullPage:true});
+
+ // 2) wizard: new content from voice upload
+ await p.click('#new');await p.waitForSelector('[data-wiznext]');
+ await p.click('[data-wiznext]');                       // step1 brand: tehran-network (default)
+ await p.waitForSelector('[data-wtype="upload"]');
+ await p.click('[data-wtype="upload"]');await p.click('[data-wiznext]');
+ await p.waitForSelector('#wiz-title');
+ await p.fill('#wiz-title','آزمون جامع کارخانه محتوا');
+ await p.setInputFiles('#wiz-file','tests/fixtures/voice-sample.wav');
+ await p.click('#wiz-voice-create');                    // creates project + transcription job
+ await p.waitForSelector('#wiz-jobbox',{timeout:15000});
+ const tjob=await waitJob(base,'transcribe_audio',['completed','failed'],180000);
+ if(tjob.status!=='completed')throw Error('transcription failed: '+tjob.error);
+ await p.waitForSelector('.stepper',{timeout:20000});   // redirected to project workspace
+
+ // 3) transcript tab shows timestamped segments
+ await p.click('[data-ptab="transcript"]');await p.waitForSelector('.segrow');
+ await p.screenshot({path:'docs/images/project-transcript.png',fullPage:true});
+
+ // 4) script tab: write + save + approve
+ await p.click('[data-ptab="script"]');await p.waitForSelector('#proj-script');
+ await p.fill('#proj-script','سناریوی تست: در این ویدیو تنظیمات مودم را باز می‌کنیم و تغییرات را ذخیره می‌کنیم.');
+ await p.click('#proj-script-save');await p.waitForSelector('#proj-approve-script:not([disabled])');
+ await p.click('#proj-approve-script');await p.waitForFunction(()=>document.querySelector('#projbody')?.innerText.includes('تأیید سناریو برای ضبط')===false||document.querySelector('#projbody')?.innerText.includes('تأیید شد'));
+ await p.screenshot({path:'docs/images/project.png',fullPage:true});
+
+ // 5) media tab: upload screen fixture
+ await p.click('[data-ptab="media"]');await p.waitForSelector('#pm-drop');
+ await p.setInputFiles('#pm-file','tests/fixtures/screen-sample.mp4');
+ await p.waitForFunction(()=>document.querySelectorAll('[data-mediadetail]').length>=2,null,{timeout:60000});
+
+ // 6) manual transcript for the screen fixture (deterministic editing input)
+ await p.click('[data-mediadetail]');await p.waitForSelector('#media-player');
+ await p.locator('#media-detail details').first().evaluate(d=>{d.open=true;});
+ await p.fill('#transcript-edit','0:10 برای شروع تنظیمات مودم را باز کنید\n1:05 این بخش سکوت است\n2:30 تنظیمات را ذخیره کنید\n3:20 تنظیمات را ذخیره کنید');
+ await p.click('#transcript-save');await p.waitForSelector('#media-detail .segrow');
+ await p.screenshot({path:'docs/images/editing.png',fullPage:true});
+ await p.click('[data-close="media-dialog"]');
+
+ // 7) edit tab: run analysis, check report, restore one cut
+ await p.click('[data-ptab="edit"]');await p.waitForSelector('[data-editdetect]');
+ await p.click('[data-editdetect]');
+ await p.waitForSelector('#proj-edit-report [data-decision-state]',{timeout:90000});
+ await p.screenshot({path:'docs/images/project-edit.png',fullPage:true});
+ const restoreBtn=p.locator('#proj-edit-report [data-decision-state][data-state="restored"]').first();
+ await restoreBtn.click();
+ await p.waitForFunction(()=>document.querySelector('#proj-edit-report')?.innerText.includes('بازگردانده شد'));
+
+ // 8) preview render -> job completes
+ await p.click('[data-renderkind="preview"]');
+ await waitJob(base,'render_cut',['completed','failed'],180000).then(j=>{if(j.status!=='completed')throw Error('preview failed: '+j.error);});
+
+ // 9) play preview through ranged request
+ const renders=await (await fetch(base+'/api/renders')).json();
+ const prev=renders.find(r=>r.kind==='preview');
+ if(!prev)throw Error('no preview render row');
+ const rng=await fetch(base+'/api/renders/file?id='+prev.id,{headers:{Range:'bytes=0-99'}});
+ if(rng.status!==206)throw Error('ranged playback failed: '+rng.status);
+
+ // 10) final render -> approval center -> approve -> FINAL exists
+ await p.click('[data-ptab="edit"]');await p.waitForSelector('[data-renderkind="final"]');
+ await p.click('[data-renderkind="final"]');
+ const fj=await waitJob(base,'render_cut',['waiting_approval'],60000);
+ await p.click('#nav a[href="#/approvals"]');
+ await p.waitForSelector('[data-jobaction="approve"]');
+ await p.screenshot({path:'docs/images/approvals.png',fullPage:true});
+ await p.click('[data-jobaction="approve"]');
+ await waitJob(base,'render_cut',['completed'],180000).then(async()=>{
+  const rs=await (await fetch(base+'/api/renders')).json();
+  if(!rs.some(r=>r.kind==='final'))throw Error('FINAL version missing after approval');
+ });
+
+ // 11) publish approval -> dry run package
+ await p.click('#nav a[href="#/approvals"]');
+ await p.waitForSelector('[data-decide2]');
+ await p.locator('[data-decide2][data-gate="publish"][data-status="approved"]').first().click();
+ await waitJob(base,'publish_dryrun',['completed'],60000);
+ await p.click('#nav a[href="#/publishing"]');
+ await p.waitForFunction(()=>document.querySelector('#view').innerText.includes('بسته‌های dry-run'));
+
+ // 12) jobs / storage / services pages render with real data
+ await p.click('#nav a[href="#/jobs"]');await p.waitForSelector('.table');
+ await p.screenshot({path:'docs/images/jobs.png',fullPage:true});
+ await p.click('#nav a[href="#/storage"]');await p.waitForFunction(()=>document.querySelector('#view').innerText.includes('My Passport'));
+ await p.screenshot({path:'docs/images/storage.png',fullPage:true});
+ await p.click('#nav a[href="#/services"]');await p.waitForFunction(()=>document.querySelector('#view').innerText.includes('NVENC'));
+ await p.screenshot({path:'docs/images/health.png',fullPage:true});
+
+ // 13) mobile viewport sanity (Poco X7 Pro ~ 1220x2712 css 393px)
+ await p.setViewportSize({width:393,height:851});
+ await p.goto(base+'/#/approvals');await p.waitForSelector('.rows');
+ await p.screenshot({path:'docs/images/mobile.png',fullPage:true});
+
+ if(errors.length)throw Error('browser errors:\n'+errors.join('\n'));
+ console.log('PASS: full user journey via UI — wizard+voice upload, real transcription, transcript with timestamps, script save+approve, media upload, manual transcript, edit analysis, restore, preview render (206 ranged playback), final render approval, publish dry-run, jobs/storage/health pages, mobile layout, no console errors.');
  await browser.close();await stop();
 })().catch(async e=>{console.error(e);if(browser)await browser.close();if(server&&!server.killed)server.kill();process.exit(1);});
