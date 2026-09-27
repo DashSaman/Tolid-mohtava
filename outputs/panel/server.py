@@ -7,6 +7,7 @@ from registry import skill_registry
 from jobs import JobManager
 from media import MediaLibrary, KINDS as MEDIA_KINDS
 from transcribe import Transcripts
+from editing import EditDecisions, report_lines
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -15,8 +16,9 @@ DB=Store(os.environ.get('TEHNET_PANEL_DB',str(ROOT/'data/content.sqlite')))
 DATA=Path(DB.path).parent
 MEDIA=MediaLibrary(DB.path,DATA/'media')
 TRANSCRIPTS=Transcripts(DB.path)
+DECISIONS=EditDecisions(DB.path)
 JM=JobManager(DB.path,handlers=build_handlers(),workers=2,
-              services={'media':MEDIA,'transcripts':TRANSCRIPTS})
+              services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 
@@ -63,6 +65,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
             if url.path=='/api/media/file': return self.serve_media(q)
+            if url.path=='/api/decisions': return self.respond(DECISIONS.list(q.get('media_id',[''])[0],q.get('state',[None])[0]))
+            if url.path=='/api/editreport': return self.respond({'media_id':q.get('media_id',[''])[0],'lines':report_lines(DECISIONS,q.get('media_id',[''])[0])})
             if url.path=='/api/transcripts':
                 t=TRANSCRIPTS.get(q.get('media_id',[''])[0],int(q['revision'][0]) if 'revision' in q else None)
                 if not t: return self.respond({'error':'متن پیدا نشد.'},404)
@@ -106,6 +110,11 @@ class Handler(BaseHTTPRequestHandler):
                 jid=data.get('id')
                 if not isinstance(jid,str) or not isinstance(data.get('approved'),bool): raise ValueError('درخواست معتبر نیست.')
                 return self.respond(JM.decide(jid,data['approved']))
+            if self.path=='/api/decisions/manual':
+                return self.respond(DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
+                    'manual',1.0,'manual','active',reason=data.get('reason')))
+            if self.path=='/api/decisions/state':
+                return self.respond(DECISIONS.set_state(data.get('id'),data.get('state')))
             if self.path=='/api/jobs/cancel': return self.respond(JM.cancel(data.get('id')))
             if self.path=='/api/jobs/retry': return self.respond(JM.retry(data.get('id')))
             self.respond({'error':'عملیات پیدا نشد.'},404)
