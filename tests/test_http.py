@@ -47,5 +47,15 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/api/decide',decision,h)[0],200)
         decision['revision']=0
         self.assertEqual(self.request('/api/decide',decision,h)[0],400)
+    def test_jobs_surface_and_gates(self):
+        h={'Content-Type':'application/json','X-Panel-Token':self.token}
+        self.assertEqual(json.loads(self.request('/api/jobs')[1]),[])
+        code,body,_=self.request('/api/jobs',{'kind':'unknown-kind'},h)
+        self.assertEqual(code,400)
+        self.assertIn('پشتیبانی',json.loads(body)['error'])
+        self.assertEqual(self.request('/api/jobs',{'kind':'x'},{'Content-Type':'application/json'})[0],403)
+        self.assertEqual(self.request('/api/job?id=missing')[0],404)
+        self.assertEqual(self.request('/api/jobs/decision',{'id':'x','approved':'yes'},h)[0],400)
+        self.assertEqual(self.request('/api/jobs/cancel',{'id':'missing'},h)[0],400)
 
 if __name__=='__main__':unittest.main()

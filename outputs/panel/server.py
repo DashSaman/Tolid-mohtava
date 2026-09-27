@@ -4,10 +4,12 @@ from urllib.parse import urlsplit,parse_qs
 import json, mimetypes, os, secrets, socket
 from store import Store
 from registry import skill_registry
+from jobs import JobManager
 
 ROOT=Path(__file__).resolve().parent
 PORT=int(os.environ.get('TEHNET_PANEL_PORT','8766'))
 DB=Store(os.environ.get('TEHNET_PANEL_DB',str(ROOT/'data/content.sqlite')))
+JM=JobManager(DB.path,workers=2)
 TOKEN=secrets.token_urlsafe(32)
 
 class Handler(BaseHTTPRequestHandler):
@@ -31,6 +33,11 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/session': return self.respond({'token':TOKEN,'app':'tehnet-content-panel'})
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/items': return self.respond(DB.list(q.get('brand',['tehran-network'])[0]))
+            if url.path=='/api/jobs': return self.respond(JM.list(q.get('status',[None])[0]))
+            if url.path=='/api/job':
+                job=JM.get(q.get('id',[''])[0])
+                if not job: return self.respond({'error':'کار پیدا نشد.'},404)
+                return self.respond(job)
             if url.path=='/api/history': return self.respond(DB.history(q.get('id',[''])[0]))
             if url.path=='/api/export': return self.respond(DB.export(q.get('brand',['tehran-network'])[0]))
             if url.path=='/api/profile':
@@ -58,6 +65,13 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data,dict): raise ValueError('درخواست معتبر نیست.')
             if self.path=='/api/items': return self.respond(DB.save(data))
             if self.path=='/api/decide': return self.respond(DB.decide(data.get('id'),data.get('revision'),data.get('gate'),data.get('status')))
+            if self.path=='/api/jobs': return self.respond(JM.enqueue(data.get('kind'),data.get('payload') if isinstance(data.get('payload'),dict) else {},data.get('idempotency_key')))
+            if self.path=='/api/jobs/decision':
+                jid=data.get('id')
+                if not isinstance(jid,str) or not isinstance(data.get('approved'),bool): raise ValueError('درخواست معتبر نیست.')
+                return self.respond(JM.decide(jid,data['approved']))
+            if self.path=='/api/jobs/cancel': return self.respond(JM.cancel(data.get('id')))
+            if self.path=='/api/jobs/retry': return self.respond(JM.retry(data.get('id')))
             self.respond({'error':'عملیات پیدا نشد.'},404)
         except (ValueError,TypeError) as e: self.respond({'error':str(e) if isinstance(e,ValueError) and not isinstance(e,json.JSONDecodeError) else 'داده درخواست معتبر نیست.'},400)
         except Exception: self.respond({'error':'ذخیره ناموفق بود. فضای دیسک و اجرای پنل را بررسی کنید.'},500)
