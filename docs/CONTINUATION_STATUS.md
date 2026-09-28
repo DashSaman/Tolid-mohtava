@@ -10,7 +10,7 @@
 
 ## Current Phase
 
-Phase 2 تکمیل شد و کل P0 از طریق UI قابل استفاده است (تست مرورگر جامع PASS). فاز بعدی: P1 — publishing adapter واقعی (credential)، website connector، notifications، remote access، دیباگ GPU whisper، مدل transcribe قابل انتخاب در UI.
+Phase 2 تکمیل شد و کل P0 از طریق UI قابل استفاده است (تست مرورگر جامع PASS). فاز بعدی در زمان نگارش P1 بود؛ همهٔ آن موارد اکنون تکمیل شده‌اند (Sections پایین‌تر).
 
 ## UI Product Milestone (جلسه دوم - بازطراحی)
 
@@ -81,20 +81,21 @@ Phase 2 تکمیل شد و کل P0 از طریق UI قابل استفاده اس
 - فعال و تست‌شده: meta-llama-3-8b (Vulkan/GPU) — هوک فارسی واقعی تولید کرد؛ برای متن بلند فارسی کیفیت متوسط.
 - **Qwen2.5-7B-Instruct** (فارسی‌توان، پیشنهادی): دانلود روی این شبکه بسیار کند بود و کامل نشد. ازسرگیری: `lms get "qwen2.5-7b-instruct@q4_k_m"` و سپس در تنظیمات پنل مدل lmstudio را به qwen2.5-7b-instruct تغییر دهید.
 
-## Remaining P1 (فاز بعد، به‌ترتیب پیشنهادی)
+## وضعیت یکپارچهٔ فعلی (2026-09-28 — پس از سخت‌سازی عملیاتی)
 
-1. Repurposing: استخراج 2-3 کاندیدای Short از transcript + تصمیم‌ها؛ برش عمودی با layout آموزشی (نه crop کور).
-2. Publishing adapter واقعی (Postiz یا custom) — نیاز به credential/تصمیم کاربر؛ تا آن زمان dry-run جاری می‌ماند.
-3. Website connector برای tehnet.ir / mytel.ir (اول کشف CMS).
-4. Notifications: Telegram (نیاز TELEGRAM_BOT_TOKEN) + ایمیل.
-5. Storage Manager + آرشیو روی My Passport با checksum و تأیید (هرگز حذف خودکار).
-6. Remote access با Tailscale/Cloudflare Tunnel + حداقل auth (user/pass هش‌شده).
-7. Media Sync چند دوربین (فیس‌کم/صفحه/صدای جدا) با waveform/timestamp.
-8. رفع خطای GPU whisper روی این ماشین (احتمال ناسازگاری cuDNN/درایور) و افزودن انتخاب مدل در UI.
+موارد زیر که قبلاً در همین بخش «کارهای بعدی» بودند، اکنون **تکمیل و تست‌شده‌اند** و دیگر future-work نیستند:
+Shorts/رندر عمودی، وردپرس‌کانکتور (کشف CMS + آداپتور پیش‌نویس، credential-gated)، اعلان‌ها (محلی کامل + Telegram credential-gated)، Storage Manager + آرشیو My Passport (checksum/تأیید)، احراز هویت (env-based)، Media Sync چند-ترکه، GPU whisper فعال + انتخاب مدل در UI با بنچمارک واقعی فارسی.
 
-## Remaining P2
+### کارهای باقی‌ماندهٔ مهندسی داخلی (بدون credential)
+1. معماری کامل Analytics (schema/adapters/sync jobs/snapshots/UI) — حتی بدون OAuth
+2. Learning Loop واقعی + Adaptive Scheduling + Post-publish Optimization
+3. Content Matrix + Weekly Planner عملیاتی
+4. جریان سئو: تشخیص→پیشنهاد→تأیید→اصلاح→اسکن مجدد
+5. Smart Shorts V2 (رتبه‌بندی چندزاویه‌ای + تأیید کاندیدا)
+6. تست‌های امنیت/شکست-بازیابی/عملکرد
 
-Analytics ingestion (نیاز OAuth)، weekly analysis، adaptive scheduling، post-publish optimization، learning loop، weekly ideas، SEO خودکار سایت‌وار.
+### BLOCKED_BY_CREDENTIAL (تنها این‌ها منتظر کاربرند)
+انتشار واقعی شبکه‌های اجتماعی (OAuth)، Analytics واقعی هر پلتفرم (OAuth)، GSC (OAuth readonly)، تولید تصویر Gemini (API key)، پیش‌نویس وردپرس (Application Password)، اعلان Telegram (Bot Token).
 
 ## Required Credentials (فقط این‌ها از کاربر)
 

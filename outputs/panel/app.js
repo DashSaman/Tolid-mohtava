@@ -168,11 +168,29 @@ async function pageList(view){
  const list=filter?items.filter(x=>filter.includes(x.stage)):items;
  view.innerHTML=page==='ideas'?`
   <div class="banner">ایده‌ها را می‌توانید با اسکیل‌های niche-research و content-matrix و hook-generator از دل تحلیل واقعی دربیاورید و اینجا ثبت کنید.</div>
+  <div class="banner">برنامهٔ هفتگی با شواهد محلی (پروژه‌ها، عملکرد ثبت‌شده، یافته‌های سئو) ساخته می‌شود — نه لیست تصادفی.</div>
+  <div class="card"><div class="cardhead"><h2>${icon('i-calendar')} برنامهٔ محتوای هفته (${names[brand]})</h2><button class="sm primary" id="weekly-plan">ساخت برنامهٔ هفته</button></div>
+  <div id="weekly-plan-box"><p class="small muted">هر پیشنهاد با «چرا»، حجم نمونه و اطمینان نمایش داده می‌شود.</p></div></div>
   <div class="grid2"><div class="card"><div class="cardhead"><h2>${icon('i-bulb')} ایده‌های ثبت‌شده</h2><button class="sm primary" id="new">${icon('i-plus','icon sm')}ایده جدید</button></div>
   <div class="rows">${list.map(projRow).join('')||empty('i-bulb','ایده‌ای ثبت نشده','ایده تازه بسازید یا از اسکیل‌های تحقیق کمک بگیرید.')}</div></div>
   <div class="card"><h2>${icon('i-grid')} تولید ایده با اسکیل‌ها</h2>${['niche-research','content-matrix','hook-generator'].map(id=>{const s=skills.find(x=>x.id===id);return s?`<div class="rowitem"><div class="t"><strong>${esc(s.title)}</strong><small>${esc(s.job)}</small></div><div class="actions"><button class="sm" data-skill="${id}">بسته دستور</button></div></div>`:'';}).join('')}</div></div>`
  :`<div class="card"><div class="cardhead"><h2>${icon('i-folder')} ${esc(pagesDef[page].t)}</h2><div class="row"><input id="search" placeholder="جست‌وجوی عنوان…" style="max-width:240px"><button class="sm" id="export">${icon('i-upload','icon sm')}خروجی و تاریخچه</button></div></div>
   <div class="rows" id="item-list">${list.map(projRow).join('')||empty('i-folder','چیزی برای نمایش نیست','با «محتوای جدید» شروع کنید؛ داده نمونه در پنل وجود ندارد.')}</div></div>`;
+ if($('#weekly-plan'))$('#weekly-plan').onclick=async()=>{
+  $('#weekly-plan').disabled=true;
+  try{
+   const j=await api('/api/weekly-plan',{brand});
+   await trackJob(j.id);
+   const jobs=await api('/api/jobs');
+   const mine=jobs.filter(x=>x.kind==='weekly_plan').sort((a,b)=>b.created_at<a.created_at?1:-1)[0];
+   if(mine&&mine.status==='completed'&&mine.result&&mine.result.plan){
+    $('#weekly-plan-box').innerHTML='<div class="rows">'+mine.result.plan.map(p=>`<div class="rowitem"><div class="t"><strong>${esc(p.title)}</strong>
+     <small>${esc(p.platform||'')} · ${esc(p.content_type||'')} · ستون: ${esc(p.pillar||'')}</small>
+     <small><b>چرا:</b> ${esc(p.why)}</small><small>فرصت: ${esc(p.opportunity||'')} · نمونه ${fa(p.sample_size)} · اطمینان ${fa(Math.round((p.confidence||0)*100))}٪</small></div></div>`).join('')+'</div>';
+   }
+  }catch(e){toast(e.message,'err');}
+  $('#weekly-plan').disabled=false;
+ };
  if($('#search'))$('#search').addEventListener('input',e=>{
    const l=list.filter(x=>x.title.toLowerCase().includes(e.target.value.toLowerCase()));
    $('#item-list').innerHTML=l.map(projRow).join('')||empty('i-search','نتیجه‌ای پیدا نشد','عبارت جست‌وجو را تغییر دهید.');
@@ -411,9 +429,27 @@ async function renderProjTab(tab,x,media){
  else if(tab==='shorts'){
   el.innerHTML=`<div class="card"><h2>Shorts / Reels — نسخه‌های عمودی</h2>
   ${media.length?`<p class="small muted">کاندیداها از transcript واقعی استخراج می‌شوند؛ خروجی ۹:۱۶ با پس‌زمینه محو ساخته می‌شود تا تصویر آموزش کراپ کورکورانه نشود.</p>
-  <div class="row"><button class="sm primary" id="proj-shorts-gen">${icon('i-scissors','icon sm')}کاندیداهای تازه از transcript</button></div><div id="proj-shorts-cands"><div class="skeleton"></div></div>`
+  <div class="row"><button class="sm primary" id="proj-shorts-gen">${icon('i-scissors','icon sm')}کاندیداهای ساده</button>
+  <button class="sm" id="proj-shorts-v2">رتبه‌بندی هوشمند V2 (زاویه‌های متفاوت)</button></div><div id="proj-shorts-cands"><div class="skeleton"></div></div>`
   :empty('i-scissors','اول ویدیوی اصلی را آپلود کنید','کاندیداها از transcript ویدیوی اصلی ساخته می‌شوند.')}</div>`;
   if(media.length){
+   const v2=$('#proj-shorts-v2');
+   if(v2)v2.onclick=async()=>{
+    v2.disabled=true;
+    try{
+     const j=await api('/api/shorts/v2',{media_id:media[0].id});
+     await trackJob(j.id);
+     const jobs=await api('/api/jobs');
+     const mine=jobs.filter(x=>x.kind==='shorts_v2').sort((a,b)=>b.created_at<a.created_at?1:-1)[0];
+     if(mine&&mine.status==='completed'&&mine.result&&mine.result.candidates){
+      el.querySelector('#proj-shorts-cands').innerHTML=mine.result.candidates.map((c,i)=>`
+      <div class="decisionrow review"><div class="spread"><div><strong>کاندیدای ${fa(i+1)} · ${mmss(c.start)}–${mmss(c.end)} · ~${fa(Math.round(c.duration))}s</strong>
+      <div class="small muted">${esc(c.why)}</div><div class="small">${esc(c.hook)}…</div></div>
+      <div class="row"><button class="sm primary" data-shortrender="${esc(media[0].id)}" data-start="${c.start}" data-end="${c.end}">رندر این کاندیدا</button></div></div></div>`).join('');
+     }
+    }catch(e){toast(e.message,'err');}
+    v2.disabled=false;
+   };
    $('#proj-shorts-gen').onclick=async()=>{await loadShortsCandidates(el,media[0]);};
    await loadShortsCandidates(el,media[0]);
   }
@@ -680,13 +716,55 @@ async function pageCalendar(view){
  <div class="rows">${items.filter(x=>x.due).sort((a,b)=>a.due.localeCompare(b.due)).map(x=>`<div class="rowitem"><div class="t"><strong>${esc(x.due)}</strong><small>${esc(x.title)}</small></div><div class="actions"><button class="sm" data-openproject="${esc(x.id)}">پرونده</button></div></div>`).join('')||empty('i-calendar','موعدی ثبت نشده','موعد فقط یادآور داخلی است؛ انتشار زمان‌بندی‌شده به credential نیاز دارد.')}</div></div>`;
 }
 async function pageAnalytics(view){
- view.innerHTML=`<div class="card">${empty('i-chart','حساب متصل نیست','پس از اتصال OAuth، تحلیل مستقل هر پلتفرم اینجا می‌نشیند. تا آن زمان هیچ نمودار ساختگی نمایش داده نمی‌شود.')}</div>`;
+ const [status,proposals]=await Promise.all([api('/api/analytics/status'),api('/api/analytics/proposals')]);
+ const schedule=await api('/api/analytics/schedule?brand='+brand+'&platform=youtube');
+ view.innerHTML=`
+ <div class="card"><div class="cardhead"><h2>${icon('i-chart')} معماری Analytics — وضعیت واقعی هر پلتفرم</h2>
+ <div class="chiprow">${['youtube','instagram','facebook','linkedin','telegram','gsc'].map(p=>`<button class="sm" data-sync="${p}">همگام‌سازی ${p}</button>`).join('')}</div></div>
+ <div class="rows">${status.map(r=>`<div class="rowitem"><div class="t"><strong>${esc(r.platform_fa)}</strong>
+  <small>اسنپ‌شات‌ها: ${fa(r.snapshots)}${r.last_snapshot?' · آخرین: '+faDate(r.last_snapshot):''}${r.anomalies.length?' · '+fa(r.anomalies.length)+' ناهنجاری':''}</small></div>
+  <div class="actions"><span class="badge ${r.state==='ready'?'ok':'warn'}">${r.state==='ready'?'آماده — Credential ثبت شده':'BLOCKED_BY_CREDENTIAL'}</span></div></div>`).join('')}</div>
+ <p class="small muted">اسنپ‌شات‌ها append-only هستند و هرگز بازنویسی نمی‌شوند؛ بدون credential هیچ دادهٔ ساختگی ساخته نمی‌شود.</p></div>
+ <div class="grid2">
+ <div class="card"><h2>${icon('i-clock')} زمان‌بندی تطبیقی (نمونهٔ YouTube / ${names[brand]})</h2>
+  <span class="badge ${schedule.mode==='DATA_DRIVEN'?'ok':'warn'}">${schedule.mode==='DATA_DRIVEN'?'DATA_DRIVEN — از دادهٔ خودتان':'BASELINE — دادهٔ کافی نیست'}</span>
+  <div class="kv" style="margin-top:8px"><dt>پیشنهاد</dt><dd>${esc(schedule.day)} ساعت ${fa(schedule.hour)}</dd>
+  <dt>حجم نمونه</dt><dd>${fa(schedule.sample_size)}</dd><dt>اطمینان</dt><dd>${fa(Math.round(schedule.confidence*100))}٪</dd></div>
+  <p class="small muted">${esc(schedule.reason)}</p>
+  ${schedule.evidence&&schedule.evidence.length?`<details><summary>شواهد</summary><pre>${esc(JSON.stringify(schedule.evidence,null,1))}</pre></details>`:''}</div>
+ <div class="card"><h2>${icon('i-activity')} پیشنهادهای بهینه‌سازی و سئو</h2>
+  <div class="rows">${proposals.map(p=>`<div class="rowitem"><div class="t"><strong>${esc(p.pattern==='SEO_AUDIT'?('گزارش سئو — '+p.platform):('بهینه‌سازی '+(p.platform||'')))}</strong>
+   <small>${esc(p.diagnosis)}</small><small>${faDate(p.created_at)} · نمونه ${fa(p.sample_size)} · اطمینان ${fa(Math.round(p.confidence*100))}٪</small></div>
+   <div class="actions"><span class="badge ${p.status==='approved'?'ok':p.status==='rejected'?'danger':'accent'}">${({proposed:'در انتظار تأیید',approved:'تأییدشده',rejected:'ردشده',applied:'اعمال‌شده'})[p.status]}</span>
+   ${p.status==='proposed'?`<button class="sm primary" data-propapprove="${esc(p.id)}">تأیید</button><button class="sm danger" data-propreject="${esc(p.id)}">رد</button>`:''}</div></div>`).join('')||empty('i-activity','پیشنهادی نیست','موتور بهینه‌سازی پس از دادهٔ واقعی و اسکن سئو پیشنهاد می‌سازد.')}</div></div></div>
+ <div class="card"><h2>ثبت دستی عملکرد (تا اتصال OAuth)</h2>
+ <p class="small muted">دادهٔ واقعی انتشارها را ثبت کنید؛ موتور یادگیری و زمان‌بندی فوراً از آن استفاده می‌کند.</p>
+ <div class="row"><label>پروژه<select id="ap-content" style="max-width:220px">${items.map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select></label>
+ <button class="sm primary" id="ap-record">ثبت رکورد پایه برای پروژهٔ انتخابی</button></div></div>`;
+ $$('[data-sync]').forEach(b=>b.onclick=async()=>{
+  b.disabled=true;
+  try{const j=await api('/api/analytics/sync',{platform:b.dataset.sync});await trackJob(j.id);}
+  catch(e){toast(e.message,'err');}
+  b.disabled=false;
+ });
+ $$('[data-propapprove]').forEach(b=>b.onclick=async()=>{await api('/api/analytics/proposal/decide',{id:b.dataset.propapprove,decision:'approved'});await render();toast('تأیید ثبت شد','ok');});
+ $$('[data-propreject]').forEach(b=>b.onclick=async()=>{await api('/api/analytics/proposal/decide',{id:b.dataset.propreject,decision:'rejected'});await render();});
+ const apb=$('#ap-record');
+ if(apb)apb.onclick=async()=>{
+  const x=items.find(i=>i.id===$('#ap-content').value);
+  if(!x)return;
+  await api('/api/analytics/record',{content_id:x.id,brand,platform:'youtube',content_type:'long',
+    pillar:'',topic:x.title,hook:'',title:x.title,thumbnail:'',cta:'',publish_day:'',publish_hour:null,metrics:{views:0,engagement:0,ctr:0}});
+  toast('رکورد پایه ثبت شد؛ متریک‌ها را پس از انتشار واقعی به‌روز کنید','ok');
+ };
 }
+
 async function pageSeo(view){
  view.innerHTML=`
  <div class="card"><div class="cardhead"><h2>${icon('i-search')} اسکن واقعی سئوی سایت</h2>
  <div class="row"><select id="seo-site" style="max-width:180px"><option value="tehnet.ir">tehnet.ir</option><option value="mytel.one">mytel.one</option></select>
- <button class="sm primary" id="seo-run">اجرای اسکن (تا ۲۵ صفحه)</button></div></div>
+ <button class="sm primary" id="seo-run">اجرای اسکن (تا ۲۵ صفحه)</button>
+ <button class="sm" id="seo-propose">ساخت پیشنهادهای اصلاح</button></div></div>
  <div id="seo-result">${'<div class="skeleton"></div>'}</div></div>
  <div class="card"><h2>چک‌لیست مقاله پیش از انتشار</h2>
  <ul>${['هدف جست‌وجو، کلمه اصلی و کلمات مرتبط','عنوان، توضیح متا و ساختار تیترها','لینک داخلی، منابع و نشانی صفحه','متن جایگزین تصاویر و داده ساختاریافته','canonical، indexability و محتوای تکراری'].map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
@@ -704,6 +782,10 @@ async function pageSeo(view){
   :empty('i-search','هنوز اسکنی اجرا نشده','دکمهٔ اجرای اسکن، سایت را واقعاً می‌خزد و نتیجه را تاریخچه می‌کند.');
  };
  loadScans();
+ $('#seo-propose').onclick=async()=>{
+  try{const j=await api('/api/seo/proposals',{site:$('#seo-site').value});await trackJob(j.id);toast('پیشنهادها در صفحهٔ Analytics آمادهٔ تأییدند','ok');}
+  catch(e){toast(e.message,'err');}
+ };
  $('#seo-run').onclick=async()=>{
   try{
    const j=await api('/api/seo/scan',{site:$('#seo-site').value});
@@ -857,6 +939,7 @@ async function pageSettings(view){
  <div class="card" id="ai-settings"><div class="cardhead"><h2>${icon('i-cpu')} هوش مصنوعی — Providerها و وظایف</h2><button class="sm" id="ai-refresh">به‌روزرسانی</button></div><div id="ai-providers">${aiHtml}</div>
  <div id="ai-whisper" style="margin-top:14px"></div>
  <div id="ai-credentials" style="margin-top:14px"></div>
+ <div class="card" id="int-center" style="margin-top:12px"><div class="cardhead"><h2>اتصال حساب‌ها (تمام سرویس‌ها)</h2></div><div class="skeleton"></div></div>
  <details style="margin-top:10px"><summary>افزودن / ویرایش Provider</summary>
  <div class="formgrid"><label>نام<input id="ap-name" placeholder="مثلاً lmstudio"></label><label>نشانی پایه (OpenAI-compatible)<input id="ap-url" placeholder="http://127.0.0.1:1234/v1"></label>
  <label>مدل (خالی = پیش‌فرض سرور)<input id="ap-model" placeholder="qwen2.5-7b-instruct"></label><label>نام متغیر محیطی کلید (بدون خود کلید!)<input id="ap-key" placeholder="OPENAI_API_KEY"></label></div>
@@ -880,7 +963,35 @@ async function pageSettings(view){
   }catch(err){$('#ai-providers').innerHTML='';toast(err.message,'err');}
  };
  loadAI();
+ (async()=>{
+  try{
+   const rows=await api('/api/integrations');
+   const SETUP={
+    'tehnet.ir':'وردپرس ← Users ← Profile ← Application Passwords؛ سپس متغیرها را در environment پنل بگذارید.',
+    'mytel.one':'همان مسیر روی mytel.one.',
+    'youtube':'Google Cloud Console ← OAuth client با scopeهای youtube.upload و youtube.readonly؛ refresh token بسازید.',
+    'instagram':'Meta App ← Instagram Graph با instagram_basic و instagram_content_publish؛ توکن طولانی بسازید.',
+    'facebook':'Meta App ← Pages با pages_manage_posts و pages_read_engagement.',
+    'linkedin':'LinkedIn Developers ← اپ با w_member_social.',
+    'telegram':'با BotFather بات بسازید (توکن) و chat id را از userinfobot بگیرید.',
+    'gsc':'Google Cloud ← service account با webmasters.readonly؛ دامنه‌ها را در Search Console verify کنید.'};
+   const box=$('#int-center');
+   if(box)box.innerHTML='<div class="cardhead"><h2>اتصال حساب‌ها (تمام سرویس‌ها)</h2></div><div class="rows">'+rows.map(r=>`<div class="rowitem"><div class="t"><strong>${esc(r.platform_fa)}</strong>
+    <small>scope لازم: ${esc(r.scopes)}</small>
+    <small>متغیرها: ${r.env.map(esc).join('، ')}</small>
+    <small>راهنما: ${esc(SETUP[r.platform]||'—')}</small></div>
+    <div class="actions"><span class="badge ${r.state==='ready'?'ok':'warn'}">${r.state==='ready'?'متصل — Credential ثبت شده':'BLOCKED_BY_CREDENTIAL'}</span>
+    <button class="sm" data-inttest="${esc(r.platform)}">تست اتصال</button></div></div>`).join('')+'</div><p class="small muted">مقادیر Secret هرگز نمایش/ذخیره نمی‌شوند؛ تست اتصال واقعی انجام می‌شود.</p>';
+   $$('[data-inttest]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    try{const r=await api('/api/integrations/test',{platform:b.dataset.inttest});toast(r.ok?('اتصال سالم: '+(r.detail||'')):('ناموفق: '+(r.detail||r.state)),r.ok?'ok':'err');}
+    catch(e){toast(e.message,'err');}
+    b.disabled=false;
+   });
+  }catch(e){}
+ })();
  $('#ai-refresh').onclick=loadAI;
+
  // whisper engine card
  (async()=>{
   try{

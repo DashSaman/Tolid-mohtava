@@ -21,6 +21,9 @@ from whisper_config import WhisperSettings, benchmark_handler, WHISPER_MODELS
 from sync import SyncStore, sync_content_handler, enhance_audio_handler
 from seo_engine import SEOStore, seo_scan_handler, SITES as SEO_SITES
 from ops import Auth, ArchiveStore, archive_copy_handler, hash_password
+from analytics import (AnalyticsStore, adapter_status, health_check as adapter_health,
+    analytics_sync_handler, optimize_content_handler, recommend_slot, detect_anomalies, PLATFORMS, PLATFORM_FA)
+from intelligence import weekly_plan_handler, seo_proposals_handler, shorts_v2_handler
 from handlers import build_handlers
 import handlers as HandlersMod
 
@@ -37,18 +40,23 @@ WSSET=WhisperSettings(DB.path)
 SYNCSTORE=SyncStore(DB.path)
 SEOSTORE=SEOStore(DB.path)
 ARCHIVE=ArchiveStore(DB.path)
+ANALYTICS=AnalyticsStore(DB.path)
 AUTH=Auth()
 NOTIF=Notifications(DB.path)
 POLICY_TEXT=(ROOT.parent/'content-policy.fa.md').read_text(encoding='utf-8')
 JM=JobManager(DB.path,handlers=build_handlers()|{
   'whisper_benchmark':benchmark_handler,'sync_content':sync_content_handler,
-  'enhance_audio':enhance_audio_handler,'seo_scan':seo_scan_handler,'archive_copy':archive_copy_handler},workers=2,
+  'enhance_audio':enhance_audio_handler,'seo_scan':seo_scan_handler,'archive_copy':archive_copy_handler,
+  'analytics_sync':analytics_sync_handler,'optimize_content':optimize_content_handler,
+  'weekly_plan':weekly_plan_handler,'seo_proposals':seo_proposals_handler,'shorts_v2':shorts_v2_handler},workers=2,
               services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
                         'store':DB,'dryrun_root':str(DATA/'dryrun'),
                         'ai':AISTORE,'policy':POLICY_TEXT,
-                        'whisper_settings':WSSET,'sync':SYNCSTORE,'seo':SEOSTORE,'archive':ARCHIVE})
+                        'whisper_settings':WSSET,'sync':SYNCSTORE,'seo':SEOSTORE,'archive':ARCHIVE,
+                        'analytics':ANALYTICS})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
+def brand_default(): return 'tehran-network'
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,*args): pass
@@ -116,6 +124,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond({'site':site,'scans':scans})
             if url.path=='/api/archive': return self.respond(ARCHIVE.list())
             if url.path=='/api/sync': return self.respond(SYNCSTORE.for_content(q.get('content_id',[''])[0]))
+            if url.path=='/api/analytics/status':
+                rows=adapter_status()
+                for r in rows:
+                    snaps=ANALYTICS.snapshots(r['platform'],limit=5)
+                    r['snapshots']=len(ANALYTICS.snapshots(r['platform'],limit=1000))
+                    r['anomalies']=detect_anomalies(ANALYTICS,r['platform'])
+                    r['last_snapshot']=snaps[0]['captured_at'] if snaps else None
+                return self.respond(rows)
+            if url.path=='/api/analytics/snapshots': return self.respond(ANALYTICS.snapshots(q.get('platform',['youtube'])[0]))
+            if url.path=='/api/analytics/proposals': return self.respond(ANALYTICS.proposals(q.get('status',[None])[0]))
+            if url.path=='/api/analytics/schedule':
+                return self.respond(recommend_slot(ANALYTICS,q.get('brand',[brand_default()])[0],q.get('platform',['youtube'])[0],q.get('ctype',['long'])[0]))
+            if url.path=='/api/analytics/performance': return self.respond(ANALYTICS.performance(q.get('brand',[None])[0],q.get('platform',[None])[0]))
+            if url.path=='/api/integrations':
+                rows=adapter_status()
+                return self.respond(rows)
             if url.path=='/api/storage':
                 data=Path(DB.path).parent
                 ssd=[d for d in drives() if str(data).lower().startswith(d['letter'].lower())]
@@ -240,6 +264,31 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/archive/copy':
                 return self.respond(JM.enqueue('archive_copy',{'content_id':data.get('content_id'),'passport_path':data.get('passport_path'),'approved':data.get('approved')},
                     idempotency_key='archive:'+data.get('content_id','')+':'+uuid.uuid4().hex))
+            if self.path=='/api/analytics/sync':
+                return self.respond(JM.enqueue('analytics_sync',{'platform':data.get('platform')},idempotency_key='as:'+str(data.get('platform'))+':'+uuid.uuid4().hex))
+            if self.path=='/api/analytics/optimize':
+                return self.respond(JM.enqueue('optimize_content',data,idempotency_key='opt:'+str(data.get('content_id'))+':'+uuid.uuid4().hex))
+            if self.path=='/api/analytics/record':
+                ANALYTICS.upsert_performance(data.get('content_id'),data.get('brand','tehran-network'),data.get('platform','youtube'),
+                    data.get('content_type','long'),data.get('pillar',''),data.get('topic',''),data.get('hook',''),data.get('title',''),
+                    data.get('thumbnail',''),data.get('video_seconds'),data.get('short_seconds'),data.get('cta',''),data.get('sponsor',''),
+                    data.get('publish_day',''),data.get('publish_hour'),data.get('metrics') or {})
+                return self.respond({'ok':True})
+            if self.path=='/api/analytics/proposal/decide':
+                ANALYTICS.decide_proposal(data.get('id'),data.get('decision'))
+                return self.respond({'ok':True})
+            if self.path=='/api/analytics/snapshot':
+                ANALYTICS.add_snapshot(data.get('platform','youtube'),data.get('brand'),data.get('external_id'),
+                                       data.get('metrics') or {},data.get('source','manual'))
+                return self.respond({'ok':True})
+            if self.path=='/api/integrations/test':
+                return self.respond(adapter_health(data.get('platform')))
+            if self.path=='/api/weekly-plan':
+                return self.respond(JM.enqueue('weekly_plan',{'brand':data.get('brand',brand_default())},idempotency_key='wp:'+str(data.get('brand'))+':'+uuid.uuid4().hex))
+            if self.path=='/api/seo/proposals':
+                return self.respond(JM.enqueue('seo_proposals',{'site':data.get('site','tehnet.ir')},idempotency_key='sep:'+str(data.get('site'))+':'+uuid.uuid4().hex))
+            if self.path=='/api/shorts/v2':
+                return self.respond(JM.enqueue('shorts_v2',{'media_id':data.get('media_id')},idempotency_key='sv2:'+str(data.get('media_id'))+':'+uuid.uuid4().hex))
             if self.path=='/api/notifications/read': return self.respond({'unread':(NOTIF.mark_read(data.get('id')) or 0) or NOTIF.unread_count()})
             if self.path=='/api/notifications/telegram/test': return self.respond(telegram_send('آزمون اعلان از کارخانه محتوا'))
             if self.path=='/api/ai/providers/save':

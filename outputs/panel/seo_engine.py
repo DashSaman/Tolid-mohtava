@@ -53,6 +53,17 @@ def _fetch(url,timeout=20):
     with urllib.request.urlopen(req,timeout=timeout) as r:
         return r.status, r.read(300000).decode('utf-8','replace')
 
+def _fetch_follow(url,timeout=20,depth=3):
+    req=urllib.request.Request(url,headers={'User-Agent':UA})
+    try:
+        with urllib.request.urlopen(req,timeout=timeout) as r:
+            return r.status, r.read(300000).decode('utf-8','replace'),r.geturl()
+    except urllib.error.HTTPError as e:
+        if e.headers and e.headers.get('Location') and depth>0:
+            import urllib.parse as up
+            return _fetch_follow(up.urljoin(url,e.headers['Location']),timeout,depth-1)
+        return e.code,'',url
+
 def _meta(html,pattern):
     m=re.search(pattern,html,flags=re.I|re.S)
     return m.group(1).strip()[:300] if m else None
@@ -98,11 +109,13 @@ def check_robots_and_sitemap(base):
         out['robots']='missing/'+str(e)[:60]
     sm=out.get('sitemap_url') or base+'/sitemap.xml'
     try:
-        st,body=_fetch(sm,timeout=20)
+        st,body,final=_fetch_follow(sm,timeout=20)
         if st==200 and ('<urlset' in body or '<sitemapindex' in body):
             out['sitemap']='ok'
             out['sitemap_urls']=len(re.findall(r'<loc>',body))
-        else: out['sitemap']=f'http {st}'
+        else:
+            out['sitemap']=f'http {st}'
+            out['sitemap_redirect']=final
     except Exception as e:
         out['sitemap']='missing/'+str(e)[:60]
     return out
