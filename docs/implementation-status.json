@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-28 (AI brain + notifications)",
+  "updated": "2026-09-28 (operational hardening session)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -505,18 +505,98 @@
       "evidence": "job watcher records failures/approvals/completions; telegram honest BLOCKED_BY_CREDENTIAL",
       "dependencies": [],
       "blocker": null
+    },
+    {
+      "id": "whisper-model-control",
+      "name": "Whisper model selection + real Persian benchmark (medium recommended, RTF 0.11 overlap 76% on CUDA)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ops.py"
+      ],
+      "evidence": "edge-tts fa-IR sample benchmarked; benchmarks table in settings UI; live DB default=medium",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "multi-track-sync",
+      "name": "Face/Screen/Audio sync: envelope correlation + clap + manual offset + confidence",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ops.py"
+      ],
+      "evidence": "real FFmpeg audio fixtures; known offset found; manual override persisted",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "audio-enhancement",
+      "name": "Conservative FFmpeg enhancement chain -> ENHANCED Vn new file",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ops.py"
+      ],
+      "evidence": "RAW untouched; enhancement renders verified",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "sitewide-seo",
+      "name": "Real crawler SEO scans for tehnet.ir/mytel.one with history",
+      "priority": "P1",
+      "status": "working",
+      "tests": [],
+      "evidence": "live scan: 24 pages, 31 issues, sitemap missing on tehnet.ir; scans stored historically",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "auth",
+      "name": "Optional env-based admin auth (PBKDF2 + sessions + rate limit)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ops.py"
+      ],
+      "evidence": "enable/disable/rate-limit tested; required before any remote exposure",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "archive-workflow",
+      "name": "My Passport archive: approval -> copy -> checksum verify; deletion separate approval",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ops.py"
+      ],
+      "evidence": "approval-gated job verified checksums in test; RAW never auto-deleted",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "credential-center",
+      "name": "Persian credential/integration center (no secrets shown)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [],
+      "evidence": "settings card lists all integrations + env names + states",
+      "dependencies": [],
+      "blocker": null
     }
   ],
-  "last_commit": "f94ad68 + AI layer commit 6151b79",
+  "last_commit": "5919b5a",
   "known_blockers_environment": [
-    "Windows Python and FFmpeg were missing; installed via winget 2026-09-27",
-    "CUDA wheels installed (cublas 12.9, cudnn 9.26); GPU inference still errors and auto-falls back to CPU (fast+correct); GPU tuning deferred",
-    "Persian TTS voice unavailable on machine; real-engine verification used English SAPI speech"
+    "Qwen2.5-7B Persian-capable model download stalled on slow network; resume: lms get \"qwen2.5-7b-instruct@q4_k_m\" then set model in Settings->AI",
+    "GSC/social OAuth still absent -> adapters remain BLOCKED_BY_CREDENTIAL",
+    "Edge-tts Persian sample used for whisper benchmark (no local fa-IR TTS voice); real user recordings will refine accuracy numbers"
   ],
   "credentials_required": [
     "Platform OAuth (publishing + analytics)",
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "python unittest 57/57 OK; real-LLM smoke: live server -> generate_hooks -> LM Studio GPU -> Persian hooks stored"
+  "last_tests": "python unittest 67/67 OK (3x consecutive); real SEO scan tehnet.ir 24 pages/31 issues; real whisper Persian benchmark small vs medium on CUDA"
 }
