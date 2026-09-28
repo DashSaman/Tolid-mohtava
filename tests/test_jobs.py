@@ -33,7 +33,7 @@ class JobTests(unittest.TestCase):
         self.assertEqual(j['progress'],100)
         self.assertTrue(j['started_at'] and j['finished_at'] and j['created_at'])
         self.assertTrue(any('شروع کار' in l['message'] for l in j['logs']))
-    def test_idempotency_key_prevents_duplicate_active_jobs(self):
+    def test_idempotency_key_is_strict(self):
         gate=threading.Event()
         def slow(ctx):
             gate.wait(5); return {}
@@ -42,9 +42,12 @@ class JobTests(unittest.TestCase):
         b=self.m.enqueue('slow',{},idempotency_key='render:1:2')
         self.assertEqual(a['id'],b['id'])
         gate.set()
-        self.wait(a['id'])
+        a=self.wait(a['id'])
         c=self.m.enqueue('slow',{},idempotency_key='render:1:2')
-        self.assertNotEqual(a['id'],c['id'],'completed jobs must not block a new equivalent run')
+        self.assertEqual(a['id'],c['id'],'same key after completion maps to the same job')
+        self.wait(a['id'])
+        r=self.m.retry(a['id'])
+        self.assertEqual(r['id'],a['id'],'re-run goes through explicit retry of the same job')
     def test_unknown_kind_rejected(self):
         self.m=self.mgr({})
         with self.assertRaises(ValueError): self.m.enqueue('nope',{})

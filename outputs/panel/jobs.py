@@ -68,8 +68,10 @@ class JobManager:
         if kind not in self.handlers: raise ValueError('نوع کار پشتیبانی نمی‌شود.')
         if idempotency_key:
             with self.connect() as c:
-                row=c.execute("SELECT id FROM jobs WHERE idempotency_key=? AND status IN (?,?,?)",
-                              (idempotency_key,*ACTIVE)).fetchone()
+                row=c.execute('SELECT id FROM jobs WHERE idempotency_key=? ORDER BY created_at DESC LIMIT 1',
+                              (idempotency_key,)).fetchone()
+            # strict dedupe: same key always maps to the same job, regardless of
+            # status. A re-run requires explicit retry() or a different key.
             if row: return self.get(row[0])
         jid=uuid.uuid4().hex
         with self.connect() as c:
@@ -125,7 +127,8 @@ class JobManager:
     def retry(self,jid):
         job=self.get(jid)
         if not job: raise ValueError('کار پیدا نشد.')
-        if job['status'] not in ('failed','cancelled'): raise ValueError('فقط کار شکست‌خورده یا لغوشده قابل تلاش دوباره است.')
+        if job['status'] not in ('failed','cancelled','completed'):
+            raise ValueError('کار در حال اجرا یا صف قابل تلاش دوباره نیست.')
         with self._cancels_lock: self._cancels.discard(jid)
         self._update(jid,status='queued',error=None,finished_at=None,started_at=None,
                      retry_count=job['retry_count']+1)
