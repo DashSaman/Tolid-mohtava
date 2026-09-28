@@ -1,7 +1,7 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit,parse_qs
-import json, mimetypes, os, secrets, socket
+import json, mimetypes, os, secrets, socket, uuid
 from store import Store
 from registry import skill_registry
 from jobs import JobManager
@@ -228,7 +228,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/whisper/model':
                 return self.respond({'model':WSSET.set_whisper_model(data.get('model'))})
             if self.path=='/api/whisper/benchmark':
-                return self.respond(JM.enqueue('whisper_benchmark',data,idempotency_key='bench:'+now()))
+                return self.respond(JM.enqueue('whisper_benchmark',data,idempotency_key='bench:'+uuid.uuid4().hex))
             if self.path=='/api/sync/save':
                 SYNCSTORE.save(data.get('content_id'),data.get('media_id'),data.get('reference_media_id'),
                                float(data.get('offset_seconds')),data.get('method') or 'manual',float(data.get('confidence',1.0)))
@@ -236,10 +236,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/sync/clear':
                 SYNCSTORE.clear(data.get('media_id')); return self.respond({'ok':True})
             if self.path=='/api/seo/scan':
-                return self.respond(JM.enqueue('seo_scan',{'site':data.get('site')},idempotency_key='seoscan:'+data.get('site','')+':'+now()))
+                return self.respond(JM.enqueue('seo_scan',{'site':data.get('site')},idempotency_key='seoscan:'+data.get('site','')+':'+uuid.uuid4().hex))
             if self.path=='/api/archive/copy':
                 return self.respond(JM.enqueue('archive_copy',{'content_id':data.get('content_id'),'passport_path':data.get('passport_path'),'approved':data.get('approved')},
-                    idempotency_key='archive:'+data.get('content_id','')+':'+now()))
+                    idempotency_key='archive:'+data.get('content_id','')+':'+uuid.uuid4().hex))
             if self.path=='/api/notifications/read': return self.respond({'unread':(NOTIF.mark_read(data.get('id')) or 0) or NOTIF.unread_count()})
             if self.path=='/api/notifications/telegram/test': return self.respond(telegram_send('آزمون اعلان از کارخانه محتوا'))
             if self.path=='/api/ai/providers/save':
