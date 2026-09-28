@@ -14,6 +14,8 @@ from transcribe import parse_timed_text
 from shorts import shorts_candidates, render_short_handler
 from system import health_payload, gpu_probe, drives, dir_size
 from publishing import status as publishing_status, SITES as PUBLISH_SITES
+from ai import AIStore, provider_health, TASKS as AI_TASKS, TASK_FA
+from skill_router import classification_table, STAGE_SKILLS
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -24,9 +26,12 @@ MEDIA=MediaLibrary(DB.path,DATA/'media')
 TRANSCRIPTS=Transcripts(DB.path)
 DECISIONS=EditDecisions(DB.path)
 RENDERS=Renders(DB.path,DATA/'renders')
+AISTORE=AIStore(DB.path)
+POLICY_TEXT=(ROOT.parent/'content-policy.fa.md').read_text(encoding='utf-8')
 JM=JobManager(DB.path,handlers=build_handlers(),workers=2,
               services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
-                        'store':DB,'dryrun_root':str(DATA/'dryrun')})
+                        'store':DB,'dryrun_root':str(DATA/'dryrun'),
+                        'ai':AISTORE,'policy':POLICY_TEXT})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 
@@ -97,6 +102,21 @@ class Handler(BaseHTTPRequestHandler):
                             'dryrun':dir_size(data/'dryrun'),'db':Path(DB.path).stat().st_size if Path(DB.path).exists() else 0},
                     'passport':{'connected':bool(passport),'detail':passport[0] if passport else 'آرشیو خارجی در دسترس نیست'}})
             if url.path=='/api/publishing': return self.respond(publishing_status())
+            if url.path=='/api/ai/providers':
+                rows=[]
+                for p in AISTORE.providers():
+                    p['api_key_env']=p['api_key_env'] or ''
+                    rows.append(p)
+                return self.respond({'providers':rows,'tasks':TASK_FA,
+                                     'classification':classification_table(),'stages':{k:v for k,v in STAGE_SKILLS.items()}})
+            if url.path=='/api/ai/outputs':
+                return self.respond(AISTORE.outputs(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
+            if url.path=='/api/ai/sources':
+                return self.respond(AISTORE.sources(q.get('content_id',[''])[0]))
+            if url.path=='/api/ai/output':
+                o=AISTORE.get_output(q.get('id',[''])[0])
+                if not o: return self.respond({'error':'خروجی پیدا نشد.'},404)
+                return self.respond(o)
             if url.path=='/api/health':
                 qc={}
                 for st in ('queued','running','waiting_approval','completed','failed','cancelled'):
@@ -174,6 +194,11 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
                 t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
                 return self.respond(t)
+            if self.path=='/api/ai/providers/save':
+                return self.respond(AISTORE.save_provider(data.get('name'),data.get('base_url',''),
+                    data.get('model',''),data.get('api_key_env',''),data.get('tasks',[]),data.get('enabled',True)))
+            if self.path=='/api/ai/health':
+                return self.respond(provider_health(AISTORE,data.get('name')))
             if self.path=='/api/assets/state':
                 return self.respond(MEDIA.set_asset_state(data.get('media_id'),data.get('state'),data.get('label')))
             if self.path=='/api/health/gpu':

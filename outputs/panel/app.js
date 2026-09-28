@@ -13,7 +13,7 @@ const faDate=iso=>{try{return new Date(iso).toLocaleString('fa-IR');}catch{retur
 const icon=(id,cls='icon')=>`<svg class="${cls}"><use href="#${id}"/></svg>`;
 
 const mediaKinds={voice:'صوت ایده/دیکته',screen:'ضبط صفحه',face:'فیس‌کم',external_audio:'صدای جدا',broll:'برول',thumbnail:'تصویر/Thumbnail'};
-const jobKinds={transcribe_audio:'تبدیل گفتار به متن',edit_detect:'تحلیل تدوین',render_cut:'رندر',render_short:'رندر عمودی (Short)',publish_dryrun:'بسته پیش‌نمایش انتشار'};
+const jobKinds={transcribe_audio:'تبدیل گفتار به متن',edit_detect:'تحلیل تدوین',render_cut:'رندر',render_short:'رندر عمودی (Short)',publish_dryrun:'بسته پیش‌نمایش انتشار',website_publish:'پیش‌نویس وردپرس',research_topic:'تحقیق موضوع',technical_verification:'بررسی فنی',generate_script:'تولید سناریو',generate_hooks:'تولید هوک',generate_title_packages:'بسته‌های عنوان/کاور',generate_social:'نسخهٔ شبکه‌ها',generate_article:'مقاله و سئو',generate_pinned:'کامنت پین',content_pipeline:'خط تولید کامل AI'};
 const jobStatus={queued:'در صف',running:'در حال اجرا',waiting_approval:'منتظر تأیید شما',completed:'کامل شد',failed:'ناموفق',cancelled:'لغو شد'};
 const jobBadge={queued:'warn',running:'info',waiting_approval:'accent',completed:'ok',failed:'danger',cancelled:'muted'};
 const decFa={active:'حذف خودکار',restored:'بازگردانده‌شده',proposed:'نیاز به بررسی',dismissed:'نگه داشته شد'};
@@ -298,7 +298,7 @@ async function rawUpload(file,kind,contentId){
 }
 
 /* ── project workspace ───────────────────────────────────────── */
-const projTabs=[['overview','نمای کلی'],['research','تحقیق'],['script','سناریو'],['media','رسانه'],['transcript','Transcript'],['edit','تدوین'],['shorts','Shorts'],['thumbs','تصاویر'],['seo','SEO'],['publish','انتشار'],['analytics','Analytics'],['history','تاریخچه']];
+const projTabs=[['overview','نمای کلی'],['research','تحقیق'],['ai','هوش مصنوعی'],['script','سناریو'],['media','رسانه'],['transcript','Transcript'],['edit','تدوین'],['shorts','Shorts'],['thumbs','تصاویر'],['seo','SEO'],['publish','انتشار'],['analytics','Analytics'],['history','تاریخچه']];
 async function pageProject(view){
  let x=items.find(i=>i.id===proj.id);
  if(!x){await loadCore();x=items.find(i=>i.id===proj.id);}
@@ -333,6 +333,7 @@ async function renderProjTab(tab,x,media){
   <div><div class="card"><h2>${icon('i-book')} منابع و بررسی فنی</h2><pre>${esc(x.sources||'منبعی ثبت نشده.')}</pre></div>
   <div class="card"><h2>${icon('i-alert')} یادداشت‌ها</h2><pre>${esc(x.notes||'یادداشتی نیست.')}</pre></div></div></div>`;
  }
+ else if(tab==='ai'){await renderProjAI(el,x);}
  else if(tab==='research'){
   el.innerHTML=`<div class="card"><h2>تحقیق و راستی‌آزمایی</h2>
   <p class="small muted">منابع رسمی مقدم‌اند؛ خروجی تحقیق را در فیلد منابع پرونده ذخیره کنید. تحقیق زنده به اتصال LLM نیاز دارد که عمداً پیکربندی نشده.</p>
@@ -748,14 +749,87 @@ async function pageSources(view){
  view.innerHTML=`<div class="card"><h2>${icon('i-book')} منابع پروژه‌های ${names[brand]}</h2>
  <div class="rows">${items.filter(x=>x.sources).map(x=>`<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.sources.slice(0,120))}…</small></div><div class="actions"><button class="sm" data-openproject="${esc(x.id)}">پرونده</button></div></div>`).join('')||empty('i-book','منبعی ثبت نشده','منابع در پرونده هر پروژه ذخیره می‌شوند.')}</div></div>`;
 }
+async function renderProjAI(el,x){
+ const hasSource=(x.transcript||x.body||'').trim().length>10;
+ el.innerHTML=`
+ <div class="card"><h2>${icon('i-bulb')} خط تولید هوشمند — از ایده/صوت تا سناریوی آماده</h2>
+ <p class="small muted">زنجیره: درک موضوع ← تحقیق با بررسی واقعی منابع ← راستی‌آزمایی فنی ← سناریوی کامل فارسی با مارکر تولید ← هوک‌ها ← بسته‌های عنوان/کاور. همه‌چیز کارِ صف‌شده است و هر مرحله در «کارها» قابل پیگیری است. خروجی‌ها تا تأیید شما در پروژه ثبت نمی‌شوند.</p>
+ <div class="row">
+  <button class="primary" data-aiaction="content_pipeline" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>${icon('i-activity','icon sm')}خط تولید کامل</button>
+  <button class="sm" data-aiaction="research_topic" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>فقط تحقیق</button>
+  <button class="sm" data-aiaction="technical_verification" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>بررسی فنی</button>
+  <button class="sm" data-aiaction="generate_script" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>سناریوی کامل</button>
+  <button class="sm" data-aiaction="generate_hooks" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>هوک‌ها</button>
+  <button class="sm" data-aiaction="generate_title_packages" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>بسته‌های عنوان/کاور</button>
+ </div>
+ <div class="row" style="margin-top:8px">
+  <button class="sm" data-aiaction="generate_social" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>نسخهٔ شبکه‌ها</button>
+  <button class="sm" data-aiaction="generate_article" data-id="${esc(x.id)}" ${(x.transcript||'').trim()?'':'disabled'}>مقاله و سئو (از transcript)</button>
+  <button class="sm" data-aiaction="generate_pinned" data-id="${esc(x.id)}" ${hasSource?'':'disabled'}>کامنت پین</button>
+  <span class="small muted" id="ai-note"></span>
+ </div></div>
+ <div id="ai-outputs">${'<div class="skeleton"></div>'}</div>`;
+ if(!hasSource){$('#ai-note').textContent='برای شروع، ایده یا متن واقعی ضبط را در پرونده ذخیره کنید.';}
+ try{
+  const outs=await api('/api/ai/outputs?content_id='+x.id);
+  const srcs=await api('/api/ai/sources?content_id='+x.id);
+  $('#ai-outputs').innerHTML=aiOutputsHtml(outs,srcs);
+ }catch(err){$('#ai-outputs').innerHTML='';toast(err.message,'err');}
+}
+const outKindFa={research:'تحقیق',verification:'بررسی فنی',script:'سناریو',hooks:'هوک‌ها',title_packages:'بسته‌های عنوان/کاور',social:'نسخهٔ شبکه‌ها',article_seo:'مقاله و سئو',pinned_comment:'کامنت پین',pipeline:'خط تولید'};
+function aiOutputsHtml(outs,srcs){
+ const outHtml=outs.map(o=>{
+  const r=o.result;
+  let body='';
+  if(o.kind==='script'&&r)body=`<pre>${esc(r.script)}</pre><p class="small muted">مارکرها: ${r.markers.map(esc).join(' ')} · ${fa(r.words)} کلمه</p><div class="row"><button class="sm primary" data-savescript="${esc(o.id)}" data-id="${esc(o.content_id)}">ثبت به‌عنوان سناریوی پروژه (نسخهٔ تازه)</button></div>`;
+  else if(o.kind==='hooks'&&r)body=`<div class="rows">${r.hooks.map(h=>`<div class="rowitem"><div class="t"><strong>${esc(h.text)}</strong><small>${esc(h.angle)}</small></div></div>`).join('')}</div>`;
+  else if(o.kind==='title_packages'&&r)body=`<div class="grid2">${r.packages.map(pk=>`<div class="card" style="margin:0"><h4>${esc(pk.name)}</h4><p><b>عنوان:</b> ${esc(pk.title)}</p><p><b>هوک:</b> ${esc(pk.hook)}</p><p><b>کاور:</b> ${esc(pk.thumbnail)}</p><p class="small muted">${esc(pk.reason)}</p></div>`).join('')}</div>`;
+  else if(o.kind==='research'&&r)body=`<p><b>هدف:</b> ${esc(r.intent)} · <b>مخاطب:</b> ${esc(r.audience)}</p><p><b>نکته‌های کلیدی:</b> ${(r.key_points||[]).map(esc).join(' · ')}</p>${r.needs_verification&&r.needs_verification.length?`<div class="banner warn"><strong>${fa(r.needs_verification.length)} مورد NEEDS VERIFICATION</strong>${r.needs_verification.map(v=>esc(v)).join(' — ')}</div>`:''}<p><b>فصل‌بندی:</b> ${(r.structure||[]).map(esc).join(' → ')}</p>`;
+  else if(o.kind==='verification'&&r)body=`<p>${esc(r.summary)}</p><div class="rows">${(r.checks||[]).map(c=>`<div class="rowitem"><div class="t"><strong>${esc(c.claim)}</strong><small>${esc(c.kind)} · ${esc(c.source||'بدون منبع')} ${esc(c.note||'')}</small></div><div class="actions"><span class="badge ${c.status==='verified'?'ok':c.status==='wrong'?'danger':'warn'}">${({verified:'تأیید شد',needs_verification:'نیاز به بررسی',wrong:'نادرست'})[c.status]||c.status}</span></div></div>`).join('')}</div>`;
+  else if(o.kind==='social'&&r)body=`<div class="rows">${r.variants.map(v=>`<div class="rowitem"><div class="t"><strong>${esc(v.platform)}</strong><small>${esc((v.body||'').slice(0,160))}…</small><br><small>CTA: ${esc(v.cta)}</small></div></div>`).join('')}</div>`;
+  else if(o.kind==='article_seo'&&r)body=`<p><b>عنوان:</b> ${esc(r.title)} · <b>slug:</b> <code>${esc(r.slug)}</code></p><p><b>متا:</b> ${esc(r.meta_description)}</p><p><b>کلمهٔ کلیدی:</b> ${esc(r.primary_keyword)} · ثانویه: ${(r.secondary_keywords||[]).map(esc).join('، ')}</p>${(r.external_reference_status&&Object.keys(r.external_reference_status).length)?`<p class="small muted">وضعیت منابع خارجی: ${Object.entries(r.external_reference_status).map(([u,s])=>`${esc(u)} = ${s==='live'?'زنده':'نیاز به بررسی'}`).join(' · ')}</p>`:''}<details><summary>متن مقاله</summary>${(r.sections||[]).map(s=>`<h3>${esc(s.h2)}</h3><p>${esc(s.text)}</p>`).join('')}</details>`;
+  else if(o.kind==='pinned_comment'&&r)body=`<pre>${esc(r.comment)}</pre>`;
+  else if(o.status==='parse_error')body=`<div class="banner warn"><strong>خروجی مدل JSON نبود</strong>متن خام ذخیره شد؛ دوباره تلاش کنید یا برای این وظیفه مدل قوی‌تری انتخاب کنید.</div><details><summary>متن خام</summary><pre>${esc((o.raw||'').slice(0,1500))}</pre></details>`;
+  return `<div class="card"><div class="cardhead"><h2>${icon('i-bulb')} ${outKindFa[o.kind]||o.kind}</h2>
+   <span class="small muted">${faDate(o.created_at)} · ${esc(o.provider||'')} ${esc(o.model||'')}</span></div>${body||''}</div>`;
+ }).join('');
+ const srcHtml=srcs.length?`<div class="card"><h2>${icon('i-book')} منابع تحقیق (${fa(srcs.length)})</h2><div class="rows">${srcs.map(s=>`<div class="rowitem"><div class="t"><strong>${esc(s.claim.slice(0,110))}</strong><small><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a> · ${esc(s.note||'')}</small></div><div class="actions"><span class="badge ${s.status==='live'?'ok':'warn'}">${s.status==='live'?'منبع زنده':'نیاز به بررسی'}</span></div></div>`).join('')}</div></div>`:'';
+ return outHtml+srcHtml||empty('i-bulb','هنوز خروجی AI ثبت نشده','دکمه‌های بالا کارهای هوشمند را در صف اجرا می‌گذارند.');
+}
 async function pageSettings(view){
+ let aiHtml='<div class="skeleton"></div>';
  view.innerHTML=`
+ <div class="card" id="ai-settings"><div class="cardhead"><h2>${icon('i-cpu')} هوش مصنوعی — Providerها و وظایف</h2><button class="sm" id="ai-refresh">به‌روزرسانی</button></div><div id="ai-providers">${aiHtml}</div>
+ <details style="margin-top:10px"><summary>افزودن / ویرایش Provider</summary>
+ <div class="formgrid"><label>نام<input id="ap-name" placeholder="مثلاً lmstudio"></label><label>نشانی پایه (OpenAI-compatible)<input id="ap-url" placeholder="http://127.0.0.1:1234/v1"></label>
+ <label>مدل (خالی = پیش‌فرض سرور)<input id="ap-model" placeholder="qwen2.5-7b-instruct"></label><label>نام متغیر محیطی کلید (بدون خود کلید!)<input id="ap-key" placeholder="OPENAI_API_KEY"></label></div>
+ <div class="row" style="margin-top:10px"><button class="sm primary" id="ap-save">ذخیره Provider</button></div>
+ <p class="small muted">کلید در دیتابیس یا فایل ذخیره نمی‌شود؛ فقط نام متغیر محیطی ثبت می‌شود و مقدارش در هیچ صفحه‌ای نمایش داده نمی‌شود.</p></details>
+ <div id="ai-tasks"></div></div>
  <div class="grid2">
  <div class="card"><h2>پروفایل ${names[brand]}</h2><pre>${esc(profile['about-me']||'')}</pre></div>
  <div><div class="card"><h2>لحن فارسی</h2><pre>${esc(profile['voice']||'')}</pre></div>
  <div class="card"><h2>هویت بصری</h2><pre>${esc(profile['brand-kit']||'')}</pre></div></div></div>
  <div class="card"><h2>سیاست محتوایی مشترک</h2><pre style="max-height:260px">${esc(policy)}</pre>
  <p class="small muted">ویرایش دائمی این فایل‌ها از طریق Codex انجام می‌شود؛ رنگ و هویت برند از فایل پروفایل خوانده می‌شود و رنگ رسمی ساختگی در پنل تعریف نشده است.</p></div>`;
+ const loadAI=async()=>{
+  try{
+   const d=await api('/api/ai/providers');
+   $('#ai-providers').innerHTML=`<div class="rows">${d.providers.map(p=>`<div class="rowitem"><div class="t"><strong>${esc(p.name)}</strong><small><code>${esc(p.base_url||'—')}</code> · مدل: ${esc(p.model||'پیش‌فرض سرور')} · وظایف: ${p.tasks.map(t=>esc(d.tasks[t]||t)).join('، ')||'—'}</small>${p.last_health?`<small>آخرین بررسی: ${esc(p.last_health_detail||'')}</small>`:''}</div>
+   <div class="actions"><span class="badge ${p.last_health&&p.last_health.startsWith('ok')?'ok':p.last_health&&p.last_health.includes('CREDENTIAL')?'warn':'danger'}">${p.last_health?p.last_health.startsWith('ok')?'سالم':p.last_health.includes('CREDENTIAL')?'نیازمند Credential':'قطع':'بررسی نشده'}</span>
+   <button class="sm" data-aihealth="${esc(p.name)}">بررسی سلامت</button></div></div>`).join('')}</div>`;
+   $('#ai-tasks').innerHTML=`<h3 style="margin:12px 0 6px">طبقه‌بندی ۱۷ اسکیل در اجرای خودکار</h3><div class="chiprow">${d.classification.map(c=>`<span class="badge ${c.classification==='AUTOMATED'?'ok':c.classification==='BLOCKED_BY_CREDENTIAL'?'warn':''}" title="${esc(c.id)}">${esc(c.id)}: ${esc(c.classification_fa)}</span>`).join('')}</div>`;
+   $$('[data-aihealth]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await api('/api/ai/health',{name:b.dataset.aihealth});toast((r.ok?'سالم: ':'قطع: ')+(r.detail||''),'ok');await loadAI();}catch(e){toast(e.message,'err');}b.disabled=false;});
+  }catch(err){$('#ai-providers').innerHTML='';toast(err.message,'err');}
+ };
+ loadAI();
+ $('#ai-refresh').onclick=loadAI;
+ $('#ap-save').onclick=async()=>{
+  try{
+   await api('/api/ai/providers/save',{name:$('#ap-name').value.trim(),base_url:$('#ap-url').value.trim(),model:$('#ap-model').value.trim(),api_key_env:$('#ap-key').value.trim(),tasks:[]});
+   toast('Provider ذخیره شد — سلامتش را بررسی کنید','ok');await loadAI();
+  }catch(e){toast(e.message,'err');}
+ };
 }
 
 /* ── skills page ─────────────────────────────────────────────── */
@@ -881,6 +955,24 @@ document.addEventListener('click',async e=>{
   }
   else if(b.dataset.shortrender){}
   else if(b.dataset.job)await jobDetail(b.dataset.job);
+  else if(b.dataset.aiaction){
+   b.disabled=true;
+   const j=await enqueueJob(b.dataset.aiaction,{content_id:b.dataset.id},b.dataset.aiaction+':'+b.dataset.id);
+   if(j)await trackJob(j.id);
+   b.disabled=false;
+  }
+  else if(b.dataset.savescript){
+   const ok=await confirmBox('ثبت سناریوی AI','سناریوی تولیدشده به‌عنوان نسخهٔ تازه در پروژه ثبت می‌شود و تأییدهای نسخهٔ قبل باطل خواهد شد. ادامه؟');
+   if(ok){
+    const o=await api('/api/ai/output?id='+b.dataset.savescript);
+    await loadCore();
+    const cur=items.find(i=>i.id===b.dataset.id);
+    if(!cur||!o.result){throw new Error('پروژه یا خروجی پیدا نشد.');}
+    cur.body=o.result.script;
+    await api('/api/items',cur);await loadCore();await render();
+    toast('سناریو به‌عنوان نسخهٔ تازه ثبت شد؛ برای ضبط تأیید کنید','ok');
+   }
+  }
   else if(b.dataset.jobaction){await jobAction(b.dataset.jobaction,b.dataset.id);$$('dialog[open]').forEach(d=>d.close());toast('انجام شد','ok');await render();}
   else if(b.id==='media-upload')await uploadMediaFlow();
   else if(b.id==='transcript-save'){await api('/api/transcripts',{media_id:b.dataset.media,text:$('#transcript-edit').value});await mediaDetail(b.dataset.media);toast('نسخه تازه متن ذخیره شد','ok');}
