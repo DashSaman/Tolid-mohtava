@@ -360,8 +360,24 @@ async function renderProjTab(tab,x,media){
   <div class="formgrid"><label>نوع<select id="pm-kind">${['screen','face','external_audio','voice','broll'].map(k=>`<option value="${k}">${mediaKinds[k]}</option>`).join('')}</select></label>
   <label class="dropzone" id="pm-drop" style="margin-top:19px">${icon('i-upload')}انتخاب فایل<input id="pm-file" type="file" accept="audio/*,video/*" style="display:none"></label></div>
   <div id="pm-state" class="small muted"></div>
-  <div class="rows" style="margin-top:12px">${media.filter(m=>m.kind!=='thumbnail').map(mediaRow).join('')||empty('i-film','رسانه‌ای متصل نیست','ضبط صفحه، فیس‌کم یا صدای جدا را آپلود کنید. فایل اصلی تغییرناپذیر است.')}</div></div>`;
+  <div class="row" style="margin-top:10px"><button class="sm primary" data-synccontent="${esc(x.id)}">${icon('i-activity','icon sm')}همگام‌سازی خودکار تراک‌ها</button><span class="small muted">موج‌forme + تشخیص کلپ؛ افست دستی هم امکان‌پذیر است.</span></div>
+  <div class="rows" style="margin-top:12px" id="pm-list">${media.filter(m=>m.kind!=='thumbnail').map(mediaRow).join('')||empty('i-film','رسانه‌ای متصل نیست','ضبط صفحه، فیس‌کم یا صدای جدا را آپلود کنید. فایل اصلی تغییرناپذیر است.')}</div></div>`;
   bindMediaUpload(el,x);
+  api('/api/sync?content_id='+x.id).then(offsets=>{
+    const map={};offsets.forEach(o=>map[o.media_id]=o);
+    el.querySelectorAll('#pm-list [data-mediadetail]').forEach(b=>{
+      const o=map[b.dataset.mediadetail];
+      if(o)b.closest('.rowitem').querySelector('.t').insertAdjacentHTML('beforeend',
+        `<small>همگام‌سازی: ${o.offset_seconds>=0?'+':''}${Number(o.offset_seconds).toFixed(2)}s · اطمینان ${fa(Math.round(o.confidence*100))}٪ ${o.confidence<0.6?'⚠ نیاز به بازبینی':''}</small>`);
+    });
+  }).catch(()=>{});
+  const syncBtn=el.querySelector('[data-synccontent]');
+  if(syncBtn)syncBtn.onclick=async()=>{
+    syncBtn.disabled=true;
+    const j=await enqueueJob('sync_content',{content_id:syncBtn.dataset.synccontent},'sync:'+syncBtn.dataset.synccontent);
+    if(j)await trackJob(j.id);
+    syncBtn.disabled=false;
+  };
  }
  else if(tab==='transcript'){
   const withT=media.filter(m=>m.kind!=='thumbnail');
@@ -667,9 +683,34 @@ async function pageAnalytics(view){
  view.innerHTML=`<div class="card">${empty('i-chart','حساب متصل نیست','پس از اتصال OAuth، تحلیل مستقل هر پلتفرم اینجا می‌نشیند. تا آن زمان هیچ نمودار ساختگی نمایش داده نمی‌شود.')}</div>`;
 }
 async function pageSeo(view){
- view.innerHTML=`<div class="card"><h2>${icon('i-search')} چک‌لیست پیش از انتشار وب</h2>
- <ul>${['هدف جست‌وجو، کلمه اصلی و کلمات مرتبط','عنوان، توضیح متا و ساختار تیترها','لینک داخلی، منابع و نشانی صفحه','متن جایگزین تصاویر و داده ساختاریافته','canonical، indexability و محتوای تکراری','تفکیک نسخه tehnet.ir از mytel.one'].map(x=>`<li>${x}</li>`).join('')}</ul>
- <p class="small muted">crawl خودکار به سرویس DispatchSEO وابسته است که اتصالش تأیید نشده — پس ادعا نمی‌کنیم.</p></div>`;
+ view.innerHTML=`
+ <div class="card"><div class="cardhead"><h2>${icon('i-search')} اسکن واقعی سئوی سایت</h2>
+ <div class="row"><select id="seo-site" style="max-width:180px"><option value="tehnet.ir">tehnet.ir</option><option value="mytel.one">mytel.one</option></select>
+ <button class="sm primary" id="seo-run">اجرای اسکن (تا ۲۵ صفحه)</button></div></div>
+ <div id="seo-result">${'<div class="skeleton"></div>'}</div></div>
+ <div class="card"><h2>چک‌لیست مقاله پیش از انتشار</h2>
+ <ul>${['هدف جست‌وجو، کلمه اصلی و کلمات مرتبط','عنوان، توضیح متا و ساختار تیترها','لینک داخلی، منابع و نشانی صفحه','متن جایگزین تصاویر و داده ساختاریافته','canonical، indexability و محتوای تکراری'].map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+ const loadScans=async()=>{
+  const d=await api('/api/seo/scans?site='+$('#seo-site').value+'&full=1');
+  const latest=d.scans[0];
+  $('#seo-result').innerHTML=latest?`
+  <div class="stats"><div class="stat ${latest.issues?'warn':'ok'}"><span>مشکل‌های یافت‌شده</span><b>${fa(latest.issues)}</b></div>
+  <div class="stat"><span>صفحات اسکن‌شده</span><b>${fa((latest.summary||{}).pages_scanned||0)}</b></div>
+  <div class="stat"><span>تاریخ اسکن</span><b style="font-size:1rem">${faDate(latest.created_at)}</b></div></div>
+  ${(latest.summary||{}).infra?`<p class="small muted">robots: ${esc((latest.summary.infra.robots||''))} · sitemap: ${esc((latest.summary.infra.sitemap||''))} (${fa((latest.summary.infra.sitemap_urls)||0)} نشانی)</p>`:''}
+  ${(latest.summary||{}).duplicate_titles&&latest.summary.duplicate_titles.length?`<div class="banner warn"><strong>عنوان تکراری</strong>${latest.summary.duplicate_titles.map(t=>esc(t.title)+' — '+fa(t.pages.length)+' صفحه').join(' · ')}</div>`:''}
+  <details><summary>تاریخچهٔ اسکن‌ها (${fa(d.scans.length)}) — اسکن‌های قبلی حفظ می‌شوند</summary>
+  <div class="rows">${d.scans.map(sc=>`<div class="rowitem"><div class="t"><strong>${fa(sc.issues)} مشکل</strong><small>${faDate(sc.created_at)}</small></div><div class="actions"><span class="badge ${sc.issues?'warn':'ok'}">${sc.issues?'نیاز به توجه':'سالم'}</span></div></div>`).join('')}</div></details>`
+  :empty('i-search','هنوز اسکنی اجرا نشده','دکمهٔ اجرای اسکن، سایت را واقعاً می‌خزد و نتیجه را تاریخچه می‌کند.');
+ };
+ loadScans();
+ $('#seo-run').onclick=async()=>{
+  try{
+   const j=await api('/api/seo/scan',{site:$('#seo-site').value});
+   toast('اسکن در صف قرار گرفت؛ ز خزش واقعی سایت','ok');
+   await trackJob(j.id); await loadScans();
+  }catch(e){toast(e.message,'err');}
+ };
 }
 
 /* ── jobs ────────────────────────────────────────────────────── */
@@ -708,9 +749,17 @@ async function pageStorage(view){
  <div class="grid2"><div class="card"><h2>${icon('i-hdd')} مصرف پنل روی دیسک</h2>
  <div class="kv"><dt>رسانه‌های RAW</dt><dd>${humanSize(d.data.media)}</dd><dt>رندرها</dt><dd>${humanSize(d.data.renders)}</dd><dt>بسته‌های dry-run</dt><dd>${humanSize(d.data.dryrun)}</dd><dt>پایگاه داده</dt><dd>${humanSize(d.data.db)}</dd></div></div>
  <div class="card"><h2>${icon('i-hdd')} آرشیو خارجی (My Passport)</h2>
- ${d.passport.connected?`<span class="badge ok">متصل</span><p class="small muted">${esc(d.passport.detail.letter)} ${esc(d.passport.detail.label||'')} · ${gb(d.passport.detail.free)} گیگابایت آزاد</p>`
+ ${d.passport.connected?`<span class="badge ok">متصل</span><p class="small muted">${esc(d.passport.detail.letter)} ${esc(d.passport.detail.label||'')} · ${gb(d.passport.detail.free)} گیگابایت آزاد</p>
+ <div class="row" style="margin-top:8px"><label>پروژه<select id="arch-content" style="max-width:240px">${items.map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('')||'<option value="">پروژه‌ای نیست</option>'}</select></label>
+ <button class="sm primary" id="arch-run">کپی روی آرشیو + تأیید checksum</button></div>
+ <p class="small muted">کپی بدون حذف انجام می‌شود؛ حذف نسخهٔ SSD فقط بعداً و با تأیید جداگانهٔ شما.</p>`
  :`<span class="badge danger">آرشیو خارجی در دسترس نیست</span><p class="small muted">هیچ حذف خودکاری انجام نمی‌شود؛ پیشنهاد آرشیو فقط پس از اتصال و با تأیید شما.</p>`}</div></div>`;
  view.querySelectorAll('.progressfill').forEach(n=>n.style.width=(n.dataset.w||0)+'%');
+ if($('#arch-run'))$('#arch-run').onclick=async()=>{
+  const cid=$('#arch-content').value;if(!cid){toast('پروژه را انتخاب کنید','err');return;}
+  const j=await enqueueJob('archive_copy',{content_id:cid,passport_path:d.passport.detail.letter},'archive:'+cid);
+  if(j)await trackJob(j.id);
+ };
 }
 async function pageServices(view){
  const h=await api('/api/health');healthData=h;
@@ -806,6 +855,8 @@ async function pageSettings(view){
  let aiHtml='<div class="skeleton"></div>';
  view.innerHTML=`
  <div class="card" id="ai-settings"><div class="cardhead"><h2>${icon('i-cpu')} هوش مصنوعی — Providerها و وظایف</h2><button class="sm" id="ai-refresh">به‌روزرسانی</button></div><div id="ai-providers">${aiHtml}</div>
+ <div id="ai-whisper" style="margin-top:14px"></div>
+ <div id="ai-credentials" style="margin-top:14px"></div>
  <details style="margin-top:10px"><summary>افزودن / ویرایش Provider</summary>
  <div class="formgrid"><label>نام<input id="ap-name" placeholder="مثلاً lmstudio"></label><label>نشانی پایه (OpenAI-compatible)<input id="ap-url" placeholder="http://127.0.0.1:1234/v1"></label>
  <label>مدل (خالی = پیش‌فرض سرور)<input id="ap-model" placeholder="qwen2.5-7b-instruct"></label><label>نام متغیر محیطی کلید (بدون خود کلید!)<input id="ap-key" placeholder="OPENAI_API_KEY"></label></div>
@@ -830,6 +881,41 @@ async function pageSettings(view){
  };
  loadAI();
  $('#ai-refresh').onclick=loadAI;
+ // whisper engine card
+ (async()=>{
+  try{
+   const w=await api('/api/whisper/settings');
+   $('#ai-whisper').innerHTML=`<div class="row"><label>مدل تبدیل گفتار<select id="wh-model" style="max-width:180px">${w.models.map(m=>`<option value="${m}" ${m===w.model?'selected':''}>${m}${m==='medium'?' — پیشنهادشده':''}</option>`).join('')}</select></label>
+   <button class="sm" id="wh-save">ذخیره مدل</button>
+   <button class="sm" id="wh-bench">بنچمارک با صدای فارسی</button><span id="wh-state" class="small muted"></span></div>
+   ${w.benchmarks.length?`<div class="table-wrap"><table class="table"><thead><tr><th>مدل</th><th>دستگاه</th><th>مدت صوت</th><th>زمان پردازش</th><th>RTF</th><th>هم‌پوشانی متن</th><th>نمونه</th></tr></thead><tbody>
+   ${w.benchmarks.map(b=>`<tr><td>${esc(b.model)}</td><td>${esc(b.device)}</td><td>${b.audio_seconds?b.audio_seconds+'s':'—'}</td><td>${b.transcribe_seconds}s</td><td>${b.rtf}</td><td>%${fa(b.rough_overlap)}</td><td class="small muted">${esc(b.sample_name)}</td></tr>`).join('')}</tbody></table></div>`
+   :'<p class="small muted">هنوز بنچمارکی ثبت نشده؛ دکمهٔ بنچمارک با نمونهٔ فارسی واقعی اجرا می‌کند.</p>'}
+   <p class="small muted">RTF کمتر از ۱ یعنی سریع‌تر از زمان واقعی. پیش‌فرض پیشنهادی این دستگاه بر اساس بنچمارک واقعی فارسی ثبت شده است.</p>`;
+   $('#wh-save').onclick=async()=>{try{await api('/api/whisper/model',{model:$('#wh-model').value});toast('مدل ذخیره شد؛ تبدیل‌های بعدی با همین مدل اجرا می‌شود','ok');}catch(e){toast(e.message,'err');}};
+   $('#wh-bench').onclick=async()=>{
+    try{
+     const j=await api('/api/whisper/benchmark',{models:['small','medium'],audio_path:'work/persian-sample.mp3',reference_text:'سلام دوستان. در این ویدیو می‌خواهیم تنظیمات مودم را به صورت کامل بررسی کنیم.'});
+     $('#wh-state').textContent='بنچمارک در جریان است…';
+     await trackJob(j.id); await loadAI();
+    }catch(e){toast(e.message,'err');}
+   };
+  }catch{}
+ })();
+ // credential center
+ (async()=>{
+  try{
+   const [pub,dests]=await Promise.all([api('/api/publishing'),api('/api/ai/providers')]);
+   const rows=[
+    ...dests.providers.map(p=>({name:'AI · '+p.name,env:p.api_key_env||'—',state:p.last_health?(p.last_health.startsWith('ok')?'connected':p.last_health.includes('CREDENTIAL')?'credential':'invalid'):'untested'})),
+    ...dests.providers.filter(p=>p.name==='lmstudio'||p.name==='ollama').map(()=>null).filter(Boolean),
+   ];
+   $('#ai-credentials').innerHTML=`<div class="rows">${pub.map(d=>`<div class="rowitem"><div class="t"><strong>${esc(d.destination)}</strong><small>${esc(d.detail)}</small></div><div class="actions"><span class="badge ${d.state==='ready'?'ok':'warn'}">${d.state==='ready'?'متصل':'نیازمند Credential'}</span></div></div>`).join('')}
+   <div class="rowitem"><div class="t"><strong>Google Search Console</strong><small>برای تحلیل جست‌وجوی tehnet.ir و mytel.one — OAuth با scope reading</small></div><div class="actions"><span class="badge warn">نیازمند Credential</span></div></div>
+   <div class="rowitem"><div class="t"><strong>Telegram</strong><small>TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID در environment — دکمهٔ آزمون در صفحه اعلان‌ها</small></div><div class="actions"><span class="badge warn">نیازمند Credential</span></div></div></div>
+   <p class="small muted">مقادیر Secret هرگز نمایش داده نمی‌شوند؛ فقط نام متغیر محیطی و وضعیت تست.</p>`;
+  }catch{}
+ })();
  $('#ap-save').onclick=async()=>{
   try{
    await api('/api/ai/providers/save',{name:$('#ap-name').value.trim(),base_url:$('#ap-url').value.trim(),model:$('#ap-model').value.trim(),api_key_env:$('#ap-key').value.trim(),tasks:[]});
@@ -880,6 +966,7 @@ function renderMediaDetail(m,trevs,report,renders){
  <video controls preload="metadata" id="media-player" src="/api/media/file?id=${esc(m.id)}"></video>
  <div class="row" style="margin:12px 0"><button class="sm" data-transcribe="${esc(m.id)}">تبدیل گفتار به متن</button>
  <button class="sm" data-editdetect="${esc(m.id)}">تحلیل تدوین</button>
+ <button class="sm" data-enhanceaudio="${esc(m.id)}">بهبود صوت</button>
  <button class="sm" data-renderkind="preview" data-media="${esc(m.id)}">ساخت Preview</button>
  <button class="sm primary" data-renderkind="final" data-media="${esc(m.id)}">نسخه نهایی (تأیید در مرکز تأیید)</button>
  <span class="badge accent">GPU/CPU انتخاب خودکار</span></div>
@@ -948,6 +1035,7 @@ document.addEventListener('click',async e=>{
   else if(b.dataset.trev){currentTrev=Number(b.dataset.trev);await mediaDetail(currentMedia);}
   else if(b.dataset.transcribe){b.disabled=true;const j=await enqueueJob('transcribe_audio',{media_id:b.dataset.transcribe},'transcribe:'+b.dataset.transcribe);if(j)await trackJob(j.id);b.disabled=false;}
   else if(b.dataset.editdetect){b.disabled=true;const j=await enqueueJob('edit_detect',{media_id:b.dataset.editdetect},'edit_detect:'+b.dataset.editdetect);if(j)await trackJob(j.id);b.disabled=false;}
+  else if(b.dataset.enhanceaudio){b.disabled=true;const j=await enqueueJob('enhance_audio',{media_id:b.dataset.enhanceaudio},'enhance:'+b.dataset.enhanceaudio);if(j)await trackJob(j.id);b.disabled=false;}
   else if(b.dataset.decisionState){b.disabled=true;await decisionState(b.dataset.decisionState,b.dataset.state);}
   else if(b.dataset.renderkind){
    b.disabled=true;

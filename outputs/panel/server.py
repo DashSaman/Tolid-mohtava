@@ -17,7 +17,12 @@ from publishing import status as publishing_status, SITES as PUBLISH_SITES
 from ai import AIStore, provider_health, TASKS as AI_TASKS, TASK_FA
 from skill_router import classification_table, STAGE_SKILLS
 from notifications import Notifications, telegram_send, KIND_FA
+from whisper_config import WhisperSettings, benchmark_handler, WHISPER_MODELS
+from sync import SyncStore, sync_content_handler, enhance_audio_handler
+from seo_engine import SEOStore, seo_scan_handler, SITES as SEO_SITES
+from ops import Auth, ArchiveStore, archive_copy_handler, hash_password
 from handlers import build_handlers
+import handlers as HandlersMod
 
 ROOT=Path(__file__).resolve().parent
 PORT=int(os.environ.get('TEHNET_PANEL_PORT','8766'))
@@ -28,12 +33,20 @@ TRANSCRIPTS=Transcripts(DB.path)
 DECISIONS=EditDecisions(DB.path)
 RENDERS=Renders(DB.path,DATA/'renders')
 AISTORE=AIStore(DB.path)
+WSSET=WhisperSettings(DB.path)
+SYNCSTORE=SyncStore(DB.path)
+SEOSTORE=SEOStore(DB.path)
+ARCHIVE=ArchiveStore(DB.path)
+AUTH=Auth()
 NOTIF=Notifications(DB.path)
 POLICY_TEXT=(ROOT.parent/'content-policy.fa.md').read_text(encoding='utf-8')
-JM=JobManager(DB.path,handlers=build_handlers(),workers=2,
+JM=JobManager(DB.path,handlers=build_handlers()|{
+  'whisper_benchmark':benchmark_handler,'sync_content':sync_content_handler,
+  'enhance_audio':enhance_audio_handler,'seo_scan':seo_scan_handler,'archive_copy':archive_copy_handler},workers=2,
               services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
                         'store':DB,'dryrun_root':str(DATA/'dryrun'),
-                        'ai':AISTORE,'policy':POLICY_TEXT})
+                        'ai':AISTORE,'policy':POLICY_TEXT,
+                        'whisper_settings':WSSET,'sync':SYNCSTORE,'seo':SEOSTORE,'archive':ARCHIVE})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 
@@ -95,6 +108,14 @@ class Handler(BaseHTTPRequestHandler):
                 names=RENDERS.media_names()
                 for r in rows: r['media_name']=names.get(r['media_id'],'')
                 return self.respond(rows)
+            if url.path=='/api/seo/scans':
+                site=q.get('site',['tehnet.ir'])[0]
+                scans=SEOSTORE.scans(site)
+                if 'full' in q and scans:
+                    scans[0]['pages']=SEOSTORE.scan_pages(scans[0]['id'])
+                return self.respond({'site':site,'scans':scans})
+            if url.path=='/api/archive': return self.respond(ARCHIVE.list())
+            if url.path=='/api/sync': return self.respond(SYNCSTORE.for_content(q.get('content_id',[''])[0]))
             if url.path=='/api/storage':
                 data=Path(DB.path).parent
                 ssd=[d for d in drives() if str(data).lower().startswith(d['letter'].lower())]
@@ -105,6 +126,7 @@ class Handler(BaseHTTPRequestHandler):
                     'passport':{'connected':bool(passport),'detail':passport[0] if passport else 'آرشیو خارجی در دسترس نیست'}})
             if url.path=='/api/publishing': return self.respond(publishing_status())
             if url.path=='/api/notifications': return self.respond({'items':NOTIF.list(),'unread':NOTIF.unread_count()})
+            if url.path=='/api/whisper/settings': return self.respond({'model':WSSET.whisper_model(),'models':list(WHISPER_MODELS),'benchmarks':WSSET.benchmarks()})
             if url.path=='/api/ai/providers':
                 rows=[]
                 for p in AISTORE.providers():
@@ -197,6 +219,27 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
                 t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
                 return self.respond(t)
+            if self.path=='/api/auth/login':
+                if not AUTH.enabled: return self.respond({'ok':True,'note':'احراز هویت فعال نیست؛ پنل فقط روی loopback است.'})
+                r=AUTH.login(data.get('username'),data.get('password'),self.client_address[0])
+                return self.respond(r,200 if r.get('ok') else 401)
+            if self.path=='/api/auth/logout':
+                AUTH.logout(self.headers.get('X-Panel-Token')); return self.respond({'ok':True})
+            if self.path=='/api/whisper/model':
+                return self.respond({'model':WSSET.set_whisper_model(data.get('model'))})
+            if self.path=='/api/whisper/benchmark':
+                return self.respond(JM.enqueue('whisper_benchmark',data,idempotency_key='bench:'+now()))
+            if self.path=='/api/sync/save':
+                SYNCSTORE.save(data.get('content_id'),data.get('media_id'),data.get('reference_media_id'),
+                               float(data.get('offset_seconds')),data.get('method') or 'manual',float(data.get('confidence',1.0)))
+                return self.respond({'ok':True})
+            if self.path=='/api/sync/clear':
+                SYNCSTORE.clear(data.get('media_id')); return self.respond({'ok':True})
+            if self.path=='/api/seo/scan':
+                return self.respond(JM.enqueue('seo_scan',{'site':data.get('site')},idempotency_key='seoscan:'+data.get('site','')+':'+now()))
+            if self.path=='/api/archive/copy':
+                return self.respond(JM.enqueue('archive_copy',{'content_id':data.get('content_id'),'passport_path':data.get('passport_path'),'approved':data.get('approved')},
+                    idempotency_key='archive:'+data.get('content_id','')+':'+now()))
             if self.path=='/api/notifications/read': return self.respond({'unread':(NOTIF.mark_read(data.get('id')) or 0) or NOTIF.unread_count()})
             if self.path=='/api/notifications/telegram/test': return self.respond(telegram_send('آزمون اعلان از کارخانه محتوا'))
             if self.path=='/api/ai/providers/save':
