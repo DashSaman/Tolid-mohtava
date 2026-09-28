@@ -177,7 +177,7 @@ node --check outputs/panel/app.js
 
 ## مراحل بعد، هنوز انجام‌نشده
 
-همگام‌سازی چند دوربین (فیس‌کم + ضبط صفحه + صدای جدا)؛ تولید Short/Reel؛ انتشار واقعی پلتفرم‌ها با OAuth (فعلاً فقط بسته dry-run)؛ اعلان ایمیل/Telegram؛ ورود Analytics واقعی و برنامه‌ریزی تطبیقی؛ Storage Manager و آرشیو با اجازه روی My Passport. وضعیت دقیق و به‌روز هر قابلیت در `docs/implementation-status.json` و `docs/CONTINUATION_STATUS.md` ثبت می‌شود.
+انتشار واقعی پلتفرم‌ها و Analytics واقعی (هر دو آماده ولی نیازمند OAuth شما)؛ تولید تصویر Gemini (نیازمند کلید). همگام‌سازی چند دوربین، تدوین غیرمخرب، رندر، Shorts (ساده + رتبه‌بندی هوشمند V2)، معماری Analytics با snapshotهای append-only، حلقهٔ یادگیری، زمان‌بندی تطبیقی، بهینه‌سازی پس از انتشار، برنامهٔ هفتگی، جریان پیشنهادهای سئو، آرشیو My Passport، احراز هویت و مرکز اتصال حساب‌ها اکنون **پیاده‌سازی و تست‌شده‌اند**. وضعیت دقیق هر قابلیت در `docs/implementation-status.json` و `docs/CONTINUATION_STATUS.md`.
 
 ## انتساب و مجوز
 

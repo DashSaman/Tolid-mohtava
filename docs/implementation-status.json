@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-28 (operational hardening session)",
+  "updated": "2026-09-28 (intelligence + security session)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -585,9 +585,139 @@
       "evidence": "settings card lists all integrations + env names + states",
       "dependencies": [],
       "blocker": null
+    },
+    {
+      "id": "analytics-architecture",
+      "name": "Analytics adapters+append-only snapshots+sync jobs+UI (8 platforms incl GSC)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "snapshot append-only + metric validation tested; adapters honest BLOCKED_BY_CREDENTIAL; manual recording path for real data",
+      "dependencies": [],
+      "blocker": "ingestion execution needs OAuth per platform"
+    },
+    {
+      "id": "learning-loop",
+      "name": "Learning loop: stored performance drives scheduling recommendations with WHY/EVIDENCE/SAMPLE/CONFIDENCE",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "BASELINE with 0 data claims nothing; DATA_DRIVEN after >=8 records cites evidence",
+      "dependencies": [
+        "analytics-architecture"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "adaptive-scheduling",
+      "name": "Posting-time engine per brand/platform (BASELINE→DATA_DRIVEN auto-switch)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "clear winner slot found from injected history",
+      "dependencies": [
+        "learning-loop"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "post-publish-optimization",
+      "name": "Optimization patterns→approval proposals (no universal 48h; needs >=3 comparable)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "HIGH_IMPRESSIONS_LOW_CTR fires on real numbers; no history=no claims",
+      "dependencies": [
+        "analytics-architecture"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "weekly-planner",
+      "name": "Weekly content plan grounded in local evidence (projects/performance/SEO)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "plan carries sample_size and real evidence summary via fake LLM",
+      "dependencies": [
+        "learning-loop"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "seo-fix-workflow",
+      "name": "SEO detect→explain→propose (+approval via proposals); real sitemap diagnosis recorded",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "proposals from real scan shape; tehnet.ir sitemap.xml 301→wp-sitemap.xml 404 confirmed live",
+      "dependencies": [
+        "sitewide-seo"
+      ],
+      "blocker": "applying fixes to sites needs WP credential"
+    },
+    {
+      "id": "smart-shorts-v2",
+      "name": "Shorts V2 multi-signal ranking with forced angle diversity",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "diverse angles enforced; why+score per candidate",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "integration-center",
+      "name": "«اتصال حساب‌ها» page: 8 services with scopes/env names/setup/test",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_intelligence.py"
+      ],
+      "evidence": "adapters honest; real connection test endpoint",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "security-review",
+      "name": "Focused security tests (auth brute-force, SSRF guard, upload validation, approval forgery, session)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_security_recovery.py"
+      ],
+      "evidence": "12 regression tests; CSP unchanged strict",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "failure-recovery",
+      "name": "Restart-mid-queue, worker/FFmpeg/LLM failure, archive disconnect, duplicate publish",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_security_recovery.py"
+      ],
+      "evidence": "all fail safely with state preserved and RAW untouched",
+      "dependencies": [],
+      "blocker": null
     }
   ],
-  "last_commit": "5919b5a",
+  "last_commit": "68af7f1 (+ security commit)",
   "known_blockers_environment": [
     "Qwen2.5-7B Persian-capable model download stalled on slow network; resume: lms get \"qwen2.5-7b-instruct@q4_k_m\" then set model in Settings->AI",
     "GSC/social OAuth still absent -> adapters remain BLOCKED_BY_CREDENTIAL",
@@ -598,5 +728,5 @@
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "python unittest 67/67 OK (3x consecutive); real SEO scan tehnet.ir 24 pages/31 issues; real whisper Persian benchmark small vs medium on CUDA"
+  "last_tests": "python unittest 89/89 OK"
 }
