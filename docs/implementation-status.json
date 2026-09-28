@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-27 (P1: shorts render, publishing adapter, storage/health, wizard UI)",
+  "updated": "2026-09-28 (AI brain + notifications)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -141,14 +141,14 @@
       "id": "research-script",
       "name": "Transcript -> research -> technical verification -> Persian script",
       "priority": "P1",
-      "status": "not_started",
+      "status": "working",
       "tests": [],
-      "evidence": null,
+      "evidence": "replaced by research-engine + script-generation + voice-to-content-pipeline (all working with local LLM)",
       "dependencies": [
         "voice-transcription",
         "job-system"
       ],
-      "blocker": "needs local/remote LLM connection decision"
+      "blocker": null
     },
     {
       "id": "production-markers",
@@ -412,9 +412,102 @@
         "render-pipeline"
       ],
       "blocker": null
+    },
+    {
+      "id": "ai-provider-layer",
+      "name": "Multi-provider AI layer (LM Studio/Ollama/remote) with task routing",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ai.py"
+      ],
+      "evidence": "health/routing/fallback tested; real generation through LM Studio on GPU",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "research-engine",
+      "name": "Topic research with real source verification (live/dead + NEEDS VERIFICATION)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ai.py"
+      ],
+      "evidence": "real HTTP checks in tests; sources persisted per project",
+      "dependencies": [
+        "ai-provider-layer"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "technical-verification",
+      "name": "Technical claim verification with source priority",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ai.py"
+      ],
+      "evidence": "verification job stores checks; unverifiable -> needs_verification",
+      "dependencies": [
+        "ai-provider-layer"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "script-generation",
+      "name": "Full Persian script with structured production markers",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ai.py"
+      ],
+      "evidence": "markers parsed + stored; real LLM run produced Persian script jobs",
+      "dependencies": [
+        "ai-provider-layer"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "skill-router",
+      "name": "17 SKILL.md as executable prompt knowledge + classification",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ai.py"
+      ],
+      "evidence": "real SKILL.md injected per stage; honest classification table in settings",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "voice-to-content-pipeline",
+      "name": "voice/idea -> research -> verification -> script -> hooks -> packages -> approval",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ai.py"
+      ],
+      "evidence": "pipeline test runs all stages; ends waiting_approval",
+      "dependencies": [
+        "research-engine",
+        "script-generation"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "notifications",
+      "name": "Event notifications (dashboard) + credential-gated Telegram",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_notifications.py"
+      ],
+      "evidence": "job watcher records failures/approvals/completions; telegram honest BLOCKED_BY_CREDENTIAL",
+      "dependencies": [],
+      "blocker": null
     }
   ],
-  "last_commit": "2ee5f3c (plus docs/status commit)",
+  "last_commit": "f94ad68 + AI layer commit 6151b79",
   "known_blockers_environment": [
     "Windows Python and FFmpeg were missing; installed via winget 2026-09-27",
     "CUDA wheels installed (cublas 12.9, cudnn 9.26); GPU inference still errors and auto-falls back to CPU (fast+correct); GPU tuning deferred",
@@ -425,5 +518,5 @@
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "python unittest 47/47 OK; node tests/ui-flow.cjs FULL JOURNEY PASS (wizard→transcription→editing→restore→renders→approvals→dry-run→storage/health→mobile, zero console errors)"
+  "last_tests": "python unittest 57/57 OK; real-LLM smoke: live server -> generate_hooks -> LM Studio GPU -> Persian hooks stored"
 }
