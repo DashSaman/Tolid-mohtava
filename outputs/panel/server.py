@@ -16,6 +16,7 @@ from system import health_payload, gpu_probe, drives, dir_size
 from publishing import status as publishing_status, SITES as PUBLISH_SITES
 from ai import AIStore, provider_health, TASKS as AI_TASKS, TASK_FA
 from skill_router import classification_table, STAGE_SKILLS
+from notifications import Notifications, telegram_send, KIND_FA
 from handlers import build_handlers
 
 ROOT=Path(__file__).resolve().parent
@@ -27,6 +28,7 @@ TRANSCRIPTS=Transcripts(DB.path)
 DECISIONS=EditDecisions(DB.path)
 RENDERS=Renders(DB.path,DATA/'renders')
 AISTORE=AIStore(DB.path)
+NOTIF=Notifications(DB.path)
 POLICY_TEXT=(ROOT.parent/'content-policy.fa.md').read_text(encoding='utf-8')
 JM=JobManager(DB.path,handlers=build_handlers(),workers=2,
               services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
@@ -102,6 +104,7 @@ class Handler(BaseHTTPRequestHandler):
                             'dryrun':dir_size(data/'dryrun'),'db':Path(DB.path).stat().st_size if Path(DB.path).exists() else 0},
                     'passport':{'connected':bool(passport),'detail':passport[0] if passport else 'آرشیو خارجی در دسترس نیست'}})
             if url.path=='/api/publishing': return self.respond(publishing_status())
+            if url.path=='/api/notifications': return self.respond({'items':NOTIF.list(),'unread':NOTIF.unread_count()})
             if url.path=='/api/ai/providers':
                 rows=[]
                 for p in AISTORE.providers():
@@ -194,6 +197,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
                 t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
                 return self.respond(t)
+            if self.path=='/api/notifications/read': return self.respond({'unread':(NOTIF.mark_read(data.get('id')) or 0) or NOTIF.unread_count()})
+            if self.path=='/api/notifications/telegram/test': return self.respond(telegram_send('آزمون اعلان از کارخانه محتوا'))
             if self.path=='/api/ai/providers/save':
                 return self.respond(AISTORE.save_provider(data.get('name'),data.get('base_url',''),
                     data.get('model',''),data.get('api_key_env',''),data.get('tasks',[]),data.get('enabled',True)))
@@ -231,7 +236,34 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e: self.respond({'error':str(e)},400)
         except Exception: self.respond({'error':'ذخیره رسانه ناموفق بود؛ فضای دیسک را بررسی کنید.'},500)
 
+_JOB_STATES={}
+def _watch_jobs():
+    """Record meaningful job transitions as dashboard notifications (no spam:
+    only failures, waiting-approvals and finished renders/AI work)."""
+    import time
+    while True:
+        try:
+            for j in JM.list(limit=40):
+                st=_JOB_STATES.get(j['id'])
+                if st and st!=j['status']:
+                    kind=j['kind']
+                    if j['status']=='failed':
+                        NOTIF.add('job_failed',(jobKinds_fa().get(kind,kind)+' ناموفق بود'),j.get('error') or '',j['id'])
+                    elif j['status']=='waiting_approval':
+                        NOTIF.add('approval_needed',(jobKinds_fa().get(kind,kind)+' منتظر تأیید شماست'),'',j['id'])
+                    elif j['status']=='completed' and kind in ('render_cut','render_short','content_pipeline','generate_script','research_topic'):
+                        NOTIF.add('render_done' if kind.startswith('render') else 'ai_done',(jobKinds_fa().get(kind,kind)+' کامل شد'),'',j['id'])
+                _JOB_STATES[j['id']]=j['status']
+        except Exception:
+            pass
+        time.sleep(8)
+
+def jobKinds_fa():
+    return {'transcribe_audio':'تبدیل گفتار به متن','edit_detect':'تحلیل تدوین','render_cut':'رندر','render_short':'رندر عمودی','publish_dryrun':'بسته انتشار','website_publish':'پیش‌نویس وردپرس','research_topic':'تحقیق','technical_verification':'بررسی فنی','generate_script':'سناریو','generate_hooks':'هوک‌ها','generate_title_packages':'بسته‌های عنوان/کاور','generate_social':'نسخهٔ شبکه‌ها','generate_article':'مقاله','generate_pinned':'کامنت پین','content_pipeline':'خط تولید'}
+
 if __name__=='__main__':
+    import threading
+    threading.Thread(target=_watch_jobs,daemon=True).start()
     server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
     print(f'Panel: http://127.0.0.1:{PORT}',flush=True)
     server.serve_forever()

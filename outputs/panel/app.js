@@ -733,17 +733,23 @@ async function pageServices(view){
 /* ── notifications / sources / settings ──────────────────────── */
 async function pageNotifications(view){
  await loadJobs();await loadCore();
+ const [notif,]=await Promise.all([api('/api/notifications')]);
  const pending=items.filter(x=>x.script_status!=='approved'||x.publish_status!=='approved');
  const failed=jobs.filter(j=>j.status==='failed');
  const waiting=jobs.filter(j=>j.status==='waiting_approval');
  view.innerHTML=`
- <div class="card"><h2>${icon('i-bell')} نیازمند توجه شما</h2>
+ <div class="card"><div class="cardhead"><h2>${icon('i-bell')} اعلان‌های ثبت‌شده${notif.unread?` <span class="badge danger">${fa(notif.unread)} خوانده‌نشده</span>`:''}</h2>
+ <div class="row"><button class="sm" id="notif-read">${icon('i-check','icon sm')}خواندن همه</button><button class="sm" id="notif-telegram">آزمون Telegram</button></div></div>
+ <div class="rows">${notif.items.map(n=>`<div class="rowitem" style="${n.read?'opacity:.55':''}"><div class="t"><strong>${esc(n.title)}</strong><small>${esc(n.body||'')} · ${faDate(n.created_at)}</small></div><div class="actions"><span class="badge ${n.kind==='job_failed'?'danger':n.kind==='approval_needed'?'warn':'info'}">${({approval_needed:'تأیید',job_failed:'ناموفق',render_done:'رندر',ai_done:'هوشمند'})[n.kind]||n.kind}</span></div></div>`).join('')||empty('i-bell','اعلانی ثبت نشده','رویدادهای مهم (شکست کار، نیاز به تأیید، رندر کامل) اینجا ثبت می‌شوند.')}</div></div>
+ <div class="card"><h2>${icon('i-activity')} وضعیت زندهٔ پروژه‌ها</h2>
  <div class="rows">
  ${pending.map(x=>`<div class="rowitem"><div class="t"><strong>تأییدهای پروژه «${esc(x.title)}» ناقص است</strong><small>سناریو: ${x.script_status} · انتشار: ${x.publish_status}</small></div><div class="actions"><button class="sm" data-openproject="${esc(x.id)}">بررسی</button></div></div>`).join('')}
  ${waiting.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]} منتظر تأیید شماست</strong><small>${faDate(j.created_at)}</small></div><div class="actions"><button class="sm" data-goto="approvals">مرکز تأیید</button></div></div>`).join('')}
  ${failed.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]} ناموفق بود</strong><small>${esc((j.error||'').slice(0,90))}</small></div><div class="actions"><button class="sm" data-goto="jobs">صف کارها</button></div></div>`).join('')}
  ${(pending.length+waiting.length+failed.length)?'':empty('i-bell','همه چیز مرتب است','هیچ مورد بازی وجود ندارد.')}</div></div>
- <p class="small muted">ارسال Telegram/ایمیل به Credential نیاز دارد و عمداً پیکربندی نشده است.</p>`;
+ <p class="small muted">ارسال Telegram به TELEGRAM_BOT_TOKEN و TELEGRAM_CHAT_ID در environment نیاز دارد؛ بدون آن، دکمهٔ آزمون صادقانه «BLOCKED_BY_CREDENTIAL» برمی‌گرداند.</p>`;
+ $('#notif-read').onclick=async()=>{await api('/api/notifications/read',{});await render();};
+ $('#notif-telegram').onclick=async()=>{try{const r=await api('/api/notifications/telegram/test',{});toast(r.ok?'در Telegram ارسال شد':(r.blocked||r.detail||'ارسال نشد'),r.ok?'ok':'err');}catch(e){toast(e.message,'err');}};
 }
 async function pageSources(view){
  view.innerHTML=`<div class="card"><h2>${icon('i-book')} منابع پروژه‌های ${names[brand]}</h2>
