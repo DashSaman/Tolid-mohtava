@@ -1,956 +1,980 @@
 {
-  "schema": 1,
-  "updated": "2026-09-29 overnight",
-  "repo": "https://github.com/DashSaman/Tolid-mohtava",
-  "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
-  "features": [
-    {
-      "id": "content-ledger",
-      "name": "Content records, brand separation, versioning",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_store.py"
-      ],
-      "evidence": "unittest 47/47 OK 2026-09-27",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "versioned-approvals",
-      "name": "Script/publish approvals, invalidation on edit, idempotent same-state",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_store.py"
-      ],
-      "evidence": "unittest 47/47 OK 2026-09-27",
-      "dependencies": [
-        "content-ledger"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "history-export",
-      "name": "History snapshots + JSON export",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_http.py"
-      ],
-      "evidence": "unittest 47/47 OK 2026-09-27",
-      "dependencies": [
-        "content-ledger"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "skills-install",
-      "name": "17 pinned skills with hash-verified install",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_install.py"
-      ],
-      "evidence": "unittest 47/47 OK 2026-09-27",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "manual-prompt-mode",
-      "name": "Persian skill prompt package builder",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/ui-flow.cjs"
-      ],
-      "evidence": "unittest 47/47 OK 2026-09-27",
-      "dependencies": [
-        "skills-install"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "local-panel-http",
-      "name": "Loopback HTTP panel with Host/Origin/Token checks",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_http.py"
-      ],
-      "evidence": "unittest 47/47 OK 2026-09-27",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "panel-auth",
-      "name": "Username/password auth + session hardening",
-      "priority": "P1",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "job-system",
-      "name": "Persistent job queue: queued/running/waiting_approval/completed/failed/cancelled, progress, logs, retry, survives restart",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_jobs.py",
-        "tests/test_http.py"
-      ],
-      "evidence": "restart recovery, idempotency, approval gates tested; 47/47",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "media-ingest",
-      "name": "Voice/screen/face/external-audio upload, immutable originals",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_media.py",
-        "tests/test_http.py"
-      ],
-      "evidence": "sha256, immutable originals, ranged streaming; 47/47",
-      "dependencies": [
-        "job-system"
-      ],
-      "blocker": null,
-      "note": "duration probing at ingest; thumbnail kind for image assets"
-    },
-    {
-      "id": "voice-transcription",
-      "name": "Audio upload -> Persian transcription with timestamps, editable + versioned transcript (faster-whisper, GPU if compatible)",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_media.py",
-        "tests/test_e2e.py"
-      ],
-      "evidence": "real faster-whisper run OK (CPU fallback); GPU engages when CUDA wheels installed; 47/47 tests",
-      "dependencies": [
-        "media-ingest"
-      ],
-      "blocker": null,
-      "note": "model_size configurable via job payload; UI config pending; GPU needs cuDNN debugging (falls back to CPU automatically and correctly)"
-    },
-    {
-      "id": "research-script",
-      "name": "Transcript -> research -> technical verification -> Persian script",
-      "priority": "P1",
-      "status": "working",
-      "tests": [],
-      "evidence": "replaced by research-engine + script-generation + voice-to-content-pipeline (all working with local LLM)",
-      "dependencies": [
-        "voice-transcription",
-        "job-system"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "production-markers",
-      "name": "Parseable script markers [FACE CAM] [SCREEN RECORD] ...",
-      "priority": "P1",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "research-script"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "media-sync",
-      "name": "Multi-track sync (waveform/clap/timestamp) + manual offset UI on low confidence",
-      "priority": "P0",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "media-ingest"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "automatic-editing",
-      "name": "Conservative detection: silence, long pause, false start, repeat, retake, fillers",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_editing.py"
-      ],
-      "evidence": "real FFmpeg silencedetect fixture; conservative states tested",
-      "dependencies": [
-        "voice-transcription"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "non-destructive-edit",
-      "name": "Edit decisions stored separately: start, end, reason, confidence, origin, active/restored",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_editing.py",
-        "tests/test_e2e.py"
-      ],
-      "evidence": "restore/dismiss persist across re-analysis; originals untouched",
-      "dependencies": [
-        "automatic-editing"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "edit-report",
-      "name": "Persian edit report with timestamps + seek links",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_editing.py",
-        "tests/ui-flow.cjs"
-      ],
-      "evidence": "Persian report with seekable Persian-digit timestamps in UI test",
-      "dependencies": [
-        "non-destructive-edit"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "transcript-timeline",
-      "name": "Transcript linked to video time, click-to-seek, remove/restore/keep/flag",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/ui-flow.cjs"
-      ],
-      "evidence": "click-to-seek segments verified in browser test",
-      "dependencies": [
-        "non-destructive-edit"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "audio-processing",
-      "name": "Noise reduction/normalization without overprocessing",
-      "priority": "P1",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "media-ingest"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "render-pipeline",
-      "name": "Preview + final render, NVENC when available, media versions RAW/EDIT V1..N/FINAL",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_render.py",
-        "tests/test_e2e.py"
-      ],
-      "evidence": "real renders: durations respect cuts+restore, NVENC detected, versions EDIT V1..N/FINAL",
-      "dependencies": [
-        "non-destructive-edit"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "storage-manager",
-      "name": "SSD usage, project sizes, archive suggestions with approval",
-      "priority": "P1",
-      "status": "working",
-      "tests": [],
-      "evidence": "real drive enumeration (ctypes), panel data sizes, My Passport detection (E:\\ found); archive execution remains P1",
-      "dependencies": [
-        "media-ingest"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "archive-passport",
-      "name": "Archive to external HDD with checksum + explicit approval, never auto-delete",
-      "priority": "P1",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "storage-manager"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "repurpose-shorts",
-      "name": "Short/Reel candidates 2-3, 9:16 layout for screen tutorials",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/ui-flow.cjs"
-      ],
-      "evidence": "candidate heuristic from real transcript + 9:16 blurred-bg render (render_short) + versions; browser-tested",
-      "dependencies": [
-        "render-pipeline"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "hook-title-thumbnail",
-      "name": "Coordinated packages: 1 primary + >=3 alternatives",
-      "priority": "P1",
-      "status": "partial",
-      "tests": [],
-      "evidence": "prompt-only via skills; no data packages",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "thumbnail-assets",
-      "name": "Thumbnail generate/import/store/version/approve",
-      "priority": "P1",
-      "status": "blocked",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [],
-      "blocker": "BLOCKED_BY_CREDENTIAL: Gemini/Apify keys absent"
-    },
-    {
-      "id": "publishing-adapters",
-      "name": "Postiz/n8n/custom adapter, approval -> draft/schedule/publish, dry-run first",
-      "priority": "P1",
-      "status": "partial",
-      "tests": [],
-      "evidence": "dry-run packages live; WordPress draft adapter live (credential-gated); social OAuth still missing",
-      "dependencies": [
-        "job-system"
-      ],
-      "blocker": "publishing OAuth needs user credentials; dry-run only until then"
-    },
-    {
-      "id": "website-connector",
-      "name": "tehnet.ir / mytel.one CMS discovery + draft->approval->publish",
-      "priority": "P1",
-      "status": "partial",
-      "tests": [],
-      "evidence": "publishing.py wordpress_draft adapter + approval-gated website_publish job + /api/publishing statuses; CMS probed 2026-09-27: both sites WordPress (wp-json live)",
-      "dependencies": [
-        "publishing-adapters"
-      ],
-      "blocker": "WP Application Password not set (adapter live: WordPress REST verified on both sites)"
-    },
-    {
-      "id": "analytics-ingestion",
-      "name": "Per-platform real metrics, history preserved",
-      "priority": "P2",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "job-system"
-      ],
-      "blocker": "platform API credentials required"
-    },
-    {
-      "id": "adaptive-scheduling",
-      "name": "Data-sufficiency-based schedule recommendations",
-      "priority": "P2",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "analytics-ingestion"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "learning-loop",
-      "name": "Store decisions + outcomes for future recommendations",
-      "priority": "P2",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "analytics-ingestion"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "notifications",
-      "name": "Dashboard + Telegram + Email for approvals/failures/ready",
-      "priority": "P1",
-      "status": "partial",
-      "tests": [],
-      "evidence": "dashboard list only",
-      "dependencies": [],
-      "blocker": "TELEGRAM_BOT_TOKEN / SMTP credentials absent"
-    },
-    {
-      "id": "remote-access",
-      "name": "Mobile access via existing Tailscale/Cloudflare Tunnel",
-      "priority": "P1",
-      "status": "not_started",
-      "tests": [],
-      "evidence": null,
-      "dependencies": [
-        "panel-auth"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "end-to-end-test",
-      "name": "Critical E2E fixture: voice->transcript->script->approve->ingest->edit->restore->render->dry-run->archive",
-      "priority": "P0",
-      "status": "working",
-      "tests": [
-        "tests/test_e2e.py"
-      ],
-      "evidence": "critical path on real job system + real FFmpeg; speech engine faked for determinism",
-      "dependencies": [
-        "render-pipeline"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "ai-provider-layer",
-      "name": "Multi-provider AI layer (LM Studio/Ollama/remote) with task routing",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ai.py"
-      ],
-      "evidence": "health/routing/fallback tested; real generation through LM Studio on GPU",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "research-engine",
-      "name": "Topic research with real source verification (live/dead + NEEDS VERIFICATION)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ai.py"
-      ],
-      "evidence": "real HTTP checks in tests; sources persisted per project",
-      "dependencies": [
-        "ai-provider-layer"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "technical-verification",
-      "name": "Technical claim verification with source priority",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ai.py"
-      ],
-      "evidence": "verification job stores checks; unverifiable -> needs_verification",
-      "dependencies": [
-        "ai-provider-layer"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "script-generation",
-      "name": "Full Persian script with structured production markers",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ai.py"
-      ],
-      "evidence": "markers parsed + stored; real LLM run produced Persian script jobs",
-      "dependencies": [
-        "ai-provider-layer"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "skill-router",
-      "name": "17 SKILL.md as executable prompt knowledge + classification",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ai.py"
-      ],
-      "evidence": "real SKILL.md injected per stage; honest classification table in settings",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "voice-to-content-pipeline",
-      "name": "voice/idea -> research -> verification -> script -> hooks -> packages -> approval",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ai.py"
-      ],
-      "evidence": "pipeline test runs all stages; ends waiting_approval",
-      "dependencies": [
-        "research-engine",
-        "script-generation"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "notifications",
-      "name": "Event notifications (dashboard) + credential-gated Telegram",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_notifications.py"
-      ],
-      "evidence": "job watcher records failures/approvals/completions; telegram honest BLOCKED_BY_CREDENTIAL",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "whisper-model-control",
-      "name": "Whisper model selection + real Persian benchmark (medium recommended, RTF 0.11 overlap 76% on CUDA)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ops.py"
-      ],
-      "evidence": "edge-tts fa-IR sample benchmarked; benchmarks table in settings UI; live DB default=medium",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "multi-track-sync",
-      "name": "Face/Screen/Audio sync: envelope correlation + clap + manual offset + confidence",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ops.py"
-      ],
-      "evidence": "real FFmpeg audio fixtures; known offset found; manual override persisted",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "audio-enhancement",
-      "name": "Conservative FFmpeg enhancement chain -> ENHANCED Vn new file",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ops.py"
-      ],
-      "evidence": "RAW untouched; enhancement renders verified",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "sitewide-seo",
-      "name": "Real crawler SEO scans for tehnet.ir/mytel.one with history",
-      "priority": "P1",
-      "status": "working",
-      "tests": [],
-      "evidence": "live scan: 24 pages, 31 issues, sitemap missing on tehnet.ir; scans stored historically",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "auth",
-      "name": "Optional env-based admin auth (PBKDF2 + sessions + rate limit)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ops.py"
-      ],
-      "evidence": "enable/disable/rate-limit tested; required before any remote exposure",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "archive-workflow",
-      "name": "My Passport archive: approval -> copy -> checksum verify; deletion separate approval",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ops.py"
-      ],
-      "evidence": "approval-gated job verified checksums in test; RAW never auto-deleted",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "credential-center",
-      "name": "Persian credential/integration center (no secrets shown)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [],
-      "evidence": "settings card lists all integrations + env names + states",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "analytics-architecture",
-      "name": "Analytics adapters+append-only snapshots+sync jobs+UI (8 platforms incl GSC)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "snapshot append-only + metric validation tested; adapters honest BLOCKED_BY_CREDENTIAL; manual recording path for real data",
-      "dependencies": [],
-      "blocker": "ingestion execution needs OAuth per platform"
-    },
-    {
-      "id": "learning-loop",
-      "name": "Learning loop: stored performance drives scheduling recommendations with WHY/EVIDENCE/SAMPLE/CONFIDENCE",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "BASELINE with 0 data claims nothing; DATA_DRIVEN after >=8 records cites evidence",
-      "dependencies": [
-        "analytics-architecture"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "adaptive-scheduling",
-      "name": "Posting-time engine per brand/platform (BASELINE→DATA_DRIVEN auto-switch)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "clear winner slot found from injected history",
-      "dependencies": [
-        "learning-loop"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "post-publish-optimization",
-      "name": "Optimization patterns→approval proposals (no universal 48h; needs >=3 comparable)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "HIGH_IMPRESSIONS_LOW_CTR fires on real numbers; no history=no claims",
-      "dependencies": [
-        "analytics-architecture"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "weekly-planner",
-      "name": "Weekly content plan grounded in local evidence (projects/performance/SEO)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "plan carries sample_size and real evidence summary via fake LLM",
-      "dependencies": [
-        "learning-loop"
-      ],
-      "blocker": null
-    },
-    {
-      "id": "seo-fix-workflow",
-      "name": "SEO detect→explain→propose (+approval via proposals); real sitemap diagnosis recorded",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "proposals from real scan shape; tehnet.ir sitemap.xml 301→wp-sitemap.xml 404 confirmed live",
-      "dependencies": [
-        "sitewide-seo"
-      ],
-      "blocker": "applying fixes to sites needs WP credential"
-    },
-    {
-      "id": "smart-shorts-v2",
-      "name": "Shorts V2 multi-signal ranking with forced angle diversity",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "diverse angles enforced; why+score per candidate",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "integration-center",
-      "name": "«اتصال حساب‌ها» page: 8 services with scopes/env names/setup/test",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_intelligence.py"
-      ],
-      "evidence": "adapters honest; real connection test endpoint",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "security-review",
-      "name": "Focused security tests (auth brute-force, SSRF guard, upload validation, approval forgery, session)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_security_recovery.py"
-      ],
-      "evidence": "12 regression tests; CSP unchanged strict",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "failure-recovery",
-      "name": "Restart-mid-queue, worker/FFmpeg/LLM failure, archive disconnect, duplicate publish",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_security_recovery.py"
-      ],
-      "evidence": "all fail safely with state preserved and RAW untouched",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "qwen-default",
-      "name": "Qwen2.5-7B-Instruct Q4_K_M default LLM (Llama fallback kept)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/bench_models.py real runs"
-      ],
-      "evidence": "5/5 Persian tasks OK both models; Qwen on-topic article 5 sections vs Llama topic-drift; panel provider pinned to qwen",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "structured-output-reliability",
-      "name": "Layered JSON extraction+repair+retry+schema (fixes real article parse_error)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_reliability.py"
-      ],
-      "evidence": "the exact failed Llama markdown sample now parses; real article runs complete with valid schema",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "sync-v2",
-      "name": "Sync preprocessing (common format) + windowed Pearson",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_ops.py"
-      ],
-      "evidence": "AAC/22kHz/quiet case 0.21→0.99 conf; E2E face/screen offset -1.2@0.99 in DB",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "crawl-policy",
-      "name": "Configurable safe crawl (pages/delay/timeout/depth, hard ceilings)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_reliability.py"
-      ],
-      "evidence": "clamping tested; defaults 25/1s/15/3",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "ga4-adapter",
-      "name": "GA4 Data API adapter + snapshot integration",
-      "priority": "P1",
-      "status": "blocked_by_credential",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "gated fetch raises honestly; status/env documented",
-      "dependencies": [],
-      "blocker": "GA4_PROPERTY_ID + GA4_ACCESS_TOKEN"
-    },
-    {
-      "id": "keyword-provider",
-      "name": "KeywordDataProvider (Google Ads/Planner as one provider) + keyword_data store",
-      "priority": "P1",
-      "status": "partial",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "store+manual ingestion working; Ads API gated",
-      "dependencies": [],
-      "blocker": "google-ads==25.1.0 installed + real adapter READY_FOR_CREDENTIAL (5 env vars)"
-    },
-    {
-      "id": "search-intel-provider",
-      "name": "SearchIntelligence/SERP provider abstraction",
-      "priority": "P2",
-      "status": "blocked_by_credential",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "abstraction + honest unavailable state; no scraping without key",
-      "dependencies": [],
-      "blocker": "SERP_API_KEY optional"
-    },
-    {
-      "id": "kb-rag",
-      "name": "Content Knowledge Base (traceable retrieval, no vector DB yet)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "index+search with ref_type/ref_id citation",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "cannibalization",
-      "name": "Dedup/cannibalization detection feeding planner",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "5 verdicts with evidence",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "evergreen-refresh",
-      "name": "Evergreen refresh engine (age+real-CTR signals)",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "priority ranking tested",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "content-optimization-engine",
-      "name": "Unified SEO/AEO/GEO/AI-Search optimization engine",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "4 dimensions scored",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "observability",
-      "name": "Job observability + POSSIBLY_STUCK + retry cap 5",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "stale detection + cap enforced",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "ruflo-optional",
-      "name": "Ruflo optional isolated adapter (states, version pin, degraded mode)",
-      "priority": "P2",
-      "status": "working",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "disabled/unavailable/mismatch/available states; core never depends on it",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "screaming-frog-adapter",
-      "name": "ScreamingFrog adapter + export normalizer; internal crawler fallback",
-      "priority": "P2",
-      "status": "working",
-      "tests": [
-        "tests/test_integrations_kb.py"
-      ],
-      "evidence": "honest unavailable state; CSV normalizer implemented",
-      "dependencies": [],
-      "blocker": "Optional licensed install + SCREAMING_FROG_PATH"
-    },
-    {
-      "id": "portability",
-      "name": "Bootstrap/Verify/.env.example/ENV manifest/Backup/Restore scripts",
-      "priority": "P1",
-      "status": "working",
-      "tests": [],
-      "evidence": "Verify-Installation on this machine: READY_WITH_OPTIONAL_WARNINGS (LM Studio off at check time)",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "fa-docs-screenshots",
-      "name": "Persian end-user docs + 15 real UI screenshots",
-      "priority": "P1",
-      "status": "working",
-      "tests": [],
-      "evidence": "docs/README.fa.md + 5 guides; images from live panel with real E2E data",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "ui-glass-v3",
-      "name": "Premium AURORA glass UI v3: hero+pipeline node-flow+first-class integrations page; root-caused stale-panel serving issue",
-      "priority": "P1",
-      "status": "working",
-      "tests": [
-        "work smoke 13/13 v2"
-      ],
-      "evidence": "REAL screenshots docs/images/fa-v3 (27 jpg, 1920/1366/393); dashboard pipeline with DONE/ACTIVE/WAIT states; 11 premium integration cards with env guides+test; port-fallback launcher (8766 occupied by protected AutoClaw legacy proxy -> auto 8767); smoke 13/13 adapted&pass; regression 109/109; E2E rerun logged",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "ui-kb-keywords-checktopic-evergreen",
-      "name": "KB search/reindex + manual keywords + checktopic + evergreen UI",
-      "priority": "P2",
-      "status": "working",
-      "tests": [
-        "route tour 0 http>=400"
-      ],
-      "evidence": "sources/planner pages wired to real APIs; live-checked",
-      "dependencies": [],
-      "blocker": null
-    },
-    {
-      "id": "brand-route-bug",
-      "name": "500 on /api/content/refresh|checktopic (undefined brand)",
-      "priority": "P0",
-      "status": "fixed",
-      "tests": [
-        "live curl + tour"
-      ],
-      "evidence": "q.get brand fallback; both endpoints live OK",
-      "dependencies": [],
-      "blocker": null
-    }
+ "schema": 1,
+ "updated": "2026-09-30 release v1.0.0-local-ready",
+ "repo": "https://github.com/DashSaman/Tolid-mohtava",
+ "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
+ "features": [
+  {
+   "id": "content-ledger",
+   "name": "Content records, brand separation, versioning",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_store.py"
+   ],
+   "evidence": "unittest 47/47 OK 2026-09-27",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "versioned-approvals",
+   "name": "Script/publish approvals, invalidation on edit, idempotent same-state",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_store.py"
+   ],
+   "evidence": "unittest 47/47 OK 2026-09-27",
+   "dependencies": [
+    "content-ledger"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "history-export",
+   "name": "History snapshots + JSON export",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_http.py"
+   ],
+   "evidence": "unittest 47/47 OK 2026-09-27",
+   "dependencies": [
+    "content-ledger"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "skills-install",
+   "name": "17 pinned skills with hash-verified install",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_install.py"
+   ],
+   "evidence": "unittest 47/47 OK 2026-09-27",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "manual-prompt-mode",
+   "name": "Persian skill prompt package builder",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/ui-flow.cjs"
+   ],
+   "evidence": "unittest 47/47 OK 2026-09-27",
+   "dependencies": [
+    "skills-install"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "local-panel-http",
+   "name": "Loopback HTTP panel with Host/Origin/Token checks",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_http.py"
+   ],
+   "evidence": "unittest 47/47 OK 2026-09-27",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "panel-auth",
+   "name": "Username/password auth + session hardening",
+   "priority": "P1",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "job-system",
+   "name": "Persistent job queue: queued/running/waiting_approval/completed/failed/cancelled, progress, logs, retry, survives restart",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_jobs.py",
+    "tests/test_http.py"
+   ],
+   "evidence": "restart recovery, idempotency, approval gates tested; 47/47",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "media-ingest",
+   "name": "Voice/screen/face/external-audio upload, immutable originals",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_media.py",
+    "tests/test_http.py"
+   ],
+   "evidence": "sha256, immutable originals, ranged streaming; 47/47",
+   "dependencies": [
+    "job-system"
+   ],
+   "blocker": null,
+   "note": "duration probing at ingest; thumbnail kind for image assets"
+  },
+  {
+   "id": "voice-transcription",
+   "name": "Audio upload -> Persian transcription with timestamps, editable + versioned transcript (faster-whisper, GPU if compatible)",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_media.py",
+    "tests/test_e2e.py"
+   ],
+   "evidence": "real faster-whisper run OK (CPU fallback); GPU engages when CUDA wheels installed; 47/47 tests",
+   "dependencies": [
+    "media-ingest"
+   ],
+   "blocker": null,
+   "note": "model_size configurable via job payload; UI config pending; GPU needs cuDNN debugging (falls back to CPU automatically and correctly)"
+  },
+  {
+   "id": "research-script",
+   "name": "Transcript -> research -> technical verification -> Persian script",
+   "priority": "P1",
+   "status": "working",
+   "tests": [],
+   "evidence": "replaced by research-engine + script-generation + voice-to-content-pipeline (all working with local LLM)",
+   "dependencies": [
+    "voice-transcription",
+    "job-system"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "production-markers",
+   "name": "Parseable script markers [FACE CAM] [SCREEN RECORD] ...",
+   "priority": "P1",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "research-script"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "media-sync",
+   "name": "Multi-track sync (waveform/clap/timestamp) + manual offset UI on low confidence",
+   "priority": "P0",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "media-ingest"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "automatic-editing",
+   "name": "Conservative detection: silence, long pause, false start, repeat, retake, fillers",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_editing.py"
+   ],
+   "evidence": "real FFmpeg silencedetect fixture; conservative states tested",
+   "dependencies": [
+    "voice-transcription"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "non-destructive-edit",
+   "name": "Edit decisions stored separately: start, end, reason, confidence, origin, active/restored",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_editing.py",
+    "tests/test_e2e.py"
+   ],
+   "evidence": "restore/dismiss persist across re-analysis; originals untouched",
+   "dependencies": [
+    "automatic-editing"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "edit-report",
+   "name": "Persian edit report with timestamps + seek links",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_editing.py",
+    "tests/ui-flow.cjs"
+   ],
+   "evidence": "Persian report with seekable Persian-digit timestamps in UI test",
+   "dependencies": [
+    "non-destructive-edit"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "transcript-timeline",
+   "name": "Transcript linked to video time, click-to-seek, remove/restore/keep/flag",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/ui-flow.cjs"
+   ],
+   "evidence": "click-to-seek segments verified in browser test",
+   "dependencies": [
+    "non-destructive-edit"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "audio-processing",
+   "name": "Noise reduction/normalization without overprocessing",
+   "priority": "P1",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "media-ingest"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "render-pipeline",
+   "name": "Preview + final render, NVENC when available, media versions RAW/EDIT V1..N/FINAL",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_render.py",
+    "tests/test_e2e.py"
+   ],
+   "evidence": "real renders: durations respect cuts+restore, NVENC detected, versions EDIT V1..N/FINAL",
+   "dependencies": [
+    "non-destructive-edit"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "storage-manager",
+   "name": "SSD usage, project sizes, archive suggestions with approval",
+   "priority": "P1",
+   "status": "working",
+   "tests": [],
+   "evidence": "real drive enumeration (ctypes), panel data sizes, My Passport detection (E:\\ found); archive execution remains P1",
+   "dependencies": [
+    "media-ingest"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "archive-passport",
+   "name": "Archive to external HDD with checksum + explicit approval, never auto-delete",
+   "priority": "P1",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "storage-manager"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "repurpose-shorts",
+   "name": "Short/Reel candidates 2-3, 9:16 layout for screen tutorials",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/ui-flow.cjs"
+   ],
+   "evidence": "candidate heuristic from real transcript + 9:16 blurred-bg render (render_short) + versions; browser-tested",
+   "dependencies": [
+    "render-pipeline"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "hook-title-thumbnail",
+   "name": "Coordinated packages: 1 primary + >=3 alternatives",
+   "priority": "P1",
+   "status": "partial",
+   "tests": [],
+   "evidence": "prompt-only via skills; no data packages",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "thumbnail-assets",
+   "name": "Thumbnail generate/import/store/version/approve",
+   "priority": "P1",
+   "status": "blocked",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [],
+   "blocker": "BLOCKED_BY_CREDENTIAL: Gemini/Apify keys absent"
+  },
+  {
+   "id": "publishing-adapters",
+   "name": "Postiz/n8n/custom adapter, approval -> draft/schedule/publish, dry-run first",
+   "priority": "P1",
+   "status": "partial",
+   "tests": [],
+   "evidence": "dry-run packages live; WordPress draft adapter live (credential-gated); social OAuth still missing",
+   "dependencies": [
+    "job-system"
+   ],
+   "blocker": "publishing OAuth needs user credentials; dry-run only until then"
+  },
+  {
+   "id": "website-connector",
+   "name": "tehnet.ir / mytel.one CMS discovery + draft->approval->publish",
+   "priority": "P1",
+   "status": "partial",
+   "tests": [],
+   "evidence": "publishing.py wordpress_draft adapter + approval-gated website_publish job + /api/publishing statuses; CMS probed 2026-09-27: both sites WordPress (wp-json live)",
+   "dependencies": [
+    "publishing-adapters"
+   ],
+   "blocker": "WP Application Password not set (adapter live: WordPress REST verified on both sites)"
+  },
+  {
+   "id": "analytics-ingestion",
+   "name": "Per-platform real metrics, history preserved",
+   "priority": "P2",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "job-system"
+   ],
+   "blocker": "platform API credentials required"
+  },
+  {
+   "id": "adaptive-scheduling",
+   "name": "Data-sufficiency-based schedule recommendations",
+   "priority": "P2",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "analytics-ingestion"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "learning-loop",
+   "name": "Store decisions + outcomes for future recommendations",
+   "priority": "P2",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "analytics-ingestion"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "notifications",
+   "name": "Dashboard + Telegram + Email for approvals/failures/ready",
+   "priority": "P1",
+   "status": "partial",
+   "tests": [],
+   "evidence": "dashboard list only",
+   "dependencies": [],
+   "blocker": "TELEGRAM_BOT_TOKEN / SMTP credentials absent"
+  },
+  {
+   "id": "remote-access",
+   "name": "Mobile access via existing Tailscale/Cloudflare Tunnel",
+   "priority": "P1",
+   "status": "not_started",
+   "tests": [],
+   "evidence": null,
+   "dependencies": [
+    "panel-auth"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "end-to-end-test",
+   "name": "Critical E2E fixture: voice->transcript->script->approve->ingest->edit->restore->render->dry-run->archive",
+   "priority": "P0",
+   "status": "working",
+   "tests": [
+    "tests/test_e2e.py"
+   ],
+   "evidence": "critical path on real job system + real FFmpeg; speech engine faked for determinism",
+   "dependencies": [
+    "render-pipeline"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "ai-provider-layer",
+   "name": "Multi-provider AI layer (LM Studio/Ollama/remote) with task routing",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ai.py"
+   ],
+   "evidence": "health/routing/fallback tested; real generation through LM Studio on GPU",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "research-engine",
+   "name": "Topic research with real source verification (live/dead + NEEDS VERIFICATION)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ai.py"
+   ],
+   "evidence": "real HTTP checks in tests; sources persisted per project",
+   "dependencies": [
+    "ai-provider-layer"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "technical-verification",
+   "name": "Technical claim verification with source priority",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ai.py"
+   ],
+   "evidence": "verification job stores checks; unverifiable -> needs_verification",
+   "dependencies": [
+    "ai-provider-layer"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "script-generation",
+   "name": "Full Persian script with structured production markers",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ai.py"
+   ],
+   "evidence": "markers parsed + stored; real LLM run produced Persian script jobs",
+   "dependencies": [
+    "ai-provider-layer"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "skill-router",
+   "name": "17 SKILL.md as executable prompt knowledge + classification",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ai.py"
+   ],
+   "evidence": "real SKILL.md injected per stage; honest classification table in settings",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "voice-to-content-pipeline",
+   "name": "voice/idea -> research -> verification -> script -> hooks -> packages -> approval",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ai.py"
+   ],
+   "evidence": "pipeline test runs all stages; ends waiting_approval",
+   "dependencies": [
+    "research-engine",
+    "script-generation"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "notifications",
+   "name": "Event notifications (dashboard) + credential-gated Telegram",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_notifications.py"
+   ],
+   "evidence": "job watcher records failures/approvals/completions; telegram honest BLOCKED_BY_CREDENTIAL",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "whisper-model-control",
+   "name": "Whisper model selection + real Persian benchmark (medium recommended, RTF 0.11 overlap 76% on CUDA)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ops.py"
+   ],
+   "evidence": "edge-tts fa-IR sample benchmarked; benchmarks table in settings UI; live DB default=medium",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "multi-track-sync",
+   "name": "Face/Screen/Audio sync: envelope correlation + clap + manual offset + confidence",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ops.py"
+   ],
+   "evidence": "real FFmpeg audio fixtures; known offset found; manual override persisted",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "audio-enhancement",
+   "name": "Conservative FFmpeg enhancement chain -> ENHANCED Vn new file",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ops.py"
+   ],
+   "evidence": "RAW untouched; enhancement renders verified",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "sitewide-seo",
+   "name": "Real crawler SEO scans for tehnet.ir/mytel.one with history",
+   "priority": "P1",
+   "status": "working",
+   "tests": [],
+   "evidence": "live scan: 24 pages, 31 issues, sitemap missing on tehnet.ir; scans stored historically",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "auth",
+   "name": "Optional env-based admin auth (PBKDF2 + sessions + rate limit)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ops.py"
+   ],
+   "evidence": "enable/disable/rate-limit tested; required before any remote exposure",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "archive-workflow",
+   "name": "My Passport archive: approval -> copy -> checksum verify; deletion separate approval",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ops.py"
+   ],
+   "evidence": "approval-gated job verified checksums in test; RAW never auto-deleted",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "credential-center",
+   "name": "Persian credential/integration center (no secrets shown)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [],
+   "evidence": "settings card lists all integrations + env names + states",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "analytics-architecture",
+   "name": "Analytics adapters+append-only snapshots+sync jobs+UI (8 platforms incl GSC)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "snapshot append-only + metric validation tested; adapters honest BLOCKED_BY_CREDENTIAL; manual recording path for real data",
+   "dependencies": [],
+   "blocker": "ingestion execution needs OAuth per platform"
+  },
+  {
+   "id": "learning-loop",
+   "name": "Learning loop: stored performance drives scheduling recommendations with WHY/EVIDENCE/SAMPLE/CONFIDENCE",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "BASELINE with 0 data claims nothing; DATA_DRIVEN after >=8 records cites evidence",
+   "dependencies": [
+    "analytics-architecture"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "adaptive-scheduling",
+   "name": "Posting-time engine per brand/platform (BASELINE→DATA_DRIVEN auto-switch)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "clear winner slot found from injected history",
+   "dependencies": [
+    "learning-loop"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "post-publish-optimization",
+   "name": "Optimization patterns→approval proposals (no universal 48h; needs >=3 comparable)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "HIGH_IMPRESSIONS_LOW_CTR fires on real numbers; no history=no claims",
+   "dependencies": [
+    "analytics-architecture"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "weekly-planner",
+   "name": "Weekly content plan grounded in local evidence (projects/performance/SEO)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "plan carries sample_size and real evidence summary via fake LLM",
+   "dependencies": [
+    "learning-loop"
+   ],
+   "blocker": null
+  },
+  {
+   "id": "seo-fix-workflow",
+   "name": "SEO detect→explain→propose (+approval via proposals); real sitemap diagnosis recorded",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "proposals from real scan shape; tehnet.ir sitemap.xml 301→wp-sitemap.xml 404 confirmed live",
+   "dependencies": [
+    "sitewide-seo"
+   ],
+   "blocker": "applying fixes to sites needs WP credential"
+  },
+  {
+   "id": "smart-shorts-v2",
+   "name": "Shorts V2 multi-signal ranking with forced angle diversity",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "diverse angles enforced; why+score per candidate",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "integration-center",
+   "name": "«اتصال حساب‌ها» page: 8 services with scopes/env names/setup/test",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_intelligence.py"
+   ],
+   "evidence": "adapters honest; real connection test endpoint",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "security-review",
+   "name": "Focused security tests (auth brute-force, SSRF guard, upload validation, approval forgery, session)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_security_recovery.py"
+   ],
+   "evidence": "12 regression tests; CSP unchanged strict",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "failure-recovery",
+   "name": "Restart-mid-queue, worker/FFmpeg/LLM failure, archive disconnect, duplicate publish",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_security_recovery.py"
+   ],
+   "evidence": "all fail safely with state preserved and RAW untouched",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "qwen-default",
+   "name": "Qwen2.5-7B-Instruct Q4_K_M default LLM (Llama fallback kept)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/bench_models.py real runs"
+   ],
+   "evidence": "5/5 Persian tasks OK both models; Qwen on-topic article 5 sections vs Llama topic-drift; panel provider pinned to qwen",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "structured-output-reliability",
+   "name": "Layered JSON extraction+repair+retry+schema (fixes real article parse_error)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_reliability.py"
+   ],
+   "evidence": "the exact failed Llama markdown sample now parses; real article runs complete with valid schema",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "sync-v2",
+   "name": "Sync preprocessing (common format) + windowed Pearson",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_ops.py"
+   ],
+   "evidence": "AAC/22kHz/quiet case 0.21→0.99 conf; E2E face/screen offset -1.2@0.99 in DB",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "crawl-policy",
+   "name": "Configurable safe crawl (pages/delay/timeout/depth, hard ceilings)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_reliability.py"
+   ],
+   "evidence": "clamping tested; defaults 25/1s/15/3",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "ga4-adapter",
+   "name": "GA4 Data API adapter + snapshot integration",
+   "priority": "P1",
+   "status": "blocked_by_credential",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "gated fetch raises honestly; status/env documented",
+   "dependencies": [],
+   "blocker": "GA4_PROPERTY_ID + GA4_ACCESS_TOKEN"
+  },
+  {
+   "id": "keyword-provider",
+   "name": "KeywordDataProvider (Google Ads/Planner as one provider) + keyword_data store",
+   "priority": "P1",
+   "status": "partial",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "store+manual ingestion working; Ads API gated",
+   "dependencies": [],
+   "blocker": "google-ads==25.1.0 installed + real adapter READY_FOR_CREDENTIAL (5 env vars)"
+  },
+  {
+   "id": "search-intel-provider",
+   "name": "SearchIntelligence/SERP provider abstraction",
+   "priority": "P2",
+   "status": "blocked_by_credential",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "abstraction + honest unavailable state; no scraping without key",
+   "dependencies": [],
+   "blocker": "SERP_API_KEY optional"
+  },
+  {
+   "id": "kb-rag",
+   "name": "Content Knowledge Base (traceable retrieval, no vector DB yet)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "index+search with ref_type/ref_id citation",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "cannibalization",
+   "name": "Dedup/cannibalization detection feeding planner",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "5 verdicts with evidence",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "evergreen-refresh",
+   "name": "Evergreen refresh engine (age+real-CTR signals)",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "priority ranking tested",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "content-optimization-engine",
+   "name": "Unified SEO/AEO/GEO/AI-Search optimization engine",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "4 dimensions scored",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "observability",
+   "name": "Job observability + POSSIBLY_STUCK + retry cap 5",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "stale detection + cap enforced",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "ruflo-optional",
+   "name": "Ruflo optional isolated adapter (states, version pin, degraded mode)",
+   "priority": "P2",
+   "status": "working",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "disabled/unavailable/mismatch/available states; core never depends on it",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "screaming-frog-adapter",
+   "name": "ScreamingFrog adapter + export normalizer; internal crawler fallback",
+   "priority": "P2",
+   "status": "working",
+   "tests": [
+    "tests/test_integrations_kb.py"
+   ],
+   "evidence": "honest unavailable state; CSV normalizer implemented",
+   "dependencies": [],
+   "blocker": "Optional licensed install + SCREAMING_FROG_PATH"
+  },
+  {
+   "id": "portability",
+   "name": "Bootstrap/Verify/.env.example/ENV manifest/Backup/Restore scripts",
+   "priority": "P1",
+   "status": "working",
+   "tests": [],
+   "evidence": "Verify-Installation on this machine: READY_WITH_OPTIONAL_WARNINGS (LM Studio off at check time)",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "fa-docs-screenshots",
+   "name": "Persian end-user docs + 15 real UI screenshots",
+   "priority": "P1",
+   "status": "working",
+   "tests": [],
+   "evidence": "docs/README.fa.md + 5 guides; images from live panel with real E2E data",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "ui-glass-v3",
+   "name": "Premium AURORA glass UI v3: hero+pipeline node-flow+first-class integrations page; root-caused stale-panel serving issue",
+   "priority": "P1",
+   "status": "working",
+   "tests": [
+    "work smoke 13/13 v2"
+   ],
+   "evidence": "REAL screenshots docs/images/fa-v3 (27 jpg, 1920/1366/393); dashboard pipeline with DONE/ACTIVE/WAIT states; 11 premium integration cards with env guides+test; port-fallback launcher (8766 occupied by protected AutoClaw legacy proxy -> auto 8767); smoke 13/13 adapted&pass; regression 109/109; E2E rerun logged",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "ui-kb-keywords-checktopic-evergreen",
+   "name": "KB search/reindex + manual keywords + checktopic + evergreen UI",
+   "priority": "P2",
+   "status": "working",
+   "tests": [
+    "route tour 0 http>=400"
+   ],
+   "evidence": "sources/planner pages wired to real APIs; live-checked",
+   "dependencies": [],
+   "blocker": null
+  },
+  {
+   "id": "brand-route-bug",
+   "name": "500 on /api/content/refresh|checktopic (undefined brand)",
+   "priority": "P0",
+   "status": "fixed",
+   "tests": [
+    "live curl + tour"
+   ],
+   "evidence": "q.get brand fallback; both endpoints live OK",
+   "dependencies": [],
+   "blocker": null
+  }
+ ],
+ "last_commit": "this commit",
+ "known_blockers_environment": [
+  "Qwen2.5-7B Persian-capable model download stalled on slow network; resume: lms get \"qwen2.5-7b-instruct@q4_k_m\" then set model in Settings->AI",
+  "GSC/social OAuth still absent -> adapters remain BLOCKED_BY_CREDENTIAL",
+  "Edge-tts Persian sample used for whisper benchmark (no local fa-IR TTS voice); real user recordings will refine accuracy numbers"
+ ],
+ "credentials_required": [
+  "Platform OAuth (publishing + analytics)",
+  "TELEGRAM_BOT_TOKEN + chat id",
+  "GOOGLE_AI_API_KEY (Gemini render paths)"
+ ],
+ "last_tests": "regression 125/125 · E2E 24/24 · Smoke 13/13 · route tour 22/22 (0 errors) · sqlite soak 40/0 · media soak PASS · clean-install PASS · backup/restore PASS",
+ "release": {
+  "version": "1.0.0-local-ready",
+  "tag": "v1.0.0-local-ready",
+  "git_head": "71f02e1",
+  "local_development": "FROZEN",
+  "verified": {
+   "unit": "125/125",
+   "e2e": "24/24",
+   "smoke": "13/13",
+   "uat_journey": "39/40",
+   "auth_matrix": "9/9",
+   "failure_recovery": "7/7",
+   "integration_preflight": "11/11"
+  },
+  "fixed_in_release": [
+   "render_short output-path + -nostdin (Shorts render was fully broken)",
+   "archive restore UI (نمایش آرشیو toggle)"
   ],
-  "last_commit": "this commit",
-  "known_blockers_environment": [
-    "Qwen2.5-7B Persian-capable model download stalled on slow network; resume: lms get \"qwen2.5-7b-instruct@q4_k_m\" then set model in Settings->AI",
-    "GSC/social OAuth still absent -> adapters remain BLOCKED_BY_CREDENTIAL",
-    "Edge-tts Persian sample used for whisper benchmark (no local fa-IR TTS voice); real user recordings will refine accuracy numbers"
+  "known_non_blocking": [
+   "lists not self-refreshing after wizard creation until project open/F5",
+   "transcribe button may double-enqueue same-key job (race, identical result)"
   ],
-  "credentials_required": [
-    "Platform OAuth (publishing + analytics)",
-    "TELEGRAM_BOT_TOKEN + chat id",
-    "GOOGLE_AI_API_KEY (Gemini render paths)"
-  ],
-  "last_tests": "regression 125/125 · E2E 24/24 · Smoke 13/13 · route tour 22/22 (0 errors) · sqlite soak 40/0 · media soak PASS · clean-install PASS · backup/restore PASS"
+  "report": "docs/RELEASE-v1.0.0.fa.md"
+ }
 }
