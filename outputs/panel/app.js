@@ -196,7 +196,15 @@ async function pageDashboard(view){
  const en=$('#empty-new');if(en)en.onclick=()=>go('#/create');
  view.querySelectorAll('.fnode[data-page]').forEach(n=>n.onclick=()=>go('#/'+n.dataset.page));
 }
-function projRow(x){return `<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.platform||'')} · ${esc(x.stage||'ایده')} · نسخه ${fa(x.revision)} · ${faDate(x.updated)}</small></div><div class="actions">${gateBadge(x.publish_status)}<button class="sm primary" data-openproject="${esc(x.id)}">پرونده</button></div></div>`;}
+function projRow(x){return `<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.platform||'')} · ${esc(x.stage||'ایده')} · نسخه ${fa(x.revision)} · ${faDate(x.updated)}</small></div><div class="actions">${gateBadge(x.publish_status)}
+    <button class="sm primary" data-openproject="${esc(x.id)}">پرونده</button>
+    <details class="ctxmenu"><summary class="sm" aria-label="اقدامات">⋯</summary>
+      <div class="ctxitems">
+        <button class="sm block" data-openproject="${esc(x.id)}">باز کردن</button>
+        <button class="sm block" data-rename="${esc(x.id)}" data-title="${esc(x.title)}">تغییر نام</button>
+        ${x.archived?'<button class="sm block" data-unarchive="'+esc(x.id)+'">بازگردانی از آرشیو</button>':'<button class="sm block" data-archive="'+esc(x.id)+'">آرشیو</button>'}
+        <button class="sm block danger" data-delproject="${esc(x.id)}" data-title="${esc(x.title)}">حذف پروژه</button>
+      </div></details></div></div>`;}
 
 /* ── list pages (projects / scripts / ideas) ─────────────────── */
 async function pageList(view){
@@ -259,7 +267,25 @@ async function pageWizard(view){
    <div class="row" style="justify-content:space-between;margin-top:14px"><button data-wizback>بازگشت</button><button class="primary" data-wizcreate>${icon('i-plus','icon sm')}ساخت پروژه</button></div>`;
   else body.innerHTML=`<h2 style="margin-bottom:12px">عنوان و ${w.type==='record'?'ضبط':'فایل'} صدا</h2>
    <label>عنوان پروژه<input id="wiz-title" maxlength="200" value="${esc(w.title)}" placeholder="موضوع این صوت"></label>
-   ${w.type==='record'?`<div style="margin-top:14px" class="row"><button id="rec-start" class="primary">${icon('i-mic','icon sm')}شروع ضبط</button><button id="rec-stop" disabled>${icon('i-clock','icon sm')}پایان ضبط</button><span id="rec-state" class="small muted">ضباطی شروع نشده</span></div><audio id="rec-player" controls style="width:100%;margin-top:10px;display:none"></audio>`
+   ${w.type==='record'?`
+   <div class="card" style="margin-top:14px;padding:18px">
+     <div class="row" style="justify-content:space-between">
+       <label style="max-width:46%">میکروفون<select id="mic-select"><option>…درخواست دسترسی</option></select></label>
+       <button class="sm" id="mictest" type="button">تست میکروفون</button>
+     </div>
+     <p id="mictest-out" class="small muted" style="min-height:1.6em"></p>
+     <div class="row" style="margin-top:8px;gap:8px">
+       <button id="rec-start" class="primary" type="button">${icon('i-mic','icon sm')}شروع ضبط</button>
+       <button id="rec-pause" type="button" disabled>مکث</button>
+       <button id="rec-resume" type="button" disabled>ادامه</button>
+       <button id="rec-stop" type="button" disabled>${icon('i-clock','icon sm')}پایان ضبط</button>
+       <span id="rec-state" class="small muted" data-state="آماده ضبط">آماده ضبط</span>
+       <b id="rec-time" style="direction:ltr;font-family:monospace">00:00</b>
+     </div>
+     <div class="progress" style="margin-top:10px"><div id="mic-level-bar" class="progressfill" style="width:0%"></div></div>
+     <p id="mic-silent-warn" class="warnbox" style="display:none;margin-top:8px">سطح صدای ورودی بسیار پایین است.</p>
+     <div id="rec-result" style="margin-top:12px"></div>
+   </div>`
    :`<label style="margin-top:14px" class="dropzone" id="wiz-drop">${icon('i-upload')}فایل صوتی را انتخاب کنید (wav، mp3، m4a، webm…)<input id="wiz-file" type="file" accept="audio/*,video/*" style="display:none"></label><p id="wiz-fileinfo" class="small muted"></p>`}
    <div class="row" style="justify-content:space-between;margin-top:14px"><button data-wizback>بازگشت</button><button class="primary" id="wiz-voice-create" disabled>ساخت پروژه و تبدیل به متن</button></div>`;
  }
@@ -320,26 +346,59 @@ function bindWizard(){
  const ws=$('#wiz-drop');if(ws)ws.onclick=()=>$('#wiz-file').click();
  const wf=$('#wiz-file');if(wf)wf.onchange=e=>{
   w.file=e.target.files[0]||null;
-  $('#wiz-fileinfo').textContent=w.file?`${w.file.name} · ${humanSize(w.file.size)}`:'';
+  if(w.file&&w.file.size<2000){$('#wiz-fileinfo').textContent='فایل خیلی کوچک است (احتمالاً بی‌صدا/خراب)';w.file=null;$('#wiz-voice-create').disabled=true;return;}
+  $('#wiz-fileinfo').textContent=w.file?`${w.file.name} · ${humanSize(w.file.size)} — اعتبارسنجی صدا پس از ساخت انجام می‌شود`:'';
   $('#wiz-voice-create').disabled=!w.file;
  };
- const rs=$('#rec-start');if(rs)rs.onclick=async()=>{
-  try{
-   const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-   mediaRecorder=new MediaRecorder(stream);recChunks=[];
-   mediaRecorder.ondataavailable=e=>recChunks.push(e.data);
-   mediaRecorder.onstop=()=>{
-    w.file=new Blob(recChunks,{type:mediaRecorder.mimeType||'audio/webm'});
-    const p=$('#rec-player');p.src=URL.createObjectURL(w.file);p.style.display='block';
-    $('#rec-state').textContent=`ضبط آماده است · ${humanSize(w.file.size)}`;
-    $('#wiz-voice-create').disabled=false;
-    stream.getTracks().forEach(t=>t.stop());
-   };
-   mediaRecorder.start();$('#rec-start').disabled=true;$('#rec-stop').disabled=false;
-   $('#rec-state').textContent='در حال ضبط…';
-  }catch(err){toast('دسترسی به میکروفون ممکن نشد: '+err.message,'err');}
- };
- const rp=$('#rec-stop');if(rp)rp.onclick=()=>{if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();$('#rec-stop').disabled=true;$('#rec-start').disabled=false;}};
+ const rs=$('#rec-start');if(rs){
+  (async()=>{
+    const sel=$('#mic-select');const R=window.Recorder;
+    if(!R){sel.innerHTML='<option>Recorder در دسترس نیست</option>';return;}
+    const {devices,err}=await R.listMics();
+    if(err){sel.innerHTML='<option>'+esc(err)+'</option>';return;}
+    sel.innerHTML=devices.map(d=>`<option value="${esc(d.deviceId)}">${esc(d.label||'میکروفون')}</option>`).join('')||'<option>میکروفونی پیدا نشد</option>';
+    const pref=R.getDevice();
+    if(pref&&devices.some(d=>d.deviceId===pref)){sel.value=pref;R.setDevice(pref);}
+    else if(devices[0])R.setDevice(devices[0].deviceId);
+    sel.onchange=()=>{R.setDevice(sel.value);toast('میکروفون انتخاب شد: '+(sel.selectedOptions[0]?.textContent||''));};
+  })();
+  $('#mictest').onclick=()=>window.Recorder&&Recorder.micTest();
+  window.__recDone=(blob)=>{
+    w.file=new File([blob],'rec-'+Date.now()+'.webm',{type:blob.type||'audio/webm'});
+    w.recMeta={device:($('#mic-select')?.selectedOptions?.[0]?.textContent)||'',at:new Date().toLocaleString('fa-IR')};
+    const box=$('#rec-result');
+    box.innerHTML='<audio controls style="width:100%" src="'+URL.createObjectURL(blob)+'"></audio>'+
+      '<p class="small muted">مدت: <b id="rec-dur">…</b> · دستگاه: '+esc(w.recMeta.device)+' · '+esc(w.recMeta.at)+'</p>'+
+      '<div class="row"><button class="primary" id="rec-ok" type="button">تأیید و ادامه</button>'+
+      '<button id="rec-again" type="button">ضبط مجدد</button>'+
+      '<button class="danger" id="rec-del" type="button">حذف ضبط</button></div>';
+    const a=box.querySelector('audio');
+    a.onloadedmetadata=()=>{const d=$('#rec-dur');if(d)d.textContent=mmss(a.duration*1000);};
+    $('#rec-ok').onclick=()=>{w.recValidated=true;$('#wiz-voice-create').disabled=false;toast('ضبط تأیید شد؛ «ساخت پروژه» را بزنید','ok');};
+    $('#rec-again').onclick=()=>{w.prevFile=w.file;w.file=null;w.recValidated=false;$('#wiz-voice-create').disabled=true;
+      $('#rec-result').innerHTML='<p class="small muted">ضبط قبلی حفظ شد؛ ضبط جدید شروع شد (نسخه‌دار).</p>';Recorder.startRec();};
+    $('#rec-del').onclick=async()=>{
+      if(!await confirmBox('حذف ضبط','این ضبط حذف شود؟ (پروژه و رسانه‌های دیگر دست نمی‌خورند)'))return;
+      w.file=null;w.recValidated=false;$('#wiz-voice-create').disabled=true;
+      box.innerHTML='<p class="small muted">ضبط حذف شد.</p>';toast('ضبط حذف شد');};
+  };
+  window.__recInvalid=(reason)=>{
+    w.file=null;w.recValidated=false;$('#wiz-voice-create').disabled=true;
+    $('#rec-result').innerHTML='<div class="warnbox"><b>INVALID_AUDIO</b> فایل ضبط شد اما صدای قابل استفاده‌ای تشخیص داده نشد.<br>'+esc(reason||'')+'</div>'+
+      '<div class="row"><button id="inv-again" type="button">ضبط مجدد</button>'+
+      '<button id="inv-mic" type="button">انتخاب میکروفون دیگر</button>'+
+      '<button id="inv-test" type="button">تست میکروفون</button>'+
+      '<button class="danger" id="inv-del" type="button">حذف این ضبط</button></div>';
+    $('#inv-again').onclick=()=>Recorder.startRec();
+    $('#inv-mic').onclick=()=>$('#mic-select').focus();
+    $('#inv-test').onclick=()=>Recorder.micTest();
+    $('#inv-del').onclick=()=>{$('#rec-result').innerHTML='';toast('ضبط نامعتبر حذف شد');};
+  };
+  rs.onclick=()=>Recorder.startRec();
+  $('#rec-pause').onclick=()=>Recorder.pauseRec();
+  $('#rec-resume').onclick=()=>Recorder.resumeRec();
+  $('#rec-stop').onclick=()=>Recorder.stopRec();
+ }
  const rr=$('#wiz-restart');if(rr)rr.onclick=()=>{wizard={step:1,brand,type:'text',title:'',topic:'',file:null,job:null,projectId:null};render();};
 }
 async function rawUpload(file,kind,contentId){
@@ -1270,6 +1329,10 @@ document.addEventListener('click',async e=>{
   else if(b.id==='new'||b.hasAttribute('data-new')){go('#/create');}
   else if(b.dataset.close)$('#'+b.dataset.close).close();
   else if(b.dataset.openproject){go('#/project/'+b.dataset.openproject);$$('dialog[open]').forEach(d=>d.close());}
+  else if(b.dataset.rename){renameProject(b.dataset.rename,b.dataset.title);const m=b.closest('details');if(m)m.open=false;}
+  else if(b.dataset.archive){archiveProject(b.dataset.archive,true);const m=b.closest('details');if(m)m.open=false;}
+  else if(b.dataset.unarchive){archiveProject(b.dataset.unarchive,false);}
+  else if(b.dataset.delproject){deleteProjectDialog(b.dataset.delproject,b.dataset.title);const m=b.closest('details');if(m)m.open=false;}
   else if(b.dataset.edit)openEditor(b.dataset.edit);
   else if(b.dataset.skill)skill(b.dataset.skill);
   else if(b.dataset.prompt)makePrompt(b.dataset.prompt);
@@ -1389,6 +1452,47 @@ function showLogin(){
   b.disabled=false;
  };
  $('#lg-pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#lg-go').click();});
+}
+async function renameProject(id,title){
+ const nt=prompt('عنوان جدید:',title);
+ if(nt===null)return;
+ try{await api('/api/project/rename',{id,title:nt});await loadCore();await render();toast('نام پروژه تغییر کرد','ok');}
+ catch(e){toast(e.message,'err');}
+}
+async function archiveProject(id,arch){
+ try{await api('/api/project/archive',{id,archived:arch});await loadCore();await render();toast(arch?'پروژه آرشیو شد (RAW/تاریخچه حفظ می‌شوند)':'پروژه بازگردانی شد','ok');}
+ catch(e){toast(e.message,'err');}
+}
+function deleteProjectDialog(id,title){
+ const d=document.createElement('dialog');d.style.width='min(480px,92vw)';
+ d.innerHTML='<div class="dialog-head"><h2>حذف پروژه</h2><button class="ghost" id="dp-x">×</button></div>'+
+ '<p>آیا از حذف این پروژه مطمئن هستید؟</p>'+
+ '<div class="kv"><dt>عنوان</dt><dd>'+esc(title)+'</dd></div>'+
+ '<p id="dp-meta" class="small muted">…در حال شمارش وابستگی‌ها</p>'+
+ '<div class="warnbox">پیشنهاد: <b>آرشیو</b> — همه‌چیز حفظ و فقط از فهرست فعال پنهان می‌شود.</div>'+
+ '<label>برای حذف قطعی، کلمهٔ <b>حذف</b> را تایپ کنید<input id="dp-typed" placeholder="حذف"></label>'+
+ '<div class="row" style="margin-top:14px"><button id="dp-archive">آرشیو (پیشنهادی)</button>'+
+ '<button class="danger" id="dp-final" disabled>حذف قطعی پروژه</button></div><p id="dp-err" style="color:#fca5a5"></p>';
+ document.body.appendChild(d);d.showModal();
+ d.querySelector('#dp-x').onclick=()=>d.close();
+ (async()=>{
+   try{
+     const it=items.find(x=>x.id===id);
+     const med=await api('/api/media?content_id='+id);
+     const outs=await api('/api/ai/outputs?content_id='+id).catch(()=>[]);
+     d.querySelector('#dp-meta').textContent='رسانه‌ها: '+fa(med.length)+' · خروجی‌های AI: '+fa(outs.length)+' · ایجاد: '+(it?faDate(it.created):'—')+(it&&it.publish_status==='approved'?' · ⚠ انتشار این پروژه تأیید شده است (پست بیرونی حذف نمی‌شود)':'');
+   }catch(e){d.querySelector('#dp-meta').textContent='';}
+ })();
+ const t=d.querySelector('#dp-typed'),fin=d.querySelector('#dp-final');
+ t.oninput=()=>{fin.disabled=(t.value.trim()!=='حذف');};
+ d.querySelector('#dp-archive').onclick=async()=>{d.close();await archiveProject(id,true);};
+ fin.onclick=async()=>{
+   fin.disabled=true;
+   try{
+     await api('/api/project/delete',{id,typed:'حذف',confirm_published:true});
+     d.close();await loadCore();await render();toast('پروژه و وابستگی‌هایش حذف شد','ok');
+   }catch(e){d.querySelector('#dp-err').textContent=e.message;fin.disabled=false;}
+ };
 }
 async function boot(){
  try{

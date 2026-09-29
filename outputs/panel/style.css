@@ -507,3 +507,10 @@ body::after{ /* film-grain noise for depth (non-animated, ultra light) */
   background:rgba(4,7,16,.75);backdrop-filter:blur(10px)}
 .logincard{width:min(380px,92vw);padding:30px 30px 22px;border-radius:20px;
   background:rgba(10,16,32,.9);border:1px solid rgba(158,190,255,.2);box-shadow:0 30px 90px rgba(2,6,20,.7)}
+/* context menu */
+.ctxmenu{position:relative;display:inline-block}
+.ctxmenu summary{list-style:none;cursor:pointer;padding:4px 11px;border:1px solid var(--glass-border);border-radius:8px;background:var(--glass)}
+.ctxmenu summary::-webkit-details-marker{display:none}
+.ctxitems{position:absolute;inset-inline-start:0;top:calc(100% + 6px);z-index:60;display:flex;flex-direction:column;gap:4px;min-width:170px;padding:8px;border-radius:12px;
+  background:rgba(10,16,32,.96);border:1px solid var(--glass-border);backdrop-filter:blur(16px);box-shadow:0 16px 40px rgba(2,6,20,.6)}
+.ctxitems .block{width:100%;justify-content:flex-start}

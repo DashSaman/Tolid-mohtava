@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 BRANDS={'tehran-network','mytel'}
 FIELDS=('title','body','transcript','sources','notes','platform','stage','due')
+ARCHIVE_TABLES=('content','events')
 def now(): return datetime.now(timezone.utc).isoformat()
 
 class Store:
@@ -79,5 +80,39 @@ class Store:
             c.execute('UPDATE content SET payload=? WHERE id=?',(json.dumps(item,ensure_ascii=False),id))
             self.event(c,item,gate+'_'+status)
         return item
+    def set_archived(self,id_,archived):
+        with self.connect() as c:
+            c.execute('BEGIN IMMEDIATE')
+            row=c.execute('SELECT payload FROM content WHERE id=?',(id_,)).fetchone()
+            if not row: raise ValueError('محتوا پیدا نشد.')
+            item=json.loads(row[0])
+            item['archived']=bool(archived); item['updated']=now()
+            c.execute('UPDATE content SET payload=? WHERE id=?',(json.dumps(item,ensure_ascii=False),id_))
+            self.event(c,item,'archived' if archived else 'unarchived')
+        return item
+    def rename(self,id_,title):
+        title=(title or '').strip()
+        if not title or len(title)>200: raise ValueError('عنوان باید بین ۱ تا ۲۰۰ نویسه باشد.')
+        with self.connect() as c:
+            c.execute('BEGIN IMMEDIATE')
+            row=c.execute('SELECT payload FROM content WHERE id=?',(id_,)).fetchone()
+            if not row: raise ValueError('محتوا پیدا نشد.')
+            item=json.loads(row[0]); item['title']=title; item['updated']=now()
+            c.execute('UPDATE content SET payload=? WHERE id=?',(json.dumps(item,ensure_ascii=False),id_))
+            self.event(c,item,'renamed')
+        return item
+    def delete(self,id_,force_published=False):
+        """Transaction-safe project delete: content+events rows only.
+        Media/renders/transcripts files are handled by server layer after
+        this returns (path-verified). Published projects need explicit ack."""
+        with self.connect() as c:
+            c.execute('BEGIN IMMEDIATE')
+            row=c.execute('SELECT payload FROM content WHERE id=?',(id_,)).fetchone()
+            if not row: raise ValueError('محتوا پیدا نشد.')
+            item=json.loads(row[0])
+            if item.get('publish_status')=='approved' and not force_published:
+                raise ValueError('WARN_PUBLISHED: این پروژه انتشارش تأیید شده است؛ حذف محلی پست بیرونی را حذف نمی‌کند.')
+            c.execute('DELETE FROM events WHERE content_id=?',(id_,))
+            c.execute('DELETE FROM content WHERE id=?',(id_,))
     def export(self,brand):
         return {'schema':1,'brand':brand,'exported_at':now(),'items':[dict(item=x,history=self.history(x['id'])) for x in self.list(brand)]}

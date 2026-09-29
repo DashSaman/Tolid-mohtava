@@ -1,7 +1,7 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit,parse_qs
-import json, mimetypes, os, secrets, socket, uuid
+import json, mimetypes, os, secrets, socket, uuid, sqlite3, subprocess
 from store import Store
 from registry import skill_registry
 from jobs import JobManager
@@ -67,6 +67,102 @@ JM=JobManager(DB.path,handlers=build_handlers()|{
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 def brand_default(): return 'tehran-network'
+
+
+def audio_rms_stats(path):
+    """Decode via ffmpeg to s16le; compute RMS/peak/duration. Real silence check."""
+    import struct, math
+    import avtools as _av
+    ff=_av.ffmpeg_path()
+    if not ff: return {'error':'FFmpeg موجود نیست'}
+    out=subprocess.run([ff,'-hide_banner','-i',str(path),'-ac','1','-ar','16000','-f','s16le','-'],
+                       capture_output=True,timeout=300)
+    b=out.stdout
+    if len(b)<3200: return {'valid':False,'reason':'دادهٔ صوتی کوتاه‌تر از حد است','bytes':len(b)}
+    n=len(b)//2
+    take=min(n,800000)
+    vals=struct.unpack('<%dh'%take,b[:take*2])
+    peak=max(abs(v) for v in vals) if vals else 0
+    rms=math.sqrt(sum(v*v for v in vals)/len(vals)) if vals else 0
+    dur=n/16000.0
+    silent=(rms<60 and peak<400)
+    return {'valid':(not silent) and dur>=0.8,'duration':round(dur,2),'rms':int(rms),'peak':peak,
+            'reason':('سکوت مؤثر — صدایی تشخیص داده نشد' if silent else ('کوتاه‌تر از ۰.۸ ثانیه' if dur<0.8 else ''))}
+
+def validate_audio(media_id,media_lib=None):
+    lib=media_lib or MEDIA
+    m=lib.get(media_id)
+    if not m: raise ValueError('رسانه پیدا نشد.')
+    p=Path(m['path'])
+    if not p.exists() or p.stat().st_size==0:
+        return {'status':'INVALID_AUDIO','reason':'فایل صوتی خالی یا ناموجود است'}
+    st=audio_rms_stats(p)
+    if st.get('error'): return {'status':'UNKNOWN','reason':st['error']}
+    if not st.get('valid'):
+        return {'status':'INVALID_AUDIO','reason':st.get('reason') or 'صدای قابل استفاده نیست',
+                'duration':st.get('duration'),'rms':st.get('rms'),'peak':st.get('peak')}
+    return {'status':'OK','duration':st['duration'],'rms':st['rms'],'peak':st['peak']}
+
+def delete_media_row(mid,lib,ts,dec,rd):
+    """Shared safe recording delete: related rows + file (path-verified)."""
+    m=lib.get(mid)
+    if not m: raise ValueError('رسانه پیدا نشد.')
+    path=Path(m['path']).resolve()
+    root=(Path(lib.path).parent/'media').resolve()
+    if root not in path.parents: raise ValueError('مسیر فایل خارج از فضای امن است.')
+    import sqlite3 as sq
+    with sq.connect(lib.path) as c:
+        for tbl in ('edit_decisions','transcripts','renders','sync_offsets','assets'):
+            try: c.execute(f'DELETE FROM {tbl} WHERE media_id=?',(mid,))
+            except Exception: pass
+        c.execute('DELETE FROM media WHERE id=?',(mid,))
+    try: path.unlink()
+    except OSError: pass
+
+def project_dependencies(pid,jm):
+    """Count and clean related rows; cancel active jobs; collect verified media paths."""
+    import sqlite3 as sq
+    counts={}; paths=[]
+    with sq.connect(DB.path) as c:
+        rows=c.execute("SELECT id,path FROM media WHERE content_id=?",(pid,)).fetchall()
+        paths=[r[1] for r in rows]
+        counts['media']=len(rows)
+        mids=[r[0] for r in rows] or ['-']
+        qmarks=','.join('?'*len(mids))
+        for tbl,key in (('transcripts','media_id'),('edit_decisions','media_id'),
+                        ('renders','media_id'),('sync_offsets','media_id')):
+            try: counts[tbl]=c.execute(f"SELECT COUNT(*) FROM {tbl} WHERE {key} IN ({qmarks})",mids).fetchone()[0]
+            except Exception: counts[tbl]=0
+        try: counts['ai_outputs']=c.execute("SELECT COUNT(*) FROM ai_outputs WHERE content_id=?",(pid,)).fetchone()[0]
+        except Exception: counts['ai_outputs']=0
+    for j in jm.list(limit=300):
+        if (j.get('payload') or {}).get('content_id')==pid and j['status'] in ('queued','running','waiting_approval'):
+            try: jm.cancel(j['id'])
+            except Exception: pass
+    return {'counts':counts,'paths':paths}
+
+def delete_project_files(deps,db):
+    """Delete only files under verified media/renders roots; then orphan rows."""
+    mroot=(Path(db.path).parent/'media').resolve()
+    rroot=(Path(db.path).parent/'renders').resolve()
+    for path in deps.get('paths',[]):
+        try:
+            p=Path(path).resolve()
+            if mroot in p.parents: p.unlink()
+        except OSError: pass
+    with sqlite3.connect(db.path) as c:
+        rp=[r[0] for r in c.execute("SELECT path FROM renders WHERE media_id NOT IN (SELECT id FROM media)").fetchall()]
+        for path in rp:
+            try:
+                p=Path(path).resolve()
+                if rroot in p.parents: p.unlink()
+            except OSError: pass
+        for tbl in ('transcripts','edit_decisions','renders','sync_offsets','assets'):
+            try: c.execute(f"DELETE FROM {tbl} WHERE media_id NOT IN (SELECT id FROM media)")
+            except Exception: pass
+        try: c.execute("DELETE FROM ai_outputs WHERE content_id NOT IN (SELECT id FROM content)")
+        except Exception: pass
+        c.commit()
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,*args): pass
@@ -235,7 +331,11 @@ class Handler(BaseHTTPRequestHandler):
                 if not job: return self.respond({'error':'کار پیدا نشد.'},404)
                 return self.respond(job)
             if url.path=='/api/history': return self.respond(DB.history(q.get('id',[''])[0]))
-            if url.path=='/api/items': return self.respond(DB.list(q.get('brand',['tehran-network'])[0]))
+            if url.path=='/api/items':
+                b=q.get('brand',['tehran-network'])[0]
+                rows=DB.list(b)
+                if 'archived' not in q: rows=[r for r in rows if not r.get('archived')]
+                return self.respond(rows)
             if url.path=='/api/export': return self.respond(DB.export(q.get('brand',['tehran-network'])[0]))
             if url.path=='/api/profile':
                 brand=q.get('brand',[''])[0]
@@ -243,7 +343,7 @@ class Handler(BaseHTTPRequestHandler):
                 d=ROOT.parent/'brands'/brand
                 return self.respond({k:(d/(k+'.md')).read_text(encoding='utf-8') for k in ('about-me','voice','brand-kit')})
             if url.path=='/api/policy': return self.respond({'text':(ROOT.parent/'content-policy.fa.md').read_text(encoding='utf-8')})
-            allowed={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css',
+            allowed={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css','/recorder.js':'recorder.js',
                      '/fonts/Vazirmatn-Regular.woff2':'fonts/Vazirmatn-Regular.woff2',
                      '/fonts/Vazirmatn-Medium.woff2':'fonts/Vazirmatn-Medium.woff2',
                      '/fonts/OFL.txt':'fonts/OFL.txt',
@@ -275,6 +375,20 @@ class Handler(BaseHTTPRequestHandler):
             data=json.loads(self.rfile.read(size))
             if not isinstance(data,dict): raise ValueError('درخواست معتبر نیست.')
             if self.path=='/api/items': return self.respond(DB.save(data))
+            if self.path=='/api/project/archive': return self.respond(DB.set_archived(data.get('id'),bool(data.get('archived',True))))
+            if self.path=='/api/project/rename': return self.respond(DB.rename(data.get('id'),data.get('title')))
+            if self.path=='/api/project/delete':
+                pid=data.get('id'); force=bool(data.get('confirm_published')) and data.get('typed')=='حذف'
+                if not isinstance(pid,str): raise ValueError('شناسه نامعتبر است.')
+                deps=project_dependencies(pid,JM)
+                try: DB.delete(pid,force_published=force)
+                except ValueError as e:
+                    if str(e).startswith('WARN_PUBLISHED'):
+                        return self.respond({'error':str(e),'warning':True,
+                            'detail':'پست‌های بیرونی (وردپرس/یوتیوب/تلگرام/…) دست‌نخورده می‌مانند؛ این حذف فقط محلی است.'},409)
+                    raise
+                delete_project_files(deps,DB)
+                return self.respond({'ok':True,'deleted':{'content':1,**deps['counts']}})
             if self.path=='/api/decide':
                 before=DB.get(data.get('id')) if isinstance(data.get('id'),str) else None
                 prev=before.get(data.get('gate')+'_status') if before else None
@@ -283,7 +397,16 @@ class Handler(BaseHTTPRequestHandler):
                     try: on_publish_approved(JM,item['id'],item['revision'])
                     except ValueError: pass
                 return self.respond(item)
-            if self.path=='/api/jobs': return self.respond(JM.enqueue(data.get('kind'),data.get('payload') if isinstance(data.get('payload'),dict) else {},data.get('idempotency_key')))
+            if self.path=='/api/jobs':
+                kind=data.get('kind'); payload=data.get('payload') if isinstance(data.get('payload'),dict) else {}
+                if kind=='transcribe_audio':
+                    m=MEDIA.get(payload.get('media_id') or '')
+                    if not m: raise ValueError('رسانه پیدا نشد.')
+                    v=validate_audio(m['id'])
+                    if v.get('status')=='INVALID_AUDIO':
+                        return self.respond({'error':'INVALID_AUDIO: '+v.get('reason',''),'invalid':True,
+                                             'detail':'ضبط/فایل صدای قابل استفاده ندارد؛ Whisper اجرا نشد.'},400)
+                return self.respond(JM.enqueue(kind,payload,data.get('idempotency_key')))
             if self.path=='/api/jobs/decision':
                 jid=data.get('id')
                 if not isinstance(jid,str) or not isinstance(data.get('approved'),bool): raise ValueError('درخواست معتبر نیست.')
@@ -374,6 +497,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(MEDIA.set_asset_state(data.get('media_id'),data.get('state'),data.get('label')))
             if self.path=='/api/health/gpu':
                 return self.respond(gpu_probe())
+            if self.path=='/api/media/delete':
+                mid=data.get('mid'); m=MEDIA.get(mid)
+                if not m: raise ValueError('رسانه پیدا نشد.')
+                if not data.get('confirm'): raise ValueError('تأیید حذف لازم است.')
+                for j in JM.list(limit=200):
+                    if (j.get('payload') or {}).get('media_id')==mid and j['status'] in ('queued','running','waiting_approval'):
+                        try: JM.cancel(j['id'])
+                        except Exception: pass
+                delete_media_row(mid,MEDIA,TRANSCRIPTS,DECISIONS,RENDERS)
+                return self.respond({'ok':True})
+            if self.path=='/api/media/validate':
+                return self.respond(validate_audio(data.get('media_id')))
             if self.path=='/api/decisions/manual':
                 return self.respond(DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
                     'manual',1.0,'manual','active',reason=data.get('reason')))
