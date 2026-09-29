@@ -56,9 +56,14 @@ class SyncStore:
             c.execute('DELETE FROM sync_offsets WHERE media_id=?',(media_id,))
 
 def _pcm_mono(path,ar=8000):
+    """Normalize ANY input (AAC/MP4/phone m4a/44.1k/stereo) to one common
+    analysis format: mono s16le @ 8kHz with mild band-pass, before correlation.
+    RAW files are never touched — this is a temp decode to memory/stdout."""
     ff=avtools.ffmpeg_path()
     if not ff: raise DependencyMissing(avtools.ffmpeg_missing())
-    out=subprocess.run([ff,'-hide_banner','-i',str(path),'-ac','1','-ar',str(ar),'-f','s16le','-'],
+    out=subprocess.run([ff,'-hide_banner','-i',str(path),'-ac','1','-ar',str(ar),
+                        '-af','highpass=f=60,lowpass=f=3000,speechnorm=e=6.25:r=0.00001:l=1',
+                        '-f','s16le','-'],
                        capture_output=True,timeout=1800)
     if out.returncode!=0 or len(out.stdout)<8000:
         raise ValueError('استخراج صوت برای همگام‌سازی ناموفق بود.')
@@ -101,10 +106,15 @@ def correlate(env_ref,env_off,hz=ENVELOPE_HZ):
     if la<20 or lb<20: return None,0.0
     denom=(math.sqrt(float((a*a).sum())*float((b*b).sum())) or 1.0)
     def corr_at(lag):
+        """Windowed Pearson (normalized) — robust to per-track loudness."""
         n=min(la,lb)-abs(lag)
         if n<10: return 0.0
-        if lag>=0: return float((a[lag:lag+n]*b[:n]).sum())/denom
-        return float((a[:n]*b[-lag:-lag+n]).sum())/denom
+        if lag>=0: x=a[lag:lag+n]; y=b[:n]
+        else: x=a[:n]; y=b[-lag:-lag+n]
+        xm=float(x.mean()); ym=float(y.mean())
+        x=x-xm; y=y-ym
+        d=math.sqrt(float((x*x).sum())*float((y*y).sum()))
+        return float((x*y).sum())/d if d>1e-9 else 0.0
     for lag in range(-maxlag,maxlag+1,hz//10):          # coarse 100ms→10ms step
         c=corr_at(lag)
         if c>best[1]: best=(lag,c)

@@ -68,12 +68,12 @@ def _meta(html,pattern):
     m=re.search(pattern,html,flags=re.I|re.S)
     return m.group(1).strip()[:300] if m else None
 
-def check_page(url):
+def check_page(url,timeout=15):
     """Fetch one page and run the on-page checks. Real network, real parsing."""
     import html as htmlmod
     res={'url':url}
     try:
-        status,html=_fetch(url)
+        status,html=_fetch(url,timeout=timeout)
     except urllib.error.HTTPError as e:
         return {'url':url,'status':e.code,'error':'HTTP error'}
     except Exception as e:
@@ -133,31 +133,59 @@ def _check_links_broken(links,limit=8):
             broken.append((u,'error'))
     return broken
 
-def crawl_site(site,max_pages=25):
+# Safe crawl policy — configurable per scan, with conservative defaults that
+# respect the live sites (these are production WordPress hosts, not targets).
+CRAWL_DEFAULTS={'max_pages':25,'delay_seconds':1.0,'timeout':15,'max_depth':3}
+SITES_LOCK={'tehnet.ir','mytel.one'}   # same-domain restriction is absolute
+
+def _crawl_policy(overrides):
+    pol=dict(CRAWL_DEFAULTS)
+    for k in ('max_pages','delay_seconds','timeout','max_depth'):
+        v=(overrides or {}).get(k)
+        if v is None: continue
+        if k=='max_pages':
+            v=max(1,min(int(v),100))       # hard ceiling 100 even if asked more
+        elif k=='delay_seconds':
+            v=max(0.2,min(float(v),10.0))  # never faster than 5 req/s
+        elif k=='timeout':
+            v=max(5,min(int(v),60))
+        elif k=='max_depth':
+            v=max(1,min(int(v),6))
+        pol[k]=v
+    return pol
+
+def crawl_site(site,max_pages=None,policy=None):
     base=SITES.get(site)
     if not base: raise ValueError('سایت پشتیبانی نمی‌شود.')
+    pol=_crawl_policy(policy if isinstance(policy,dict) else {})
+    if max_pages is not None:
+        pol=_crawl_policy(dict(pol,max_pages=max_pages))
     infra=check_robots_and_sitemap(base)
-    pages=[]; seen=set()
+    pages=[]; seen=set(); depths={base+'/':0}
     queue=deque([base+'/'])
     if infra.get('sitemap_urls'):
         try:
-            st,body=_fetch(infra.get('sitemap_url') or base+'/sitemap.xml',timeout=20)
-            for loc in re.findall(r'<loc>\s*(.*?)\s*</loc>',body)[:max_pages]:
+            st,body=_fetch(infra.get('sitemap_url') or base+'/sitemap.xml',timeout=pol['timeout']+5)
+            for loc in re.findall(r'<loc>\s*(.*?)\s*</loc>',body)[:pol['max_pages']]:
                 if urlsplit(loc).netloc==site and loc not in seen:
-                    queue.append(loc); seen.add(loc)
+                    queue.append(loc); depths[loc]=0
+                    seen.add(loc)
         except Exception: pass
     issues=0
     all_links=[]
-    while queue and len(pages)<max_pages:
+    while queue and len(pages)<pol['max_pages']:
         u=queue.popleft()
         if u in seen and pages: continue
         seen.add(u)
-        r=check_page(u)
+        r=check_page(u,timeout=pol['timeout'])
         sampled=r.pop('_sample_links',[])
         all_links+=sampled
+        d=depths.get(u,0)
         for l in sampled:
-            if len(queue)<max_pages and l not in seen: queue.append(l)
+            if (len(queue)+len(pages))<pol['max_pages'] and l not in seen and d+1<=pol['max_depth']:
+                queue.append(l); depths[l]=d+1
         pages.append(r)
+        import time as _t; _t.sleep(pol['delay_seconds'])   # host-friendly pacing
     titles={}; descs={}
     for p in pages:
         if p.get('title'): titles.setdefault(p['title'].strip().lower(),[]).append(p['url'])
@@ -180,8 +208,9 @@ def crawl_site(site,max_pages=25):
 
 def seo_scan_handler(ctx):
     site=ctx.payload.get('site') or 'tehnet.ir'
-    ctx.log(f"خزش {site}: sitemap و تا ۲۵ صفحه")
-    summary,pages,issues=crawl_site(site)
+    policy=ctx.payload.get('policy') or {}
+    ctx.log(f"خزش {site}: sitemap و تا {policy.get('max_pages',25)} صفحه با تأخیر {policy.get('delay_seconds',1.0)}s")
+    summary,pages,issues=crawl_site(site,policy=policy)
     ctx.progress(60)
     store=ctx.services['seo']
     store.add_scan(site,summary,pages,issues,1 if issues==0 else 0)

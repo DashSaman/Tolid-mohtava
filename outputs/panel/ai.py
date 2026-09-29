@@ -169,17 +169,128 @@ def chat(store,task,messages,max_tokens=900,temperature=0.6,timeout=600,provider
     content=(out.get('choices') or [{}])[0].get('message',{}).get('content','')
     return {'content':content,'provider':p['name'],'model':out.get('model') or model or ''}
 
+def _balanced_json(t):
+    """Largest balanced {...} or [...] block (string/escape aware)."""
+    for opener,closer in (('{','}'),('[',']')):
+        start=t.find(opener)
+        while start!=-1:
+            depth=0; in_str=False; esc=False
+            for i in range(start,len(t)):
+                ch=t[i]
+                if in_str:
+                    if esc: esc=False
+                    elif ch=='\\': esc=True
+                    elif ch=='"': in_str=False
+                    continue
+                if ch=='"': in_str=True
+                elif ch==opener: depth+=1
+                elif ch==closer:
+                    depth-=1
+                    if depth==0:
+                        cand=t[start:i+1]
+                        try: return json.loads(cand)
+                        except Exception: break
+            start=t.find(opener,start+1)
+    return None
+
+def _close_opens(frag):
+    """Append the exact closers (stack order) for unclosed openers."""
+    pair={'{':'}','[':']'}
+    stack=[]; in_str=False; esc=False
+    for ch in frag:
+        if in_str:
+            if esc: esc=False
+            elif ch=='\\': esc=True
+            elif ch=='"': in_str=False
+            continue
+        if ch=='"': in_str=True
+        elif ch in pair: stack.append(ch)
+        elif ch in pair.values():
+            if stack: stack.pop()
+    return frag+''.join(pair[c] for c in reversed(stack))
+
+def _repair_json(t):
+    """Common small-model JSON defects, fixed conservatively."""
+    x=re.sub(r'<think>.*?</think>','',t,flags=re.S)
+    x=x.replace('\u201c','"').replace('\u201d','"').replace('\u2018',"'").replace('\u2019',"'")
+    x=re.sub(r',\s*([}\]])',r'\1',x)              # trailing commas
+    s=re.search(r'[{[]',x)
+    if s:
+        start=s.start()
+        e=x.rfind('}')
+        e2=x.rfind(']')
+        end=max(e,e2)
+        frag=x[start:end+1] if end>=start else x[start:]
+        try: return json.loads(frag)
+        except Exception: pass
+        try: return json.loads(_close_opens(frag))
+        except Exception: pass
+    return None
+
+def parse_markdown_kv(text):
+    """Small models sometimes answer with '**Key:** value' lines — an honest,
+    non-fabricating fallback that maps them to a dict. Arrays via ' - ' bullets."""
+    if not text or ('**' not in text and ':' not in text): return None
+    out={}
+    lines=text.replace('\u201c','"').replace('\u201d','"').splitlines()
+    cur_key=None
+    for ln in lines:
+        m=re.match(r'\s*\*{0,2}([^*:\n]{1,40})\*{0,2}\s*[:：]\s*(.*)$',ln)
+        if m and m.group(2).strip()!='' or (m and m.group(1).strip()):
+            key=re.sub(r'[^\w\u0600-\u06FF ]','_',m.group(1).strip().strip('*').strip()).strip('_').lower().replace(' ','_')
+            val=m.group(2).strip().lstrip('*').strip()
+            if not key or len(key)>45: continue
+            cur_key=key
+            if val:
+                out[key]=val
+            continue
+        b=re.match(r'\s*[-*•]\s+(.*)$',ln)
+        if b and cur_key:
+            if isinstance(out.get(cur_key),list): out[cur_key].append(b.group(1).strip())
+            elif cur_key in out: out[cur_key]=[out[cur_key],b.group(1).strip()]
+            else: out[cur_key]=[b.group(1).strip()]
+            continue
+        if cur_key and ln.strip() and cur_key in out and isinstance(out[cur_key],str) and len(ln.strip())>60:
+            out[cur_key]+=' '+ln.strip()
+    return out or None
+
 def extract_json(text):
-    """Local models wrap JSON in fences/chatter — robust extraction, honest fallback."""
+    """Layered extraction: direct → fences → balanced → repaired → markdown-KV.
+    Only reorganizes what the model actually wrote; never invents fields."""
     if not text: return None
     t=re.sub(r'<think>.*?</think>','',text,flags=re.S)
+    candidates=[]
     m=re.search(r'```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```',t,flags=re.S)
-    if m: t=m.group(1)
-    else:
-        s=t.find('{'); e=t.rfind('}')
-        if s>=0 and e>s: t=t[s:e+1]
-    try: return json.loads(t)
-    except Exception: return None
+    if m: candidates.append(m.group(1))
+    s=t.find('{'); e=t.rfind('}')
+    if s>=0 and e>s: candidates.append(t[s:e+1])
+    for cand in candidates:
+        try: return json.loads(cand)
+        except Exception: pass
+    r=_repair_json(t)
+    if r is not None: return r
+    b=_balanced_json(t)
+    if b is not None: return b
+    return parse_markdown_kv(t)
+
+def validate_schema(data,required=None,list_fields=None,min_list=1):
+    """Return list of problems (empty list = valid). Honest, no coercion."""
+    problems=[]
+    if not isinstance(data,dict):
+        problems.append('خروجی شیء JSON نیست')
+        return problems
+    for k in (required or []):
+        v=data.get(k)
+        if v is None or (isinstance(v,str) and not v.strip()):
+            problems.append('فیلد '+k+' خالی/غایب است')
+    for k in (list_fields or []):
+        v=data.get(k)
+        if not isinstance(v,list) or len(v)<min_list:
+            problems.append('فیلد '+k+' باید فهرستی با حداقل '+str(min_list)+' مورد باشد')
+        elif not all(isinstance(x,dict) for x in v):
+            problems.append('اعضای '+k+' باید شیء باشند')
+    return problems
+
 
 STATUS_KIND_FA={'research':'تحقیق','verification':'بررسی فنی','script':'سناریوی کامل','hooks':'هوک‌ها',
  'title_packages':'بسته‌های عنوان/کاور','social':'نسخهٔ شبکه‌ها','article_seo':'مقاله و سئو',

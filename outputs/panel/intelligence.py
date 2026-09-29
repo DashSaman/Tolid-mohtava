@@ -68,8 +68,8 @@ def _rule(code):
      'missing_meta':('توضیح متا ندارد','برای صفحه توضیح متا (۱۵۵ نویسه) بنویسید که کلمهٔ کلیدی اصلی و وعدهٔ صفحه را داشته باشد؛ در وردپرس با سئوپلاگین یا فیلد excerpt تنظیم می‌شود.'),
      'missing_canonical':('canonical ندارد','برای جلوگیری از محتوای تکراری، canonical به نشانی canonical صفحه اضافه شود.'),
      'h1_issue':('ساختار H1 نامناسب','دقیقاً یک H1 در صفحه؛ تیترهای بعدی H2/H3.'),
-     'sitemap_missing':('زیرساخت نقشهٔ سایت خراب است — بررسی واقعی 2026-09-28: sitemap.xml به wp-sitemap.xml ریدایرکت 301 می‌شود ولی آن هم 404 است و robots.txt هم خط Sitemap ندارد',
-                        'sitemap هستهٔ وردپرس غیرفعال شده و سئوپلاگین هم نصب نیست: (۱) فعال‌سازی sitemap در تنظیمات وردپرس/سئوپلاگین (Rank Math/Yoast) یا حذف فیلتر غیرفعال‌کننده، (۲) بررسی ریدایرکت 301 که به 404 می‌رود، (۳) افزودن خط Sitemap: به robots.txt پس از آماده‌شدن.'),
+     'sitemap_missing':('ریشه‌یابی کامل 2026-09-28 (بدون تغییر روی سایت): هیچ پلاگین سئویی نصب نیست (WP REST فقط WooCommerce/Jetpack را نشان می‌دهد)؛ ریدایرکت 301 از sitemap.xml به wp-sitemap.xml را خودِ وردپرس صادر می‌کند (X-Redirect-By: WordPress) ولی مقصد 404 است؛ یعنی sitemap هستهٔ وردپرس غیرفعال شده است (معمولاً با فیلتر wp_sitemaps_enabled در کد قالب/mu-plugin/snippet، یا تیک Discourage search engines در تنظیمات خواندن) و robots.txt هم خط Sitemap ندارد',
+                        'گام‌های پیشنهادی (بدون نصب پلاگین جدید، با تأیید شما در wp-admin): (۱) تنظیمات ← خواندن ← تیک «جلوگیری از ایندکس موتورهای جست‌وجو» برداشته شود؛ (۲) اگر snippet/mu-plugin/قالب فیلتر wp_sitemaps_enabled یا wp_sitemaps_remove_rewrite_rules دارد، حذف/غیرفعال شود؛ (۳) تنظیمات ← پیوندهای یکتا ← ذخیره (فلوش rewrite)؛ (۴) تأیید wp-sitemap.xml = 200؛ (۵) افزودن خط «Sitemap: https://tehnet.ir/wp-sitemap.xml» به robots.txt؛ (۶) ریدایرکت موجود بی‌ضرر می‌شود ولی در صورت تمایل حذف گردد؛ (۷) در پنل، «اجرای اسکن» دوباره — بهبود در تاریخچهٔ اسکن قابل راستی‌آزمایی است.'),
     }
     issue,fix=R[code]
     return {'issue':issue,'fix':fix}

@@ -8,7 +8,7 @@ import json, re, uuid, urllib.request
 from datetime import datetime, timezone
 from jobs import DependencyMissing, JobCancelled
 import ai
-from ai import STATUS_KIND_FA, extract_json
+from ai import STATUS_KIND_FA, extract_json, validate_schema
 import skill_router
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -35,16 +35,48 @@ def _ctx_text(services,content_id):
 def _finish(ctx,content_id,kind,oid,status,result,raw,provider,model,job_id,payload=None):
     ctx.services['ai'].save_output(oid,content_id,kind,status,payload,result,raw,provider,model,job_id)
 
-def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400):
+def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400,validator=None):
+    """Structured-output pipeline: extract → repair → validate → one stricter
+    retry → honest parse_error. Never fabricates missing fields."""
     ctx.progress(20)
     out=ai.chat(ctx.services['ai'],task,messages,max_tokens=max_tokens)
     ctx.log(f"پاسخ از {out['provider']} دریافت شد ({out['model']})")
-    ctx.progress(70)
+    ctx.progress(55)
     data=extract_json(out['content'])
-    if data is None:
+    problems=validator(data) if (data is not None and validator) else []
+    if data is None or problems:
+        reason='خروجی JSON نبود' if data is None else '؛ '.join(problems)
+        ctx.log('خروجی قابل‌قبول نبود ('+reason+') — یک تلاش مجدد با قید سخت‌گیرانه‌تر')
+        retry=list(messages)
+        retry.insert(len(retry)-1 if retry[-1]['role']=='user' else len(retry),
+            {'role':'system','content':'یادآوری حیاتی: پاسخ را فقط و فقط به شکل یک JSON خام و معتبر بده — بدون مقدمه، بدون توضیح، بدون markdown، بدون کلید ستاره‌دار. ساختار فیلدها دقیقاً همان باشد که خواسته شد. مشکل قبلی: '+reason})
+        try:
+            out2=ai.chat(ctx.services['ai'],task,retry,max_tokens=max_tokens)
+            data2=extract_json(out2['content'])
+            problems2=validator(data2) if (data2 is not None and validator) else []
+            if data2 is not None and not problems2:
+                ctx.log('تلاش دوم موفق بود')
+                ctx.progress(75)
+                return out2,data2
+            if data2 is not None and (data is None or not (problems and not problems2 and len(problems2)>=len(problems))):
+                if not problems2:
+                    return out2,data2
+            out=out2 if data2 is not None else out
+            if data2 is not None: data=data2
+            problems=problems2 or problems
+            reason='خروجی JSON نبود' if data is None else '؛ '.join(problems)
+        except Exception as e:
+            ctx.log('تلاش مجدد هم شکست خورد: '+str(e)[:120])
         _finish(ctx,content_id,kind,oid,'parse_error',None,out['content'],out['provider'],out['model'],ctx.id)
-        raise ValueError('خروجی مدل به JSON قابل‌خواندن تبدیل نشد؛ متن خام ذخیره شد. دوباره تلاش کنید یا برای این وظیفه مدل قوی‌تری انتخاب کنید.')
+        raise ValueError('خروجی مدل قابل‌خواندن نشد ('+reason+')؛ متن خام ذخیره شد. مدل قوی‌تری برای این وظیفه انتخاب کنید.')
+    ctx.progress(75)
     return out,data
+
+def article_validator(d):
+    """Required SEO fields for generate_article — no fabrication of missing ones."""
+    return validate_schema(d,
+        required=('title','slug','meta_description','primary_keyword'),
+        list_fields=('sections',),min_list=2)
 
 def verify_urls(urls,timeout=10):
     """REAL reachability check. Returns {url: 'live'|'dead'|'invalid'}"""
@@ -251,7 +283,8 @@ def generate_article_handler(ctx):
       'مقاله نباید کپی transcript باشد؛ بازنویسی ساختاریافتهٔ وب با هدف جست‌وجوست.\n'
       'transcript:\n'+base[:4000]+'\n\n'+JSON_ARTICLE)
     out,data=_llm_json(ctx,content_id,'article_seo',oid,'seo',
-                       [{'role':'system','content':system},{'role':'user','content':user}],max_tokens=3000)
+                       [{'role':'system','content':system},{'role':'user','content':user}],max_tokens=3000,
+                       validator=article_validator)
     urls=[u for u in data.get('external_references',[]) if isinstance(u,str) and u.startswith('http')]
     data['external_reference_status']=verify_urls(urls)
     data['site']=site
