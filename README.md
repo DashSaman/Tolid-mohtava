@@ -169,7 +169,9 @@ node --check outputs/panel/app.js
 
 آزمون مرورگر اختیاری: با Node و Playwright موجود، `node tests/ui-flow.cjs` را اجرا کنید. متغیر `PLAYWRIGHT_MODULE` می‌تواند مسیر پکیج موجود و `PYTHON` مسیر Python را مشخص کند؛ نصب خودکار وابستگی انجام نمی‌شود. Chrome نصب‌شده استفاده می‌شود. دادهٔ آزمون در `work/` و جدا از پنل است.
 
-[راهنمای توسعه و API](docs/TECHNICAL.md) · [سابقه اقدامات و محدودیت‌ها](docs/CHANGELOG.md) · [شواهد نسخه اولیه](outputs/verification.fa.md)
+[راهنمای کامل کاربر فارسی](docs/README.fa.md) · [شروع سریع](docs/QUICKSTART.fa.md) · [نصب](docs/INSTALLATION.fa.md) · [انتقال به سیستم جدید](docs/MIGRATION.fa.md) · [ماتریس قابلیت‌ها](docs/FEATURES.fa.md) · [معماری](docs/ARCHITECTURE.md)
+
+[راهنمای توسعه و API](docs/TECHNICAL.md) · [سابقه اقدامات](docs/CHANGELOG.md) · [شواهد نسخه اولیه](outputs/verification.fa.md)
 
 ## نمایش موبایل
 

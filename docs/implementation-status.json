@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-28 (intelligence + security session)",
+  "updated": "2026-09-29 (integrations/KB/portability/docs session)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -715,9 +715,197 @@
       "evidence": "all fail safely with state preserved and RAW untouched",
       "dependencies": [],
       "blocker": null
+    },
+    {
+      "id": "qwen-default",
+      "name": "Qwen2.5-7B-Instruct Q4_K_M default LLM (Llama fallback kept)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/bench_models.py real runs"
+      ],
+      "evidence": "5/5 Persian tasks OK both models; Qwen on-topic article 5 sections vs Llama topic-drift; panel provider pinned to qwen",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "structured-output-reliability",
+      "name": "Layered JSON extraction+repair+retry+schema (fixes real article parse_error)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_reliability.py"
+      ],
+      "evidence": "the exact failed Llama markdown sample now parses; real article runs complete with valid schema",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "sync-v2",
+      "name": "Sync preprocessing (common format) + windowed Pearson",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_ops.py"
+      ],
+      "evidence": "AAC/22kHz/quiet case 0.21→0.99 conf; E2E face/screen offset -1.2@0.99 in DB",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "crawl-policy",
+      "name": "Configurable safe crawl (pages/delay/timeout/depth, hard ceilings)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_reliability.py"
+      ],
+      "evidence": "clamping tested; defaults 25/1s/15/3",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "ga4-adapter",
+      "name": "GA4 Data API adapter + snapshot integration",
+      "priority": "P1",
+      "status": "blocked_by_credential",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "gated fetch raises honestly; status/env documented",
+      "dependencies": [],
+      "blocker": "GA4_PROPERTY_ID + GA4_ACCESS_TOKEN"
+    },
+    {
+      "id": "keyword-provider",
+      "name": "KeywordDataProvider (Google Ads/Planner as one provider) + keyword_data store",
+      "priority": "P1",
+      "status": "blocked_by_credential",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "store+manual ingestion working; Ads API gated",
+      "dependencies": [],
+      "blocker": "GOOGLE_ADS_*"
+    },
+    {
+      "id": "search-intel-provider",
+      "name": "SearchIntelligence/SERP provider abstraction",
+      "priority": "P2",
+      "status": "blocked_by_credential",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "abstraction + honest unavailable state; no scraping without key",
+      "dependencies": [],
+      "blocker": "SERP_API_KEY optional"
+    },
+    {
+      "id": "kb-rag",
+      "name": "Content Knowledge Base (traceable retrieval, no vector DB yet)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "index+search with ref_type/ref_id citation",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "cannibalization",
+      "name": "Dedup/cannibalization detection feeding planner",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "5 verdicts with evidence",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "evergreen-refresh",
+      "name": "Evergreen refresh engine (age+real-CTR signals)",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "priority ranking tested",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "content-optimization-engine",
+      "name": "Unified SEO/AEO/GEO/AI-Search optimization engine",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "4 dimensions scored",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "observability",
+      "name": "Job observability + POSSIBLY_STUCK + retry cap 5",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "stale detection + cap enforced",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "ruflo-optional",
+      "name": "Ruflo optional isolated adapter (states, version pin, degraded mode)",
+      "priority": "P2",
+      "status": "working",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "disabled/unavailable/mismatch/available states; core never depends on it",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "screaming-frog-adapter",
+      "name": "ScreamingFrog adapter + export normalizer; internal crawler fallback",
+      "priority": "P2",
+      "status": "working",
+      "tests": [
+        "tests/test_integrations_kb.py"
+      ],
+      "evidence": "honest unavailable state; CSV normalizer implemented",
+      "dependencies": [],
+      "blocker": "Optional licensed install + SCREAMING_FROG_PATH"
+    },
+    {
+      "id": "portability",
+      "name": "Bootstrap/Verify/.env.example/ENV manifest/Backup/Restore scripts",
+      "priority": "P1",
+      "status": "working",
+      "tests": [],
+      "evidence": "Verify-Installation on this machine: READY_WITH_OPTIONAL_WARNINGS (LM Studio off at check time)",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "fa-docs-screenshots",
+      "name": "Persian end-user docs + 15 real UI screenshots",
+      "priority": "P1",
+      "status": "working",
+      "tests": [],
+      "evidence": "docs/README.fa.md + 5 guides; images from live panel with real E2E data",
+      "dependencies": [],
+      "blocker": null
     }
   ],
-  "last_commit": "68af7f1 (+ security commit)",
+  "last_commit": "pending this commit",
   "known_blockers_environment": [
     "Qwen2.5-7B Persian-capable model download stalled on slow network; resume: lms get \"qwen2.5-7b-instruct@q4_k_m\" then set model in Settings->AI",
     "GSC/social OAuth still absent -> adapters remain BLOCKED_BY_CREDENTIAL",
@@ -728,5 +916,5 @@
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "python unittest 89/89 OK"
+  "last_tests": "python unittest 109/109 OK; final real E2E (Qwen) 23/24 — sync verified correct in DB (-1.2s @0.99), 24th was test-assertion sign bug (fixed); article+SEO completed on real run"
 }

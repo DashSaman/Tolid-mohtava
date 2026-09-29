@@ -150,7 +150,8 @@ def sync_content_handler(ctx):
     if not avtools.ffmpeg_path(): raise DependencyMissing(avtools.ffmpeg_missing())
     services=ctx.services
     content_id=ctx.payload.get('content_id')
-    media=[m for m in services['media'].list(content_id) if m['kind']!='thumbnail']
+    # only production tracks share a timeline; 'voice' is idea dictation (unrelated)
+    media=[m for m in services['media'].list(content_id) if m['kind'] in ('face','screen','external_audio')]
     if len(media)<2: raise ValueError('برای همگام‌سازی حداقل دو تراک لازم است.')
     store=services['sync']
     ref=max(media,key=lambda m:m.get('duration') or 0)

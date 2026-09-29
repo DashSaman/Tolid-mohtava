@@ -6,11 +6,14 @@ queued jobs are re-dispatched. No fake success: engine absence is a real failure
 """
 import json, sqlite3, threading, uuid, traceback
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager
 from queue import Queue, Empty
 
-STATES=('queued','running','waiting_approval','completed','failed','cancelled')
+STATES=('queued','running','waiting_approval','completed','failed','cancelled','possibly_stuck')
+MAX_RETRY_COUNT=5          # hard cap: no auto-retry beyond this
+STALE_RUNNING_SECONDS=3600 # running without progress update for 1h => POSSIBLY_STUCK
+MAX_AUTO_REPAIR=2          # automatic repair attempts per failure (session policy)
 ACTIVE=('queued','running','waiting_approval')
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -124,10 +127,46 @@ class JobManager:
         return self.get(jid)
     def cancel_requested(self,jid):
         with self._cancels_lock: return jid in self._cancels
+    def mark_stale_running(self):
+        """Running jobs with no update for STALE_RUNNING_SECONDS -> possibly_stuck.
+        Never auto-restarts; surfaced for human decision."""
+        cutoff=(datetime.now(timezone.utc)-timedelta(seconds=STALE_RUNNING_SECONDS)).isoformat()
+        with self.connect() as c:
+            cur=c.execute('''SELECT id,progress,logs FROM jobs WHERE status='running' ''')
+            stale=[]
+            for jid,progress,logs in cur.fetchall():
+                lines=json.loads(logs or '[]')
+                last=lines[-1]['time'] if lines else None
+                if last and last<cutoff:
+                    stale.append(jid)
+            for jid in stale:
+                c.execute("UPDATE jobs SET status='possibly_stuck' WHERE id=?", (jid,))
+        return stale
+
+    def observability(self,limit=50):
+        """Per-job ops view: stage, blocker, next_action, retries vs cap."""
+        rows=self.list(limit=limit)
+        out=[]
+        for j in rows:
+            logs=j['logs'] or []
+            o={'job_id':j['id'],'task':j['kind'],'status':j['status'].upper(),
+               'progress':j['progress'],'started_at':j['started_at'],'updated_at':j['finished_at'] or j['started_at'],
+               'last_successful_step':(logs[-1]['message'][:80] if logs else None),
+               'retry_count':j['retry_count'],'max_retries':MAX_RETRY_COUNT,
+               'worker':'local-pool','blocker':None,'next_action':None}
+            if j['status']=='possibly_stuck': o['blocker']='هیچ پیشرفتی برای بیش از ۱ ساعت'; o['next_action']='بازبینی دستی: توقف یا ادامه'
+            elif j['status']=='failed': o['blocker']=(j['error'] or '')[:120]; o['next_action']='retry (حداکثر '+str(MAX_RETRY_COUNT)+' بار)'
+            elif j['status']=='waiting_approval': o['next_action']='تأیید/رد در مرکز تأیید'
+            elif j['status']=='queued': o['next_action']='در انتظار worker'
+            out.append(o)
+        return out
+
     def retry(self,jid):
         job=self.get(jid)
         if not job: raise ValueError('کار پیدا نشد.')
-        if job['status'] not in ('failed','cancelled','completed'):
+        if job['retry_count']>=MAX_RETRY_COUNT:
+            raise ValueError(f'سقف تلاش مجدد ({MAX_RETRY_COUNT}) پر شده؛ مداخلهٔ دستی لازم است.')
+        if job['status'] not in ('failed','cancelled','completed','possibly_stuck'):
             raise ValueError('کار در حال اجرا یا صف قابل تلاش دوباره نیست.')
         with self._cancels_lock: self._cancels.discard(jid)
         self._update(jid,status='queued',error=None,finished_at=None,started_at=None,

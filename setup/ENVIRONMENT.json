@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "updated": "2026-09-29",
+  "note": "Tested environment for Tolid-mohtava. Bootstrap: setup/Setup-TolidMohtava.ps1. Verify: setup/Verify-Installation.ps1",
+  "dependencies": [
+    {"name": "Python", "tested": "3.12.10", "required": true, "install": "winget install Python.Python.3.12", "health": "python --version", "fallback": "py -3"},
+    {"name": "FFmpeg", "tested": "9.0.2 (gyan.dev full)", "required": true, "install": "winget install Gyan.FFmpeg", "health": "ffmpeg -version", "fallback": "panel auto-locates winget package path or TEHNET_FFMPEG"},
+    {"name": "faster-whisper", "tested": "1.2.1", "required": true, "install": "pip install faster-whisper", "health": "python -c \"import faster_whisper\""},
+    {"name": "ctranslate2 (CUDA wheels)", "tested": "4.8.2 + nvidia-cublas-cu12 12.9 + nvidia-cudnn-cu12 9.26", "required": false, "install": "pip install nvidia-cublas-cu12 nvidia-cudnn-cu12", "health": "panel system-health GPU probe", "fallback": "CPU int8 automatic"},
+    {"name": "Node.js", "tested": "24.x", "required": false, "install": "winget install OpenJS.NodeJS", "health": "node --version", "fallback": "browser UI test skipped"},
+    {"name": "Git", "tested": "any recent", "required": true, "install": "winget install Git.Git", "health": "git --version"},
+    {"name": "LM Studio + local LLM", "tested": "server :1234; qwen2.5-7b-instruct Q4_K_M (default) / meta-llama-3-8b-instruct (fallback)", "required": true, "install": "lms server start; lms load qwen2.5-7b-instruct --gpu max", "health": "curl http://127.0.0.1:1234/v1/models", "fallback": "any OpenAI-compatible endpoint via panel Settings"},
+    {"name": "Ruflo (optional orchestration)", "tested": "not installed", "required": false, "install": "set RUFLO_ENDPOINT after running your pinned version", "health": "panel integrations page", "fallback": "panel fully functional without"},
+    {"name": "Screaming Frog (optional spider)", "tested": "not installed", "required": false, "install": "licensed installer; set SCREAMING_FROG_PATH", "health": "panel integrations page", "fallback": "internal tested crawler (policy-limited)"},
+    {"name": "Playwright (tests only)", "tested": "npm i playwright (uses installed Chrome)", "required": false, "install": "npm install --no-save playwright", "health": "node tests/ui-flow.cjs", "fallback": "unit tests cover core"}
+  ],
+  "gpu": {"tested": "RTX 3070 Laptop 8GB, driver 616.92", "whisper": "CUDA float16 (fallback CPU int8)", "llm": "Vulkan backend via LM Studio (cuda12 backend DLL-broken on this driver set)", "render": "NVENC h264"},
+  "benchmarks": {
+    "whisper_persian_edge_tts": {"small": {"rtf": 0.09, "overlap": 0.59}, "medium": {"rtf": 0.11, "overlap": 0.76, "default": true}},
+    "llm_5task_real": {"meta-llama-3-8b-instruct": {"ok": "5/5", "note": "topic drift on long Persian article"}, "qwen2.5-7b-instruct": {"ok": "5/5", "note": "on-topic, better Persian; default"}}
+  }
+}

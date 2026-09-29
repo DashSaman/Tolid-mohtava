@@ -24,6 +24,9 @@ from ops import Auth, ArchiveStore, archive_copy_handler, hash_password
 from analytics import (AnalyticsStore, adapter_status, health_check as adapter_health,
     analytics_sync_handler, optimize_content_handler, recommend_slot, detect_anomalies, PLATFORMS, PLATFORM_FA)
 from intelligence import weekly_plan_handler, seo_proposals_handler, shorts_v2_handler
+from integrations import all_optional_integrations, KeywordStore, ga4_fetch, screaming_frog_status, ruflo_status, normalize_sf_export
+from knowledge import KnowledgeBase, index_project
+from content_intel import check_topic, refresh_candidates, optimize_content
 from handlers import build_handlers
 import handlers as HandlersMod
 
@@ -41,6 +44,8 @@ SYNCSTORE=SyncStore(DB.path)
 SEOSTORE=SEOStore(DB.path)
 ARCHIVE=ArchiveStore(DB.path)
 ANALYTICS=AnalyticsStore(DB.path)
+KWSTORE=KeywordStore(DB.path)
+KB=KnowledgeBase(DB.path)
 AUTH=Auth()
 NOTIF=Notifications(DB.path)
 POLICY_TEXT=(ROOT.parent/'content-policy.fa.md').read_text(encoding='utf-8')
@@ -53,7 +58,7 @@ JM=JobManager(DB.path,handlers=build_handlers()|{
                         'store':DB,'dryrun_root':str(DATA/'dryrun'),
                         'ai':AISTORE,'policy':POLICY_TEXT,
                         'whisper_settings':WSSET,'sync':SYNCSTORE,'seo':SEOSTORE,'archive':ARCHIVE,
-                        'analytics':ANALYTICS})
+                        'analytics':ANALYTICS,'keywords':KWSTORE,'kb':KB})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 def brand_default(): return 'tehran-network'
@@ -138,6 +143,26 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(recommend_slot(ANALYTICS,q.get('brand',[brand_default()])[0],q.get('platform',['youtube'])[0],q.get('ctype',['long'])[0]))
             if url.path=='/api/analytics/performance': return self.respond(ANALYTICS.performance(q.get('brand',[None])[0],q.get('platform',[None])[0]))
             if url.path=='/api/integrations':
+                return self.respond({'core':adapter_status(),'optional':all_optional_integrations()})
+            if url.path=='/api/ops/observability':
+                JM.mark_stale_running()
+                return self.respond(JM.observability())
+            if url.path=='/api/keywords':
+                return self.respond(KWSTORE.search(q.get('q',[''])[0]))
+            if url.path=='/api/kb/stats': return self.respond(KB.stats())
+            if url.path=='/api/kb/search':
+                return self.respond(KB.search(q.get('q',[''])[0],int(q.get('limit',['5'])[0])))
+            if url.path=='/api/content/refresh':
+                return self.respond(refresh_candidates(items:=DB.list(brand),ANALYTICS.performance(brand=brand)))
+            if url.path=='/api/content/checktopic':
+                return self.respond(check_topic(DB.list(brand),KB,q.get('title',[''])[0],q.get('keyword',[''])[0]))
+            if url.path=='/api/content/optimize':
+                o=None
+                try: o=ANALYTICS.proposals()
+                except Exception: pass
+                return self.respond(optimize_content(q.get('text',[''])[0],q.get('title',[''])[0],
+                    has_faq='faq' in q,has_schema='schema' in q))
+            if url.path=='/api/integrations_old_never':
                 rows=adapter_status()
                 return self.respond(rows)
             if url.path=='/api/storage':
@@ -281,6 +306,22 @@ class Handler(BaseHTTPRequestHandler):
                 ANALYTICS.add_snapshot(data.get('platform','youtube'),data.get('brand'),data.get('external_id'),
                                        data.get('metrics') or {},data.get('source','manual'))
                 return self.respond({'ok':True})
+            if self.path=='/api/keywords/add':
+                for row in (data.get('rows') or [data]):
+                    KWSTORE.add(row.get('keyword'),row.get('language','fa'),row.get('country','IR'),
+                                row.get('volume_monthly'),row.get('volume_range'),row.get('competition'),
+                                row.get('cpc_avg'),row.get('source','manual'))
+                return self.respond({'ok':True})
+            if self.path=='/api/kb/reindex':
+                return self.respond({'indexed':index_project(KB,DB,AISTORE)})
+            if self.path=='/api/ga4/fetch':
+                try:
+                    metrics=ga4_fetch()
+                    ANALYTICS.add_snapshot('ga4',brand,None,
+                        {k:v for k,v in metrics.items()},'ga4-api')
+                    return self.respond({'ok':True,'metrics':metrics})
+                except DependencyMissing as e:
+                    return self.respond({'error':str(e)},400)
             if self.path=='/api/integrations/test':
                 return self.respond(adapter_health(data.get('platform')))
             if self.path=='/api/weekly-plan':

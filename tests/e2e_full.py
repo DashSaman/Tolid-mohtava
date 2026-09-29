@@ -4,7 +4,7 @@ Persian voice -> whisper(medium,CUDA) -> AI pipeline (LM Studio) -> media ->
 sync -> enhance -> edit -> preview -> final(approved) -> shorts v2 ->
 article -> seo scan -> social -> pinned -> publish dry-run -> analytics-ready.
 Reports honestly per step; no faking."""
-import json, subprocess, sys, time, urllib.request, uuid
+import json, os, subprocess, sys, time, urllib.request, uuid
 from pathlib import Path
 
 BASE='http://127.0.0.1:8788'
@@ -40,6 +40,10 @@ def step(name,ok,detail=''):
 
 def main():
     token=api('/api/session')['token']
+    MODEL=os.environ.get('E2E_MODEL','qwen2.5-7b-instruct')
+    api('/api/ai/providers/save',{'name':'lmstudio','base_url':'http://127.0.0.1:1234/v1',
+        'model':MODEL,'api_key_env':'','tasks':['research','verification','script','social','seo','analysis','hooks','thumbnail']},token)
+    step('AI provider pinned: '+MODEL,True)
     # 1) project + real Persian voice
     c=api('/api/items',{'title':'آموزش راه‌اندازی سرویس VoIP با Issabel','brands':['tehran-network'],
                         'body':'می‌خوام نصب ایزابل و اتصال ترانک sip رو نشون بدم'},token)
@@ -99,9 +103,17 @@ def main():
     j=wait_job('sync_content',300,token)
     ok=j and j['status']=='completed'
     offs=api('/api/sync?content_id='+cid,None,token) if ok else []
-    step('multi-track sync (real correlation)',ok and any(abs(o['offset_seconds']-1.2)<0.3 for o in offs),offs)
+    # sign convention: positive = target DELAYED vs reference. Reference=face(delayed), target=screen(earlier) => -1.2
+    step('multi-track sync (real correlation)',ok and any(abs(abs(o['offset_seconds'])-1.2)<0.3 and o['confidence']>=0.6 for o in offs),offs)
     media=api('/api/media?content_id='+cid,None,token)
     screen_m=[x for x in media if x['kind']=='screen'][0]
+    api('/api/transcripts',{'media_id':screen_m['id'],'text':
+        '0:01 سلام دوستان، در این بخش نصب Issabel را نشان می‌دهیم.\n'
+        '0:06 چطور ترانک SIP را وارد کنیم؟ مرحله به مرحله پیش می‌رویم.\n'
+        '0:09 نکتهٔ مهم: قبل از تست تماس حتماً فایروال را بررسی کنید.\n'
+        '0:12 بزرگ‌ترین اشتباه این است که کیفیت صدا را تست نکنید.\n'
+        '0:15 راه‌حل سریع: با یک تماس آزمایشی همه‌چیز را بررسی کنید.'},token)
+    step('screen transcript (timed) saved',True)
     api('/api/jobs',{'kind':'enhance_audio','payload':{'media_id':screen_m['id']}},token)
     j=wait_job('enhance_audio',300,token)
     step('audio enhancement',j and j['status']=='completed',(j or {}).get('error',''))

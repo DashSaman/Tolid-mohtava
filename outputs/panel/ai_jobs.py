@@ -39,7 +39,7 @@ def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400,validator=No
     """Structured-output pipeline: extract → repair → validate → one stricter
     retry → honest parse_error. Never fabricates missing fields."""
     ctx.progress(20)
-    out=ai.chat(ctx.services['ai'],task,messages,max_tokens=max_tokens)
+    out=ai.chat(ctx.services['ai'],task,messages,max_tokens=max_tokens,temperature=0.4)
     ctx.log(f"پاسخ از {out['provider']} دریافت شد ({out['model']})")
     ctx.progress(55)
     data=extract_json(out['content'])
@@ -51,7 +51,7 @@ def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400,validator=No
         retry.insert(len(retry)-1 if retry[-1]['role']=='user' else len(retry),
             {'role':'system','content':'یادآوری حیاتی: پاسخ را فقط و فقط به شکل یک JSON خام و معتبر بده — بدون مقدمه، بدون توضیح، بدون markdown، بدون کلید ستاره‌دار. ساختار فیلدها دقیقاً همان باشد که خواسته شد. مشکل قبلی: '+reason})
         try:
-            out2=ai.chat(ctx.services['ai'],task,retry,max_tokens=max_tokens)
+            out2=ai.chat(ctx.services['ai'],task,retry,max_tokens=min(max_tokens+800,4800),temperature=0.2)
             data2=extract_json(out2['content'])
             problems2=validator(data2) if (data2 is not None and validator) else []
             if data2 is not None and not problems2:
@@ -283,7 +283,7 @@ def generate_article_handler(ctx):
       'مقاله نباید کپی transcript باشد؛ بازنویسی ساختاریافتهٔ وب با هدف جست‌وجوست.\n'
       'transcript:\n'+base[:4000]+'\n\n'+JSON_ARTICLE)
     out,data=_llm_json(ctx,content_id,'article_seo',oid,'seo',
-                       [{'role':'system','content':system},{'role':'user','content':user}],max_tokens=3000,
+                       [{'role':'system','content':system},{'role':'user','content':user}],max_tokens=3800,
                        validator=article_validator)
     urls=[u for u in data.get('external_references',[]) if isinstance(u,str) and u.startswith('http')]
     data['external_reference_status']=verify_urls(urls)
