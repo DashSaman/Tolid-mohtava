@@ -38,3 +38,38 @@ Complete WSL/container audit; provider and account integrations; audio transcrip
 8. Approval triggers: publish approval enqueues exactly one DRY RUN package per revision; final render waits for explicit approval. No external publish exists.
 9. Persian RTL UI: media editing room and live jobs pages wired to the real workers; browser test extended and passing.
 10. End-to-end fixture test runs the critical path on the real job system and real FFmpeg (only the speech engine is substituted for determinism).
+
+## 2026-09-30 — v1.0.0-local-ready (Release)
+
+نسخهٔ نهایی محلی. توسعهٔ محلی از این نقطه FROZEN است؛ تغییرات بعدی فقط برای باگ واقعی کاربر یا شکست اتصال Credential.
+
+### قابلیت‌های کامل‌شده (به‌ترتیب تاریخی جلسات)
+
+- **پلتفرم پایه:** پنل فارسی RTL فقط-محلی (Python stdlib + SQLite WAL روی loopback)، صف کار پایدار با idempotency و retry cap، بازیابی صادقانه پس از ری‌استارت، سازهٔ غیرمخرب RAW + sha256.
+- **AI محلی:** اتصال LM Studio (Qwen2.5-7B پیش‌فرض)، مسیر هوش مصنوعی پروژه (تحقیق/بررسی فنی/سناریو/هوک/بسته‌ها/مقاله/کامنت پین/خط تولید کامل)، ۱۷ اسکیل نصب‌شده، موتور بهینه‌سازی محتوا (SEO/AEO/GEO) و KB داخلی.
+- **رسانه و صدا:** faster-whisper فارسی (medium، fallback خودکار CPU)، تست بزرگ ۴۷۸MB واقعی سبز، ضبط مرورگری با انتخاب میکروفون/تست واقعی/سطح زنده/اعتبارسنجی INVALID_AUDIO/ضبط مجدد نسخه‌دار.
+- **تدوین غیرمخرب:** silencedetect + تصمیم‌های active/proposed/dismissed، حکم کاربر در تحلیل دوباره می‌ماند، رندر Preview/FINAL با NVENC.
+- **Shorts:** کاندیدا از transcript واقعی + رندر ۹:۱۶ با پس‌زمینه محو (این release دو باگ واقعی آن رفع شد — پایین‌تر).
+- **سئو/Analytics:** اسکن سایت + پیشنهاد اصلاح، هضم GSC/GA4 (با Credential)، اسنپ‌شات append-only، زمان‌بندی تطبیقی BASELINE→DATA_DRIVEN، برنامهٔ هفتگی مبتنی بر شواهد.
+- **انتشار:** فقط Dry-Run بدون Credential؛ پیش‌نویس وردپرس (فقط DRAFT) با Application Password؛ اتصالات OAuth پایه‌گذاری شد (YouTube/Meta/LinkedIn) — همه BLOCKED_BY_CREDENTIAL تا ورود کلیدهای واقعی.
+- **امنیت:** احراز هویت اختیاری ADMIN_* (PBKDF2، نشست ۱۲h، rate-limit)، CSRF/Origin gating، ماتریس ۹/۹؛ ممیزی نشت Secret = ۰.
+- **بکاپ/ری‌استور:** Backup/Restore-TolidMohtava.ps1 با checksum، تست ایزوله سبز.
+- **UI v3:** طراحی شیشه‌ای آرام RTL، ۲۲ مسیر، موبایل ۳۹۳px، مرکز اتصال‌های صادقانه (۱۱ کارت).
+- **فریز:** گزارش PROJECT-FREEZE، آماده‌سازی ۹۵٪، تست‌های نهایی 125/125 + E2E 24/24 + Smoke 13/13.
+
+### باگ‌های واقعی که در همین release پیدا و رفع شد (UAT کلیکی)
+
+1. **Shorts render کاملاً خراب بود** — دو عامل: آدرس فایل خروجی به دستور FFmpeg اضافه نمی‌شد (هر رندر ۹:۱۶ fail می‌شد؛ E2E فقط رتبه‌بندی کاندیدا را می‌سنجید نه رندر) و نبود `-nostdin` باعث بلاک‌شدن FFmpeg پس از اتمام در محیط پنل می‌شد. رفع: افزودن خروجی + `-nostdin`؛ تأیید با رندر واقعی 1080×1920 در سفر کاربر.
+2. **بازگردانی از آرشیو در UI غیرممکن بود** — دکمهٔ بازگردانی فقط برای ردیف‌های آرشیوشده رندر می‌شد اما هیچ فهرستی آیتم‌های آرشیوشده را واکشی نمی‌کرد (کد مرده). رفع: دکمهٔ «نمایش آرشیو» در صفحهٔ پروژه‌ها + کارت آرشیو با همان جریان بازگردانی.
+
+### شناخته‌شده (غیرمسدودکننده، بدون تغییر در این release)
+
+- فهرست‌های داشبورد/پروژه‌ها پس از ساخت پروژه در ویزارد بدون رفرش (F5) تازه نمی‌شوند؛ با باز کردن پروندهٔ پروژه یا F5 درست می‌شوند.
+- کلیک دکمهٔ «تبدیل گفتار به متن» یک‌بار اضافی enqueue می‌کند (onclick تب + هندلر سراسری)؛ idempotency کلید یکسان در حالت race دو job موازی می‌سازد — نتیجه یکی است، فقط محاسبهٔ اضافه.
+
+### خارج از محصول (نیازمند کار/کلید کاربر)
+
+- ۱۱ Credential بیرونی (وردپرس ×2، Telegram، YouTube، Instagram، Facebook، LinkedIn، GSC، GA4، Google Ads، Gemini) — راهنما: CREDENTIAL-ONBOARDING.fa.md
+- فعال‌سازی sitemap tehnet.ir از wp-admin (SITEMAP-CHECKLIST.fa.md)
+- تست میکروفون فیزیکی
+- ابزارهای اختیاری (Ruflo / Screaming Frog / SERP خارجی) — پنل بدون آن‌ها کامل است.

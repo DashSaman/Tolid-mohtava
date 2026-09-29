@@ -1,0 +1,65 @@
+{
+  "release_version": "v1.0.0-local-ready",
+  "release_status": "LOCAL PRODUCT READY — EXTERNAL INTEGRATIONS REQUIRE CREDENTIALS",
+  "git_head_at_freeze": "0248ab8",
+  "release_date": "2026-09-30",
+  "runtime": {
+    "python_version": "3.12.10 (Windows)",
+    "node_version": "24.19.0 (dev tooling only: Playwright for E2E/browser smoke)",
+    "ffmpeg_version": "9.0.2-full_build-www.gyan.dev",
+    "faster_whisper_version": "1.2.1",
+    "google_ads_version": "25.1.0",
+    "edge_tts_version": "7.2.8 (dev-only: benchmark sample generation; not required at runtime)",
+    "playwright": "node_modules (gitignored dev dependency; tests/e2e + smoke need it)"
+  },
+  "installed_local_models": {
+    "llm_lmstudio_1234": ["qwen2.5-7b-instruct (default)", "meta-llama-3-8b-instruct (fallback)", "text-embedding-nomic-embed-text-v1.5"],
+    "whisper": "medium (default, Persian-benchmarked; small/large-v3 selectable)"
+  },
+  "database": {
+    "engine": "SQLite WAL",
+    "schema_version": "not_tracked (schema created idempotently on first run; 25 tables at freeze)",
+    "path": "outputs/panel/data/content.sqlite"
+  },
+  "test_counts": {
+    "unit_tests": "125/125 OK",
+    "e2e_api_browser_pipeline": "24/24 OK",
+    "browser_smoke": "13/13 OK (full 13-check coverage restored this release)",
+    "click_only_uat_journey": "39/40 (1 assertion-race in test script, product behavior verified correct)",
+    "auth_matrix": "9/9",
+    "failure_recovery_matrix": "7/7",
+    "integration_preflight": "11/11",
+    "large_media_test": "478MB PASS"
+  },
+  "bugs_fixed_in_release": [
+    "render_short: FFmpeg command had no output path (every 9:16 render failed) + missing -nostdin could hang the worker; fixed and verified with a real 1080x1920 render in the UAT journey",
+    "archive/restore UI: archived projects were fetched by no list, making 'بازگردانی از آرشیو' unreachable; added 'نمایش آرشیو' toggle on the projects page"
+  ],
+  "known_non_blocking_issues": [
+    "dashboard/projects lists do not self-refresh after wizard creation until project open or F5",
+    "transcribe button double-enqueues (tab onclick + global handler race on the same idempotency key); result identical, extra compute only"
+  ],
+  "optional_tools": ["Ruflo", "Screaming Frog (GUI installer; internal fallback active)", "external SERP provider"],
+  "blocked_integrations": {
+    "state": "READY_FOR_CREDENTIAL (no real credential present)",
+    "services": ["wordpress_tehnet_ir", "wordpress_mytel_one", "telegram", "youtube", "instagram", "facebook", "linkedin", "google_search_console", "ga4", "google_ads", "gemini"]
+  },
+  "blocked_by_user_action": ["tehnet.ir sitemap enablement via wp-admin (docs/SITEMAP-CHECKLIST.fa.md)"],
+  "physical_test_required": ["physical microphone test (browser audio path verified with synthetic source only)"],
+  "documentation_files": [
+    "README.md", "README.en.md", "VERSION", "CHANGELOG (docs/CHANGELOG.md)",
+    "docs/README.fa.md", "docs/UI-GUIDE.fa.md", "docs/FIRST-RUN.fa.md", "docs/DAILY-USE.fa.md",
+    "docs/FEATURES.fa.md", "docs/CREDENTIALS-GUIDE.fa.md", "docs/CREDENTIAL-ONBOARDING.fa.md",
+    "docs/OPERATOR-RUNBOOK.fa.md", "docs/DISASTER-RECOVERY.fa.md", "docs/STABLE-ROLLBACK-POINT.fa.md",
+    "docs/RELEASE-v1.0.0.fa.md", "docs/PROJECT-FREEZE-REPORT.fa.md", "docs/SITEMAP-CHECKLIST.fa.md",
+    "docs/INSTALLATION.fa.md", "docs/QUICKSTART.fa.md", "docs/MIGRATION.fa.md", "docs/ARCHITECTURE.md",
+    "docs/TECHNICAL.md", "docs/THIRD_PARTY.md", "docs/UI-REFERENCES.md", "docs/REPOSITORY-VERIFICATION.md",
+    "docs/implementation-status.json", "docs/project-freeze-report.json", "docs/RELEASE-MANIFEST.json"
+  ],
+  "backup": {
+    "pre_release_backup": "outputs/backups/tolid-20260929-220344 (integrity ok)",
+    "release_backup": "see docs/RELEASE-CHECKSUMS.txt",
+    "scripts": ["setup/Backup-TolidMohtava.ps1", "setup/Restore-TolidMohtava.ps1"]
+  },
+  "secrets_in_repo": 0
+}

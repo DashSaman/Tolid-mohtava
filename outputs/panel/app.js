@@ -25,7 +25,7 @@ function confirmBox(title,text){return new Promise(res=>{const d=$('#confirm-dia
 let brand='tehran-network',page='dashboard',token='',items=[],skills=[],mediaItems=[],jobs=[],policy='',profile={};
 let editing=null,currentMedia=null,currentTrev=null,jobsTimer=null,healthData=null;
 let wizard={step:1,brand:'tehran-network',type:'text',title:'',topic:'',file:null,job:null,projectId:null};
-let proj={id:null,tab:'overview'};
+let proj={id:null,tab:'overview'},showArchived=false;
 const pagesDef={
  dashboard:{t:'داشبورد',s:'نمای کلی کارخانه محتوا',i:'i-home',g:'محتوا'},
  create:{t:'تولید محتوا',s:'از ایده یا صوت تا پروژه',i:'i-plus',g:'محتوا'},
@@ -225,8 +225,9 @@ async function pageList(view){
   <div class="grid2"><div class="card"><div class="cardhead"><h2>${icon('i-bulb')} ایده‌های ثبت‌شده</h2><button class="sm primary" id="new">${icon('i-plus','icon sm')}ایده جدید</button></div>
   <div class="rows">${list.map(projRow).join('')||empty('i-bulb','ایده‌ای ثبت نشده','ایده تازه بسازید یا از اسکیل‌های تحقیق کمک بگیرید.')}</div></div>
   <div class="card"><h2>${icon('i-grid')} تولید ایده با اسکیل‌ها</h2>${['niche-research','content-matrix','hook-generator'].map(id=>{const s=skills.find(x=>x.id===id);return s?`<div class="rowitem"><div class="t"><strong>${esc(s.title)}</strong><small>${esc(s.job)}</small></div><div class="actions"><button class="sm" data-skill="${id}">بسته دستور</button></div></div>`:'';}).join('')}</div></div>`
- :`<div class="card"><div class="cardhead"><h2>${icon('i-folder')} ${esc(pagesDef[page].t)}</h2><div class="row"><input id="search" placeholder="جست‌وجوی عنوان…" style="max-width:240px"><button class="sm" id="export">${icon('i-upload','icon sm')}خروجی و تاریخچه</button></div></div>
-  <div class="rows" id="item-list">${list.map(projRow).join('')||empty('i-folder','چیزی برای نمایش نیست','با «محتوای جدید» شروع کنید؛ داده نمونه در پنل وجود ندارد.')}</div></div>`;
+ :`<div class="card"><div class="cardhead"><h2>${icon('i-folder')} ${esc(pagesDef[page].t)}</h2><div class="row"><input id="search" placeholder="جست‌وجوی عنوان…" style="max-width:240px"><button class="sm" id="export">${icon('i-upload','icon sm')}خروجی و تاریخچه</button>${page==='projects'?`<button class="sm" id="arch-toggle">${showArchived?'پنهان‌کردن آرشیو':'نمایش آرشیو'}</button>`:''}</div></div>
+  <div class="rows" id="item-list">${list.map(projRow).join('')||empty('i-folder','چیزی برای نمایش نیست','با «محتوای جدید» شروع کنید؛ داده نمونه در پنل وجود ندارد.')}</div></div>
+  ${page==='projects'&&showArchived?`<div class="card" style="margin-top:12px"><div class="cardhead"><h2>پروژه‌های آرشیوشده</h2><small class="muted">RAW و تاریخچه حفظ می‌شوند؛ با «بازگردانی از آرشیو» برمی‌گردند.</small></div><div class="rows" id="arch-list"><div class="skeleton"></div></div></div>`:''}`;
  if($('#ct-go'))$('#ct-go').onclick=async()=>{
    const t=$('#ct-title').value.trim();if(!t){toast('عنوان را بنویس','err');return;}
    $('#ct-out').innerHTML='<div class="skeleton"></div>';
@@ -261,6 +262,16 @@ async function pageList(view){
    const l=list.filter(x=>x.title.toLowerCase().includes(e.target.value.toLowerCase()));
    $('#item-list').innerHTML=l.map(projRow).join('')||empty('i-search','نتیجه‌ای پیدا نشد','عبارت جست‌وجو را تغییر دهید.');
  });
+ const at=$('#arch-toggle');
+ if(at)at.onclick=()=>{showArchived=!showArchived;render();};
+ const ab=$('#arch-list');
+ if(ab)(async()=>{
+   try{
+     const all=await api('/api/items?brand='+brand+'&archived=1');
+     const arch=(all||[]).filter(x=>x.archived);
+     ab.innerHTML=arch.map(projRow).join('')||empty('i-folder','آرشیو خالی است','پروژه‌ای آرشیو نشده است؛ آرشیو امن است و چیزی حذف نمی‌شود.');
+   }catch(err){ab.innerHTML='';}
+ })();
 }
 
 /* ── wizard (تولید محتوا) ────────────────────────────────────── */

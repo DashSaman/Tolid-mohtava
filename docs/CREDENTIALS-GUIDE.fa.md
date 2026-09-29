@@ -13,8 +13,10 @@
 | ۷ | LinkedIn | `LINKEDIN_ACCESS_TOKEN` | LinkedIn Developers ← اپ عضویت | `w_member_social` | Analytics ← همگام‌سازی linkedin | LinkedIn ← Settings ← Data privacy ← Permitted services ← Remove |
 | ۸ | Google Search Console | `GSC_CREDENTIALS` (مسیر فایل service account) | Google Cloud ← service account + کلید JSON؛ دامنه در GSC verify شده باشد | `webmasters.readonly` | Analytics ← همگام‌سازی gsc | Cloud Console ← IAM ← حذف کلید/سرویس‌اکانت |
 | ۹ | GA4 | `GA4_PROPERTY_ID` + `GA4_ACCESS_TOKEN` | Google Analytics ← Admin ← Data API فعال؛ توکن OAuth | Viewer کافی است | integrations ← تست اتصال | myaccount.google.com/permissions |
-| ۱۰ | Google Ads (Keyword Planner) | `GOOGLE_ADS_DEVELOPER_TOKEN` + `GOOGLE_ADS_CUSTOMER_ID` + `GOOGLE_ADS_REFRESH_TOKEN` | Google Ads ← API Center (تست‌اکانت کافی) | readonly (keyword ideas) | integrations ← تست اتصال | Ads ← API Center ← لغو توکن توسعه‌دهنده |
+| ۱۰ | Google Ads (Keyword Planner) | `GOOGLE_ADS_DEVELOPER_TOKEN` + `GOOGLE_ADS_CUSTOMER_ID` + `GOOGLE_ADS_CLIENT_ID` + `GOOGLE_ADS_CLIENT_SECRET` + `GOOGLE_ADS_REFRESH_TOKEN` | Google Ads ← API Center (تست‌اکانت کافی) | readonly (keyword ideas) | integrations ← تست اتصال | Ads ← API Center ← لغو توکن توسعه‌دهنده |
 | ۱۱ | Gemini (تولید تصویر) | `GOOGLE_AI_API_KEY` | **aistudio.google.com** ← Get API key | همان کلید (بدون صورتحساب اضافه در tier رایگان) | پروژه ← تب تصاویر ← تولید | AI Studio ← حذف کلید |
+
+برای سرویس‌های OAuth (YouTube، Google Ads) متغیر `OAUTH_REDIRECT_BASE` هم لازم است (پیش‌فرض `http://127.0.0.1:8766`؛ اگر پنل روی 8767 بود همان را بگذارید).
 
 **اختیاری‌ها (غیرمسدودکننده):** `SERP_API_KEY`، `SCREAMING_FROG_PATH`، `RUFLO_ENDPOINT` — پنل بدون هر سه کامل است.
 

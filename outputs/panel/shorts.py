@@ -55,7 +55,10 @@ def render_short_handler(ctx):
     out=outdir/f"SHORT_{uuid.uuid4().hex[:8]}.mp4"
     ctx.log(f"رندر عمودی {label} از {s:.1f} تا {e:.1f} ثانیه")
     ff=avtools.ffmpeg_path()
-    cmd=[ff,'-y','-hide_banner','-nostats','-ss',f'{s:.3f}','-to',f'{e:.3f}','-i',m['path'],
+    cmd=[ff,'-y','-hide_banner','-nostats','-nostdin']
+    if ctx.payload.get('progress'):
+        cmd+=['-progress','pipe:1']
+    cmd+=['-ss',f'{s:.3f}','-to',f'{e:.3f}','-i',m['path'],
          '-filter_complex',
          '[0:v]split[fg][bg];'
          '[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=24[bgb];'
@@ -63,9 +66,7 @@ def render_short_handler(ctx):
          '[bgb][fgs]overlay=(W-w)/2:(H-h)/2[vout];'
          '[0:a]aformat=sample_rates=44100:channel_layouts=stereo[aout]',
          '-map','[vout]','-map','[aout]','-c:v','libx264','-preset','veryfast','-crf','23',
-         '-c:a','aac','-b:a','128k','-movflags','+faststart']
-    if ctx.payload.get('progress'):
-        cmd+=['-progress','pipe:1']
+         '-c:a','aac','-b:a','128k','-movflags','+faststart',str(out)]
     ctx.progress(10)
     proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     if ctx.payload.get('progress'):

@@ -29,9 +29,10 @@ if(-not (Have ffmpeg)){
 } else { Info 'FFmpeg: present' }
 
 # 3) Python deps (panel is stdlib-only; these enable GPU whisper + edge-tts sample)
-& $py -m pip install --quiet --disable-pip-version-check faster-whisper 2>$null
+& $py -m pip install --quiet --disable-pip-version-check faster-whisper==1.2.1 2>$null
 & $py -m pip install --quiet --disable-pip-version-check nvidia-cublas-cu12 nvidia-cudnn-cu12 2>$null
-Info 'pip deps ensured (faster-whisper; CUDA wheels optional→CPU fallback)'
+& $py -m pip install --quiet --disable-pip-version-check google-ads==25.1.0 2>$null
+Info 'pip deps ensured (faster-whisper==1.2.1, google-ads==25.1.0 for Keyword Planner; CUDA wheels optional→CPU fallback)'
 
 # 4) Directories
 foreach($d in @('outputs\panel\data','outputs\panel\data\media','outputs\panel\data\renders','work')){ New-Item -ItemType Directory -Force -Path (Join-Path $root $d)|Out-Null }
