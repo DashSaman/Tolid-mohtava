@@ -4,43 +4,43 @@
 
 ## ۱. اجرا ← ۲. داشبورد
 دوبار کلیک روی `Open-Panel.cmd` ← مرورگر روی `http://127.0.0.1:8766`.
-![داشبورد](images/fa-v2/01-dashboard.png)
+![داشبورد](images/fa-v3/01-dashboard.jpg)
 *اگر همه‌چیز خالی است طبیعی است — عدد نمونه نداریم. از دکمهٔ بنفش شروع کنید.*
 
 ## ۳. محتوای جدید ← ۴. انتخاب برند و ورودی
-![ویزارد](images/fa-v2/02-new-content.png)
+![ویزارد](images/fa-v3/02-new-content.jpg)
 «تهران نتورک» ← کارت **«ضبط صدا»** ← «شروع ضبط»، چند جملهٔ فارسی دربارهٔ ایده‌تان بگویید، «پایان ضبط» ← عنوان بنویسید ← «ساخت پروژه و تبدیل به متن».
 
 ## ۵. Transcript خودکار
 پیشرفت تبدیل در «کارها»؛ متن با زمان‌بندی در تب Transcript:
-![Transcript](images/fa-v2/08-transcript.png)
+![Transcript](images/fa-v3/08-transcript.jpg)
 
 ## ۶. تحقیق ← ۷. سناریو
 تب **هوش مصنوعی** ← «خط تولید کامل» ← صبر تا سبز شود؛ خروجی‌ها (تحقیق، سناریو، هوک، بسته‌ها) همان‌جا:
-![هوش مصنوعی](images/fa-v2/05-ai-brain.png)
+![هوش مصنوعی](images/fa-v3/05-ai-brain.jpg)
 سناریوی خوب؟ «ثبت به‌عنوان سناریوی پروژه» ← تب سناریو ← «تأیید سناریو برای ضبط».
-![سناریو](images/fa-v2/06-script.png)
+![سناریو](images/fa-v3/06-script.jpg)
 
 ## ۸. آپلود ضبط‌ها ← ۹. تدوین خودکار
 تب **رسانه** ← فایل فیس‌کم و ضبط صفحه را بدهید ← «همگام‌سازی خودکار تراک‌ها».
-![رسانه](images/fa-v2/07-media.png)
+![رسانه](images/fa-v3/07-media.jpg)
 تب **تدوین** ← «تحلیل تدوین» ← گزارش را ببینید؛ هر برش اشتباه را «بازگردانی» کنید:
-![تدوین](images/fa-v2/09-editing.png)
+![تدوین](images/fa-v3/09-editing.jpg)
 
 ## ۱۰. Preview ← ۱۱. Final
 «ساخت Preview» ← پخش کنترل کنید ← «ساخت نسخهٔ نهایی» ← **مرکز تأیید** ← تأیید:
-![تأیید](images/fa-v2/12-approvals.png)
+![تأیید](images/fa-v3/12-approvals.jpg)
 
 ## ۱۲. Shorts ← ۱۳. مقاله و سئو
 تب Shorts ← «رتبه‌بندی هوشمند V2» ← «رندر این کاندیدا».
-![Shorts](images/fa-v2/10-shorts.png)
+![Shorts](images/fa-v3/10-shorts.jpg)
 تب هوش مصنوعی ← «مقاله و سئو»؛ صفحهٔ سئو ← «اجرای اسکن».
-![سئو](images/fa-v2/13-seo.png)
+![سئو](images/fa-v3/13-seo.jpg)
 
 ## ۱۴. تأیید انتشار (Dry-Run) ← ۱۵. Analytics
 مرکز تأیید ← «تأیید انتشار» ← بستهٔ dry-run در صفحهٔ انتشار:
-![انتشار](images/fa-v2/11-publishing.png)
+![انتشار](images/fa-v3/11-publishing.jpg)
 عملکرد واقعی را در Analytics ثبت کنید تا یادگیری شروع شود:
-![Analytics](images/fa-v2/14-analytics.png)
+![Analytics](images/fa-v3/14-analytics.jpg)
 
 **تمام!** از این‌جا به بعد روزانه فقط: [DAILY-USE](DAILY-USE.fa.md) · همهٔ دکمه‌ها: [UI-GUIDE](UI-GUIDE.fa.md)

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-29 (UI v2 redesign session)",
+  "updated": "2026-09-29 (visual acceptance session v3)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -905,14 +905,14 @@
       "blocker": null
     },
     {
-      "id": "ui-glass-v2",
-      "name": "Premium glass design system v2 + 22 real screenshots + UI-GUIDE/FIRST-RUN/UI-REFERENCES",
+      "id": "ui-glass-v3",
+      "name": "Premium AURORA glass UI v3: hero+pipeline node-flow+first-class integrations page; root-caused stale-panel serving issue",
       "priority": "P1",
       "status": "working",
       "tests": [
         "work smoke 13/13 v2"
       ],
-      "evidence": "0 backend/API changes (same class names); console-clean desktop+mobile; reduced-motion + pause-on-hidden; CSS-only atmosphere (no WebGL dependency)",
+      "evidence": "REAL screenshots docs/images/fa-v3 (27 jpg, 1920/1366/393); dashboard pipeline with DONE/ACTIVE/WAIT states; 11 premium integration cards with env guides+test; port-fallback launcher (8766 occupied by protected AutoClaw legacy proxy -> auto 8767); smoke 13/13 adapted&pass; regression 109/109; E2E rerun logged",
       "dependencies": [],
       "blocker": null
     }

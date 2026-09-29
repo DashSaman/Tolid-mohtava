@@ -43,6 +43,7 @@ const pagesDef={
  seo:{t:'SEO',s:'چک‌لیست پیش از انتشار وب',i:'i-search',g:'انتشار و تحلیل'},
  jobs:{t:'کارها',s:'صف اجرای کارهای خودکار',i:'i-activity',g:'سیستم'},
  storage:{t:'فضای ذخیره‌سازی',s:'دیسک‌ها و حجم داده‌ها',i:'i-hdd',g:'سیستم'},
+ integrations:{t:'اتصال حساب‌ها',s:'وضعیت سرویس‌های خارجی',i:'i-send',g:'سیستم'},
  services:{t:'سلامت سیستم',s:'وضعیت واقعی اجزای سیستم',i:'i-activity',g:'سیستم'},
  notifications:{t:'اعلان‌ها',s:'موارد نیازمند توجه',i:'i-bell',g:'سیستم'},
  sources:{t:'منابع',s:'منابع ثبت‌شده پروژه‌ها',i:'i-book',g:'سیستم'},
@@ -117,6 +118,7 @@ async function render(){
   else if(page==='seo')await pageSeo(view);
   else if(page==='jobs')await pageJobs(view);
   else if(page==='storage')await pageStorage(view);
+  else if(page==='integrations')await pageIntegrations(view);
   else if(page==='services')await pageServices(view);
   else if(page==='notifications')await pageNotifications(view);
   else if(page==='sources')await pageSources(view);
@@ -130,35 +132,68 @@ async function pageDashboard(view){
  const [jobsAll,health,media]=await Promise.all([api('/api/jobs'),api('/api/health'),api('/api/media')]);
  jobs=jobsAll;healthData=health;
  const inProd=items.filter(x=>!['ایده','آماده بررسی'].includes(x.stage)).length;
- const pending=items.filter(x=>x.script_status!=='approved'||x.publish_status!=='approved');
- const editingN=items.filter(x=>['تدوین','ضبط'].includes(x.stage)).length;
+ const pend=items.filter(x=>x.script_status!=='approved'||x.publish_status!=='approved');
+ const editN=items.filter(x=>['تدوین','ضبط'].includes(x.stage)).length;
  const ready=items.filter(x=>x.publish_status==='approved').length;
- const failed=jobs.filter(j=>j.status==='failed').length;
+ const failed=jobs.filter(j=>j.status==='failed'||j.status==='possibly_stuck').length;
  const running=jobs.filter(j=>['running','queued'].includes(j.status));
- const upcoming=items.filter(x=>x.due).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,4);
- const ok=h=>h.status==='ok';
+ const aiOk=health.find(h=>h.name==='faster-whisper')||{};
+ const aiChip=healthData&&healthData.length?true:false;
+ const stages=['ایده','پژوهش','بررسی فنی','سناریو','ضبط','تدوین','بازآفرینی','SEO','آماده بررسی'];
+ const stageCount={};stages.forEach(st=>stageCount[st]=items.filter(x=>x.stage===st).length);
+ const waitApp=jobs.filter(j=>j.status==='waiting_approval').length;
+ const fdef=[
+  {k:'idea',t:'ایده',i:'i-bulb',go:'ideas',st:stageCount['ایده']>0||items.length===0?'active':'done',n:fa(items.length)+' پروژه'},
+  {k:'research',t:'تحقیق',i:'i-search',go:'projects',st:stageCount['پژوهش']>0?'active':items.length?'done':'',n:'تحقیق و منابع'},
+  {k:'verify',t:'بررسی فنی',i:'i-check',go:'projects',st:items.length?'done':'',n:'راستی‌آزمایی'},
+  {k:'script',t:'سناریو',i:'i-script',go:'scripts',st:stageCount['سناریو']>0?'active':items.length?'done':'',n:fa(stageCount['سناریو']||0)+' سناریو'},
+  {k:'approve',t:'تأیید',i:'i-check',go:'approvals',st:waitApp>0?'wait':(pend.length?'active':'done'),n:pend.length?fa(pend.length)+' در انتظار':'کامل'},
+  {k:'record',t:'ضبط',i:'i-mic',go:'media',st:stageCount['ضبط']>0?'active':'',n:fa(media.length)+' رسانه'},
+  {k:'edit',t:'تدوین',i:'i-scissors',go:'media',st:editN>0?'active':'',n:'غیرمخرب'},
+  {k:'seo',t:'SEO',i:'i-search',go:'seo',st:stageCount['SEO']>0?'active':'',n:'اسکن واقعی'},
+  {k:'publish',t:'انتشار',i:'i-send',go:'publishing',st:ready>0?'wait':'',n:'dry-run امن'},
+  {k:'analytics',t:'Analytics',i:'i-chart',go:'analytics',st:'',n:'پس از اتصال'}
+ ];
+ const h='';
  view.innerHTML=`
- <div class="stats">
-  <div class="stat"><span>${icon('i-folder','icon sm')} در حال تولید</span><b>${fa(inProd)}</b></div>
-  <div class="stat warn"><span>${icon('i-check','icon sm')} منتظر تأیید</span><b>${fa(pending.length+jobs.filter(j=>j.status==='waiting_approval').length)}</b></div>
-  <div class="stat"><span>${icon('i-film','icon sm')} در ضبط/تدوین</span><b>${fa(editingN)}</b></div>
-  <div class="stat ok"><span>${icon('i-send','icon sm')} آماده انتشار</span><b>${fa(ready)}</b></div>
-  <div class="stat ${failed?'danger':''}"><span>${icon('i-alert','icon sm')} کار ناموفق</span><b>${fa(failed)}</b></div>
+ <div class="hero"><div class="heroline"><div>
+   <h2>اتاق محتوای هوشمند ${names[brand]}</h2>
+   <div class="subline">از یک ایدهٔ صوتی فارسی تا سناریوی راستی‌آزمایی‌شده، تدوین غیرمخرب، Shorts، مقالهٔ سئو و بستهٔ انتشار — همه روی همین دستگاه، با تأیید شما در هر گام.</div>
+   <div class="row" style="margin-top:12px">
+     <span class="chip ${aiOk.status==='ok'?'ok':'warn'}"><span class="dot"></span> موتور AI: ${aiOk.status==='ok'?'آماده (محلی)':'بررسی کنید'}</span>
+     <span class="chip ${failed?'danger':'ok'}"><span class="dot"></span> ${failed?fa(failed)+' مشکل نیازمند توجه':'سیستم سالم'}</span>
+     <span class="chip vio"><span class="dot"></span> Whisper ${fa(Math.round(0))||''}medium · GPU</span>
+   </div></div>
+   <div class="row" style="flex-direction:column;align-items:stretch">
+     <button class="primary" id="hero-new"><svg class="icon sm"><use href="#i-plus"/></svg>ساخت اولین محتوا</button>
+     <button class="ghost" data-page="create" style="color:var(--cyan)">شروع با ویس ←</button>
+   </div></div></div>
+ <div class="kpis">
+   <div class="kpi"><div class="kico">${icon('i-folder')}</div><div><b>${fa(inProd)}</b><span>محتوای در جریان</span></div></div>
+   <div class="kpi ${pend.length+waitApp?'warn':''}"><div class="kico">${icon('i-check')}</div><div><b>${fa(pend.length+waitApp)}</b><span>منتظر تأیید شما</span></div></div>
+   <div class="kpi ok"><div class="kico">${icon('i-send')}</div><div><b>${fa(ready)}</b><span>آمادهٔ انتشار</span></div></div>
+   <div class="kpi ${failed?'danger':'ok'}"><div class="kico">${icon('i-activity')}</div><div><b>${fa(running.length)}</b><span>کار فعال · ${fa(failed)} خطا</span></div></div>
  </div>
+ <div class="card"><div class="cardhead"><h2>${icon('i-grid')} خط تولید</h2><span class="small muted">روی هر مرحله کلیک کنید</span></div>
+  <div class="flowwrap"><div class="flow">${fdef.map(f=>`<div class="fnode ${f.st}" data-page="${f.go}"><div class="fico">${icon(f.i)}</div><b>${f.t}</b><small>${f.n}</small></div>`).join('')}</div></div></div>
  <div class="grid2">
- <div class="card"><div class="cardhead"><h2>${icon('i-folder')} پروژه‌های اخیر</h2><button class="sm" data-goto="projects">همه</button></div>
-  <div class="rows">${items.slice(0,5).map(projRow).join('')||empty('i-folder','هنوز پروژه‌ای نیست','با «محتوای جدید» اولین پروژه را بسازید؛ هیچ داده نمونه‌ای وجود ندارد.')}</div></div>
- <div class="card"><div class="cardhead"><h2>${icon('i-check')} منتظر تأیید شما</h2><button class="sm" data-goto="approvals">مرکز تأیید</button></div>
-  <div class="rows">${pending.slice(0,5).map(x=>`<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>تأیید سناریو: ${({pending:'منتظر',approved:'تأیید',rejected:'رد',review:'بررسی'})[x.script_status]||x.script_status} · انتشار: ${({pending:'منتظر',approved:'تأیید',rejected:'رد',review:'بررسی'})[x.publish_status]||x.publish_status}</small></div><div class="actions"><button class="sm primary" data-openproject="${esc(x.id)}">بررسی</button></div></div>`).join('')||empty('i-check','موردی منتظر تأیید نیست','پس از ثبت سناریو یا آماده شدن انتشار، اینجا می‌بینید.')}</div></div>
- <div class="card"><div class="cardhead"><h2>${icon('i-activity')} کارهای در جریان</h2><button class="sm" data-goto="jobs">صف کارها</button></div>
-  <div class="rows">${running.slice(0,5).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||j.kind}</strong><small>${faDate(j.created_at)}</small><div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div></div><div class="actions">${badge(j.status)}</div></div>`).join('')||empty('i-activity','کار فعالی در صف نیست','کارها پس از آپلود صوت یا درخواست رندر اینجا دیده می‌شوند.')}</div></div>
- <div class="card"><div class="cardhead"><h2>${icon('i-calendar')} موعدهای نزدیک</h2></div>
-  <div class="rows">${upcoming.map(x=>`<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.due)}</small></div><div class="actions"><button class="sm" data-openproject="${esc(x.id)}">پرونده</button></div></div>`).join('')||empty('i-calendar','موعدهای ثبت‌شده‌ای نیست','هنگام ویرایش محتوا می‌توانید موعد پیشنهادی بگذارید.')}</div></div>
- </div>
- <div class="card"><div class="cardhead"><h2>${icon('i-activity')} سلامت سیستم</h2><button class="sm" data-goto="services">جزئیات کامل</button></div>
-  <div class="chiprow">${health.map(h=>`<span class="badge ${h.status==='ok'?'ok':h.status==='limited'?'warn':h.status==='credential'?'':'danger'}">${esc(h.name)}</span>`).join('')}</div>
-  <p class="small muted">اجزای «نیازمند Credential» عمداً بی‌اتصال‌اند تا هیچ ادعای دروزی وجود نداشته باشد.</p></div>`;
+  <div class="card"><div class="cardhead"><h2>${icon('i-folder')} پروژه‌های اخیر</h2><button class="sm" data-page="projects">همه</button></div>
+   ${items.length?`<div class="rows">${items.slice(0,5).map(projRow).join('')}</div>`
+   :`<div class="emptystate"><div class="orb">${icon('i-plus')}</div><h3>اولین محتوای خودت را بساز</h3><p>با یک ویس یا یک ایده شروع کن؛ سیستم خودش تحقیق، سناریو و بستهٔ انتشار را آماده می‌کند و در هر مرحله منتظر تأیید تو می‌ماند.</p><button class="primary" id="empty-new">ساخت اولین محتوا</button> <button class="ghost" data-page="create">راهنمای سریع</button></div>`}
+  </div>
+  <div>
+   <div class="card"><div class="cardhead"><h2>${icon('i-activity')} کارهای زنده</h2><button class="sm" data-page="jobs">صف کارها</button></div>
+    ${running.length?`<div class="rows">${running.slice(0,4).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||j.kind}</strong><div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div></div><div class="actions">${badge(j.status)}</div></div>`).join('')}</div>`:empty('i-activity','کاری در جریان نیست','پس از درخواست تبدیل/رندر اینجا می‌آید.')}
+   </div>
+   <div class="card"><div class="cardhead"><h2>${icon('i-cpu')} سلامت اجزا</h2><button class="sm" data-page="services">جزئیات</button></div>
+    <div class="chiprow" style="gap:6px">${health.map(x=>`<span class="badge ${x.status==='ok'?'ok':x.status==='limited'?'warn':x.status==='credential'?'':'danger'}">${esc(x.name)}</span>`).join('')}</div>
+   </div>
+  </div>
+ </div>`;
  view.querySelectorAll('.progressfill').forEach(n=>n.style.width=(n.dataset.w||0)+'%');
+ const hn=$('#hero-new');if(hn)hn.onclick=()=>go('#/create');
+ const en=$('#empty-new');if(en)en.onclick=()=>go('#/create');
+ view.querySelectorAll('.fnode[data-page]').forEach(n=>n.onclick=()=>go('#/'+n.dataset.page));
 }
 function projRow(x){return `<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.platform||'')} · ${esc(x.stage||'ایده')} · نسخه ${fa(x.revision)} · ${faDate(x.updated)}</small></div><div class="actions">${gateBadge(x.publish_status)}<button class="sm primary" data-openproject="${esc(x.id)}">پرونده</button></div></div>`;}
 
@@ -932,6 +967,63 @@ function aiOutputsHtml(outs,srcs){
  }).join('');
  const srcHtml=srcs.length?`<div class="card"><h2>${icon('i-book')} منابع تحقیق (${fa(srcs.length)})</h2><div class="rows">${srcs.map(s=>`<div class="rowitem"><div class="t"><strong>${esc(s.claim.slice(0,110))}</strong><small><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a> · ${esc(s.note||'')}</small></div><div class="actions"><span class="badge ${s.status==='live'?'ok':'warn'}">${s.status==='live'?'منبع زنده':'نیاز به بررسی'}</span></div></div>`).join('')}</div></div>`:'';
  return outHtml+srcHtml||empty('i-bulb','هنوز خروجی AI ثبت نشده','دکمه‌های بالا کارهای هوشمند را در صف اجرا می‌گذارند.');
+}
+async function pageIntegrations(view){
+ view.innerHTML='<div class="card"><h2>اتصال حساب‌ها</h2><div class="skeleton"></div></div>';
+ let rows=[];try{rows=await api('/api/integrations');}catch(e){view.innerHTML='<div class="banner warn">بارگذاری اتصال‌ها ناموفق: '+esc(e.message)+'</div>';return;}
+ const core=rows.core||[],opt=rows.optional||{};
+ const SETUP={
+  'tehnet.ir':'وردپرس ← کاربران ← پروفایل ← Application Passwords؛ سپس متغیرها در environment پنل.',
+  'mytel.one':'همان مسیر روی mytel.one.',
+  'youtube':'Google Cloud Console ← OAuth client با youtube.upload و youtube.readonly + refresh token.',
+  'instagram':'Meta App ← Instagram Graph با instagram_basic و instagram_content_publish.',
+  'facebook':'Meta App ← Pages با pages_manage_posts و pages_read_engagement.',
+  'linkedin':'LinkedIn Developers ← اپ با w_member_social.',
+  'telegram':'BotFather ← /newbot؛ chat id از @userinfobot.',
+  'gsc':'Google Cloud ← service account با webmasters.readonly؛ دامنه‌ها verify شوند.',
+  'ga4':'GA4 Data API (Viewer) + توکن OAuth.',
+  'google_ads':'Google Ads API Center (readonly برای keyword ideas).',
+  'gemini':'Google AI Studio ← Get API Key.'
+ };
+ const PURPOSE={
+  'tehnet.ir':'ساخت پیش‌نویس مقاله در سایت تهران نتورک','mytel.one':'ساخت پیش‌نویس مقاله در سایت MyTel',
+  'youtube':'انتشار ویدیو + Analytics واقعی','instagram':'انتشار پست/Reels + Analytics','facebook':'انتشار به Page + Analytics',
+  'linkedin':'انتشار پست + Analytics','telegram':'اعلان‌های پنل در تلگرام شما','gsc':'عملکرد جست‌وجوی دو سایت',
+  'ga4':'رفتار بازدیدکنندگان پس از ورود','google_ads':'حجم/رقابت کلمات کلیدی برای برنامه‌ریز','gemini':'تولید تصویر کاور و کاروسل'
+ };
+ const list=[...core.map(c=>({p:c.platform,fa:c.platform_fa,env:c.env,scopes:c.scopes,state:c.state})),
+  {p:'ga4',fa:'Google Analytics 4',env:['GA4_PROPERTY_ID','GA4_ACCESS_TOKEN'],scopes:'Data API Viewer',state:(opt.ga4||{}).state||'blocked_by_credential'},
+  {p:'google_ads',fa:'Google Keyword Planner',env:['GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_REFRESH_TOKEN'],scopes:'keywordideas readonly',state:(opt.keyword_planner||{}).state||'blocked_by_credential'},
+  {p:'gemini',fa:'Gemini (تولید تصویر)',env:['GOOGLE_AI_API_KEY'],scopes:'API Key',state:'blocked_by_credential'}];
+ const stateFa=st=>st==='ready'?'<span class="badge ok">متصل — Credential ثبت شده</span>':st==='invalid'?'<span class="badge danger">Credential نامعتبر</span>':'<span class="badge warn">نیازمند Credential</span>';
+ view.innerHTML=`<div class="hero" style="padding:22px 26px"><div class="heroline"><div>
+  <h2 style="font-size:1.25rem">اتصال حساب‌ها</h2>
+  <div class="subline">برای امنیت، Credentialها از <b>environment</b> خوانده می‌شوند — مقدار Secret هیچ‌وقت نمایش یا ذخیره نمی‌شود. بعد از تنظیم، همین‌جا «تست اتصال» را بزنید.</div></div>
+  <span class="chip info"><span class="dot"></span> ${fa(list.length)} سرویس</span></div></div>
+ <div class="intgrid">${list.map(r=>`<div class="intcard">
+   <div class="spread"><div class="row"><div class="intico">${esc((r.fa||'').trim()[0]||'•')}</div>
+   <div><div class="intname">${esc(r.fa)}</div>${stateFa(r.state)}</div></div></div>
+   <div class="intpurpose">${esc(PURPOSE[r.p]||'')}</div>
+   <div><span class="small muted">scope/دسترسی لازم:</span> <span class="small" style="color:var(--cyan)">${esc(r.scopes||'—')}</span></div>
+   <div class="intenv">${r.env.map(esc).join(' · ')}</div>
+   <div class="spread" style="margin-top:auto">
+     <button class="sm primary" data-intcfg="${esc(r.p)}">راهنمای اتصال</button>
+     <button class="sm" data-inttest="${esc(r.p)}">تست اتصال</button>
+   </div></div>`).join('')}</div>
+ <div id="intcfgbox"></div>`;
+ $$('[data-inttest]').forEach(b=>b.onclick=async()=>{b.disabled=true;
+   try{const r=await api('/api/integrations/test',{platform:b.dataset.inttest});
+     toast(r.ok?('اتصال سالم: '+(r.detail||'')):('ناموفق: '+(r.detail||r.state)),r.ok?'ok':'err');}
+   catch(e){toast(e.message,'err');} b.disabled=false;});
+ $$('[data-intcfg]').forEach(b=>b.onclick=()=>{
+   const r=list.find(x=>x.p===b.dataset.intcfg);
+   $('#intcfgbox').innerHTML=`<dialog open style="width:min(560px,92vw)"><div class="dialog-head"><h2>اتصال ${esc(r.fa)}</h2><button class="ghost" id="intcfgclose">×</button></div>
+   <p><b>چه چیزی لازم است؟</b> ${esc(r.env.join(' و '))}</p>
+   <p><b>از کجا بگیرم؟</b> ${esc(SETUP[r.p]||'')}</p>
+   <p><b>Scope لازم:</b> ${esc(r.scopes||'—')}</p>
+   <p><b>کجا وارد کنم؟</b> برای امنیت، این Credential از Environment خوانده می‌شود: در PowerShell با <code>[Environment]::SetEnvironmentVariable('NAME','value','User')</code> تنظیم و پنل را بازراه‌اندازی کنید.</p>
+   <p><b>چطور تست کنم؟</b> برگردید و «تست اتصال» را بزنید؛ وضعیت باید «متصل» شود.</p></dialog>`;
+   const c=$('#intcfgclose');if(c)c.onclick=()=>c.closest('dialog').remove();});
 }
 async function pageSettings(view){
  let aiHtml='<div class="skeleton"></div>';
