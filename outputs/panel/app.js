@@ -975,8 +975,15 @@ async function pageSettings(view){
     'linkedin':'LinkedIn Developers ← اپ با w_member_social.',
     'telegram':'با BotFather بات بسازید (توکن) و chat id را از userinfobot بگیرید.',
     'gsc':'Google Cloud ← service account با webmasters.readonly؛ دامنه‌ها را در Search Console verify کنید.'};
+   const resp=rows;
+   const opt=resp.optional||{};
+   const list=[...(resp.core||[]),
+     {...(opt.ga4||{state:'blocked_by_credential'}),platform:'ga4',platform_fa:'Google Analytics 4 (GA4)',scopes:'GA4 Data API (Viewer)',env:['GA4_PROPERTY_ID','GA4_ACCESS_TOKEN'],state:(opt.ga4||{}).state||'blocked_by_credential'},
+     {...(opt.keyword_planner||{}),platform:'google_ads',platform_fa:'Google Ads Keyword Planner',scopes:'keywordideas readonly',env:['GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_REFRESH_TOKEN'],state:(opt.keyword_planner||{}).state||'blocked_by_credential'},
+     {platform:'gemini',platform_fa:'Gemini (تولید تصویر)',scopes:'API Key',env:['GOOGLE_AI_API_KEY'],state:'blocked_by_credential'}];
+   const rows2=list;
    const box=$('#int-center');
-   if(box)box.innerHTML='<div class="cardhead"><h2>اتصال حساب‌ها (تمام سرویس‌ها)</h2></div><div class="rows">'+rows.map(r=>`<div class="rowitem"><div class="t"><strong>${esc(r.platform_fa)}</strong>
+   if(box)box.innerHTML='<div class="cardhead"><h2>اتصال حساب‌ها (تمام سرویس‌ها)</h2></div><div class="rows">'+rows2.map(r=>`<div class="rowitem"><div class="t"><strong>${esc(r.platform_fa)}</strong>
     <small>scope لازم: ${esc(r.scopes)}</small>
     <small>متغیرها: ${r.env.map(esc).join('، ')}</small>
     <small>راهنما: ${esc(SETUP[r.platform]||'—')}</small></div>

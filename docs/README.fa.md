@@ -2,7 +2,7 @@
 
 این راهنما برای **شما به‌عنوان کاربر نهایی** نوشته شده — نه برنامه‌نویس. هر بخش می‌گوید چه چیزی کجاست و چه کلیکی چه کاری می‌کند. تصاویر، تصاویر واقعی همین پنل با دادهٔ واقعی آزمون‌اند.
 
-> راهنمای سریع: [QUICKSTART](QUICKSTART.fa.md) · نصب: [INSTALLATION](INSTALLATION.fa.md) · انتقال به سیستم دیگر: [MIGRATION](MIGRATION.fa.md) · فهرست قابلیت‌ها: [FEATURES](FEATURES.fa.md)
+> روزانه: [DAILY-USE](DAILY-USE.fa.md) · سریع: [QUICKSTART](QUICKSTART.fa.md) · نصب: [INSTALLATION](INSTALLATION.fa.md) · انتقال: [MIGRATION](MIGRATION.fa.md) · قابلیت‌ها: [FEATURES](FEATURES.fa.md) · اتصال حساب‌ها: [CREDENTIALS-GUIDE](CREDENTIALS-GUIDE.fa.md) · رفع sitemap: [SITEMAP-CHECKLIST](SITEMAP-CHECKLIST.fa.md)
 
 ---
 

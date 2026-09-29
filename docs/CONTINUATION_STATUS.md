@@ -92,6 +92,18 @@ Phase 2 تکمیل شد و کل P0 از طریق UI قابل استفاده اس
 6. **مستندات**: تناقض CONTINUATION_STATUS رفع شد (قابلیت‌های تست‌شده دیگر future-work نیستند)؛ README هم‌راستا شد.
 7. **E2E داخلی کامل با اجزای واقعی** (tests/e2e_full.py روی سرور زنده): صدای فارسی واقعی → whisper medium/CUDA → سناریوی AI با هر ۷ مارکر تولید از LM Studio → رسانه → sync → بهبود صوت → تدوین → preview → final تأییدشده → Shorts V2 → مقاله → اسکن سئو → پیشنهاد سئو → dry-run انتشار → Analytics-ready → بهینه‌سازی.
 
+## Commissioning نهایی (۲۰۲۶-۰۹-۲۹) — وضعیت آماده‌به‌کار روزانه
+
+- **FINAL_E2E_VERIFIED: 24/24** (اجرا واقعی با Qwen؛ مرحلهٔ sync با assertion اصلاح‌شده سبز شد — آفست ‎-1.2s/اطمینان ۰.۹۹)
+- Regression: ۱۰۹/۱۰۹ سبز (یک اجرا، طبق سیاست)
+- Smoke UI روزانه (مرورگر واقعی): **۱۳/۱۳ PASS** — و دو باگ واقعی گرفت و رفع شد: (۱) مرکز اتصال‌ها با شکل جدید {core,optional} خالی می‌ماند (ادغام شد + GA4/Keyword/Gemini اضافه؛ ۱۱ سرویس) (۲) اسکریپت Backup با WAL خام دیتای خالی می‌گرفت (sqlite backup API شد) و Verify چک LM Studio بدون import json خطا می‌داد (رفع شد)
+- Backup واقعی گرفته و validate شد (۲۳ جدول + integrity ok؛ fidelity روی DB پر از دادهٔ E2E اثبات شد)؛ بکاپ قبلی بازنویسی نشد
+- Restart/Recovery تست شد: kill سخت ← تاریخچهٔ پروژه و کارها سالم برگشت؛ auth endpoint پاسخ صادقانه
+- Verify-Installation: **READY** (تمام OK؛ LM Studio/Qwen هم سبز)
+- اختیاری‌ها عمداً خاموش ماندند: Ruflo=DISABLED · Screaming Frog=NOT_INSTALLED (fallback داخلی فعال) · SERP=بدون کلید
+- مستندات جدید: DAILY-USE.fa.md (راهنمای کوتاه روزانه)، SITEMAP-CHECKLIST.fa.md (چک‌لیست دستی ۵ دقیقه‌ای رفع sitemap)، CREDENTIALS-GUIDE.fa.md (۱۱ سرویس با نام/محل/scope/تست/لغو)؛ .env.example با راهنمای obtain/revoke
+- تنها مانع باقی‌مانده: Credentialهای خارجی شما (فهرست در CREDENTIALS-GUIDE)
+
 ## وضعیت یکپارچهٔ فعلی (2026-09-28 — پس از سخت‌سازی عملیاتی)
 
 موارد زیر که قبلاً در همین بخش «کارهای بعدی» بودند، اکنون **تکمیل و تست‌شده‌اند** و دیگر future-work نیستند:

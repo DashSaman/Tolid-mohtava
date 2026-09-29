@@ -21,7 +21,7 @@ Check 'faster-whisper' ($LASTEXITCODE -eq 0) 'warn' 'pip install faster-whisper'
 Check 'GPU(nvidia-smi)' ((nvidia-smi --query-gpu=name --format=csv,noheader)) 'warn' '(CPU fallback automatic)'
 & $py -c "import sys; sys.path.insert(0,'outputs/panel'); import avtools; print(avtools.nvenc_available())" 2>$null
 Check 'NVENC'       ($LASTEXITCODE -eq 0) 'warn' 'CPU render fallback automatic'
-Check 'LM Studio'   ((& $py -c "import urllib.request;print(json.load(urllib.request.urlopen('http://127.0.0.1:1234/v1/models',timeout=3))['data'][0]['id'])" 2>$null)) 'warn' '(start: lms server start; lms load qwen2.5-7b-instruct --gpu max)'
+Check 'LM Studio'   ((& $py -c "import json,urllib.request;print(json.load(urllib.request.urlopen('http://127.0.0.1:1234/v1/models',timeout=3))['data'][0]['id'])" 2>$null)) 'warn' '(start: lms server start; lms load qwen2.5-7b-instruct --gpu max)'
 & $py -c "import sys; sys.path.insert(0,'outputs/panel'); import server" *> $null
 Check 'Panel modules' ($LASTEXITCODE -eq 0) 'block' 'server.py + full handler registry'
 Check 'Data dir writable' ((Test-Path 'outputs\panel\data') -or ((New-Item -ItemType Directory -Force -Path 'outputs\panel\data') -ne $null)) 'block' ''

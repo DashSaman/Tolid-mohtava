@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-29 (integrations/KB/portability/docs session)",
+  "updated": "2026-09-29 (final commissioning)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -905,7 +905,7 @@
       "blocker": null
     }
   ],
-  "last_commit": "pending this commit",
+  "last_commit": "this commit",
   "known_blockers_environment": [
     "Qwen2.5-7B Persian-capable model download stalled on slow network; resume: lms get \"qwen2.5-7b-instruct@q4_k_m\" then set model in Settings->AI",
     "GSC/social OAuth still absent -> adapters remain BLOCKED_BY_CREDENTIAL",
@@ -916,5 +916,5 @@
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "python unittest 109/109 OK; final real E2E (Qwen) 23/24 — sync verified correct in DB (-1.2s @0.99), 24th was test-assertion sign bug (fixed); article+SEO completed on real run"
+  "last_tests": "regression once: 109/109 OK; REAL E2E once: 24/24 FINAL_E2E_VERIFIED (Qwen default); daily UI smoke: 13/13 PASS after 2 real-bug fixes (integration-center data shape, backup WAL + verify json import); backup validated (23 tables, integrity ok, fidelity proven on E2E DB); restart/recovery PASS; Verify-Installation: READY"
 }
