@@ -57,6 +57,7 @@ const empty=(iconId,title,body)=>`<div class="empty">${icon(iconId)}<strong>${es
 async function api(path,data){
  const r=await fetch(path,{headers:data?{'Content-Type':'application/json','X-Panel-Token':token}:{},method:data?'POST':'GET',body:data?JSON.stringify(data):undefined});
  const v=await r.json().catch(()=>({}));
+ if(r.status===401){showLogin();throw new Error('نشست منقضی شد؛ دوباره وارد شوید.');}
  if(!r.ok)throw new Error(v.error||'ارتباط با پنل برقرار نشد.');
  return v;
 }
@@ -420,8 +421,19 @@ async function renderProjTab(tab,x,media){
     const map={};offsets.forEach(o=>map[o.media_id]=o);
     el.querySelectorAll('#pm-list [data-mediadetail]').forEach(b=>{
       const o=map[b.dataset.mediadetail];
-      if(o)b.closest('.rowitem').querySelector('.t').insertAdjacentHTML('beforeend',
-        `<small>همگام‌سازی: ${o.offset_seconds>=0?'+':''}${Number(o.offset_seconds).toFixed(2)}s · اطمینان ${fa(Math.round(o.confidence*100))}٪ ${o.confidence<0.6?'⚠ نیاز به بازبینی':''}</small>`);
+      if(o){b.closest('.rowitem').querySelector('.t').insertAdjacentHTML('beforeend',
+        `<small>همگام‌سازی: <span class="badge ${o.method==='manual'?'accent':o.confidence<0.6?'warn':'info'}">${o.method==='manual'?'دستی':'AUTO'}</span> ${o.offset_seconds>=0?'+':''}${Number(o.offset_seconds).toFixed(2)}s · اطمینان ${fa(Math.round(o.confidence*100))}٪ ${o.confidence<0.6?'⚠ نیاز به بازبینی':''}</small>
+        <div class="row" style="margin-top:6px"><input style="max-width:110px" placeholder="افست دستی (s)" data-moff="${esc(o.media_id)}" value="${o.offset_seconds}"><button class="sm" data-moffsave="${esc(o.media_id)}" data-cid="${esc(x.id)}">ذخیره</button><button class="sm ghost" data-moffclear="${esc(o.media_id)}">بازگشت به AUTO</button></div>`);
+      }
+    });
+    el.querySelectorAll('[data-moffsave]').forEach(b=>b.onclick=async()=>{
+      const v=parseFloat(b.previousElementSibling.value);
+      if(isNaN(v)){toast('عدد افست را وارد کنید','err');return;}
+      await api('/api/sync/save',{content_id:b.dataset.cid,media_id:b.dataset.moffsave,offset_seconds:v,method:'manual',confidence:1});
+      toast('افست دستی ذخیره شد (MANUAL OVERRIDE)','ok');await render();
+    });
+    el.querySelectorAll('[data-moffclear]').forEach(b=>b.onclick=async()=>{
+      await api('/api/sync/clear',{media_id:b.dataset.moffclear});toast('بازگشت به همگام‌سازی خودکار','ok');await render();
     });
   }).catch(()=>{});
   const syncBtn=el.querySelector('[data-synccontent]');
@@ -772,6 +784,11 @@ async function pageAnalytics(view){
    <small>${esc(p.diagnosis)}</small><small>${faDate(p.created_at)} · نمونه ${fa(p.sample_size)} · اطمینان ${fa(Math.round(p.confidence*100))}٪</small></div>
    <div class="actions"><span class="badge ${p.status==='approved'?'ok':p.status==='rejected'?'danger':'accent'}">${({proposed:'در انتظار تأیید',approved:'تأییدشده',rejected:'ردشده',applied:'اعمال‌شده'})[p.status]}</span>
    ${p.status==='proposed'?`<button class="sm primary" data-propapprove="${esc(p.id)}">تأیید</button><button class="sm danger" data-propreject="${esc(p.id)}">رد</button>`:''}</div></div>`).join('')||empty('i-activity','پیشنهادی نیست','موتور بهینه‌سازی پس از دادهٔ واقعی و اسکن سئو پیشنهاد می‌سازد.')}</div></div></div>
+ <div class="row" style="margin-bottom:14px">
+   <button class="sm primary" id="ga4-fetch">${icon('i-chart','icon sm')}دریافت دادهٔ GA4</button>
+ <button class="sm" id="gsc-ingest">دریافت عملکرد GSC (۷ روز)</button><span id="ga4-state" class="small muted"></span>
+   <button class="sm" id="opt-run">اجرای موتور بهینه‌سازی روی پروژهٔ انتخابی</button>
+ </div>
  <div class="card"><h2>ثبت دستی عملکرد (تا اتصال OAuth)</h2>
  <p class="small muted">دادهٔ واقعی انتشارها را ثبت کنید؛ موتور یادگیری و زمان‌بندی فوراً از آن استفاده می‌کند.</p>
  <div class="row"><label>پروژه<select id="ap-content" style="max-width:220px">${items.map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select></label>
@@ -784,6 +801,13 @@ async function pageAnalytics(view){
  });
  $$('[data-propapprove]').forEach(b=>b.onclick=async()=>{await api('/api/analytics/proposal/decide',{id:b.dataset.propapprove,decision:'approved'});await render();toast('تأیید ثبت شد','ok');});
  $$('[data-propreject]').forEach(b=>b.onclick=async()=>{await api('/api/analytics/proposal/decide',{id:b.dataset.propreject,decision:'rejected'});await render();});
+ const gi=$('#gsc-ingest');if(gi)gi.onclick=async()=>{gi.disabled=true;
+  try{const j=await api('/api/gsc/ingest',{site:'https://tehnet.ir/'});await trackJob(j.id);}catch(e){toast(e.message,'err');} gi.disabled=false;};
+ const g4=$('#ga4-fetch');if(g4)g4.onclick=async()=>{g4.disabled=true;
+  try{await api('/api/ga4/fetch',{});toast('دادهٔ GA4 در snapshotها ثبت شد','ok');await render();}
+  catch(e){toast(e.message,'err');} g4.disabled=false;};
+ const ob=$('#opt-run');if(ob)ob.onclick=async()=>{const cid=$('#ap-content')?.value;if(!cid){toast('پروژه را انتخاب کنید','err');return;}
+  ob.disabled=true;try{const j=await api('/api/analytics/optimize',{content_id:cid,platform:'youtube'});await trackJob(j.id);}catch(e){toast(e.message,'err');} ob.disabled=false;};
  const apb=$('#ap-record');
  if(apb)apb.onclick=async()=>{
   const x=items.find(i=>i.id===$('#ap-content').value);
@@ -1009,6 +1033,7 @@ async function pageIntegrations(view){
    <div class="spread" style="margin-top:auto">
      <button class="sm primary" data-intcfg="${esc(r.p)}">راهنمای اتصال</button>
      <button class="sm" data-inttest="${esc(r.p)}">تست اتصال</button>
+     ${['youtube','instagram','facebook','linkedin'].includes(r.p)?`<button class="sm accent" data-oauth="${esc(r.p)}">اتصال حساب</button>`:''}
    </div></div>`).join('')}</div>
  <div id="intcfgbox"></div>`;
  $$('[data-inttest]').forEach(b=>b.onclick=async()=>{b.disabled=true;
@@ -1074,6 +1099,7 @@ async function pageSettings(view){
      {...(opt.keyword_planner||{}),platform:'google_ads',platform_fa:'Google Ads Keyword Planner',scopes:'keywordideas readonly',env:['GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_REFRESH_TOKEN'],state:(opt.keyword_planner||{}).state||'blocked_by_credential'},
      {platform:'gemini',platform_fa:'Gemini (تولید تصویر)',scopes:'API Key',env:['GOOGLE_AI_API_KEY'],state:'blocked_by_credential'}];
    const rows2=list;
+   const OAUTHABLE=['youtube','instagram','facebook','linkedin'];
    const box=$('#int-center');
    if(box)box.innerHTML='<div class="cardhead"><h2>اتصال حساب‌ها (تمام سرویس‌ها)</h2></div><div class="rows">'+rows2.map(r=>`<div class="rowitem"><div class="t"><strong>${esc(r.platform_fa)}</strong>
     <small>scope لازم: ${esc(r.scopes)}</small>
@@ -1081,6 +1107,13 @@ async function pageSettings(view){
     <small>راهنما: ${esc(SETUP[r.platform]||'—')}</small></div>
     <div class="actions"><span class="badge ${r.state==='ready'?'ok':'warn'}">${r.state==='ready'?'متصل — Credential ثبت شده':'BLOCKED_BY_CREDENTIAL'}</span>
     <button class="sm" data-inttest="${esc(r.platform)}">تست اتصال</button></div></div>`).join('')+'</div><p class="small muted">مقادیر Secret هرگز نمایش/ذخیره نمی‌شوند؛ تست اتصال واقعی انجام می‌شود.</p>';
+   $$('[data-oauth]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    try{const r=await api('/api/oauth/start',{provider:b.dataset.oauth});
+      window.open(r.url,'_blank','width=520,height=680');
+      toast('پنجرهٔ OAuth باز شد؛ پس از تأیید، توکن ذخیره می‌شود','ok');}
+    catch(e){toast(e.message,'err');}
+    b.disabled=false;});
    $$('[data-inttest]').forEach(b=>b.onclick=async()=>{
     b.disabled=true;
     try{const r=await api('/api/integrations/test',{platform:b.dataset.inttest});toast(r.ok?('اتصال سالم: '+(r.detail||'')):('ناموفق: '+(r.detail||r.state)),r.ok?'ok':'err');}
@@ -1333,10 +1366,35 @@ async function jobDetail(id){
 }
 
 /* ── boot ────────────────────────────────────────────────────── */
-(async()=>{
- if(location.protocol==='file:'){$('#fileguard').style.display='block';document.querySelector('aside').style.display='none';document.querySelector('.topbar').style.display='none';document.querySelector('main').style.display='none';return;}
+let authRequired=false,authed=false;
+function showLogin(){
+ const d=document.createElement('div');d.id='loginbox';
+ d.innerHTML=`<div class="loginwrap"><div class="logincard">
+  <div class="sidebrand" style="padding:0 0 14px"><span class="monogram">TN</span><div><strong style="color:#fff">کارخانهٔ محتوا</strong><small>Tehran Network × MyTel</small></div></div>
+  <label>نام کاربری<input id="lg-user" autocomplete="username"></label>
+  <label style="margin-top:10px">رمز عبور<input id="lg-pass" type="password" autocomplete="current-password"></label>
+  <p id="lg-err" style="color:#fca5a5;font-size:.85rem;min-height:1.4em"></p>
+  <button class="primary block" id="lg-go">ورود</button>
+  <p class="small muted">ورود فقط وقتی لازم است که ADMIN_USER/ADMIN_PASSWORD تنظیم شده باشد.</p>
+ </div></div>`;
+ document.body.appendChild(d);
+ $('#lg-go').onclick=async()=>{
+  const b=$('#lg-go');b.disabled=true;$('#lg-err').textContent='';
+  try{
+   const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('#lg-user').value,password:$('#lg-pass').value})});
+   const v=await r.json();
+   if(v.ok&&v.token){authed=true;token=v.token;d.remove();boot();}
+   else{$('#lg-err').textContent=v.error||'ورود ناموفق بود.';}
+  }catch(e){$('#lg-err').textContent=e.message;}
+  b.disabled=false;
+ };
+ $('#lg-pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#lg-go').click();});
+}
+async function boot(){
  try{
-  token=(await api('/api/session')).token;
+  const sess=await api('/api/session');
+  token=sess.token;authRequired=!!sess.auth_required;
+  if(authRequired&&!authed){showLogin();return;}
   const [sk,pol]=await Promise.all([api('/api/skills'),api('/api/policy')]);
   skills=sk;policy=pol.text;
   await loadCore();
@@ -1345,4 +1403,5 @@ async function jobDetail(id){
  }catch(err){
   $('#view').innerHTML=`<div class="banner warn"><strong>اتصال به سرور پنل برقرار نشد</strong>${esc(err.message)} — پنل را با Open-Panel.cmd اجرا کنید و نشانی http://127.0.0.1:8766 را باز کنید.</div>`;
  }
-})();
+}
+boot();

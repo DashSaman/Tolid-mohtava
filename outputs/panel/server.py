@@ -25,6 +25,9 @@ from analytics import (AnalyticsStore, adapter_status, health_check as adapter_h
     analytics_sync_handler, optimize_content_handler, recommend_slot, detect_anomalies, PLATFORMS, PLATFORM_FA)
 from intelligence import weekly_plan_handler, seo_proposals_handler, shorts_v2_handler
 from integrations import all_optional_integrations, KeywordStore, ga4_fetch, screaming_frog_status, ruflo_status, normalize_sf_export
+from providers import OAuthStore, OAUTH_PROVIDERS, oauth_start_url, oauth_callback, oauth_status, gemini_image_handler, gsc_search_analytics
+from analytics import gsc_ingest_handler
+import urllib.parse as uparse
 from knowledge import KnowledgeBase, index_project
 from content_intel import check_topic, refresh_candidates, optimize_content
 from handlers import build_handlers
@@ -45,6 +48,8 @@ SEOSTORE=SEOStore(DB.path)
 ARCHIVE=ArchiveStore(DB.path)
 ANALYTICS=AnalyticsStore(DB.path)
 KWSTORE=KeywordStore(DB.path)
+OAUTH=OAuthStore(DB.path)
+services_oauth={'oauth':OAUTH}
 KB=KnowledgeBase(DB.path)
 AUTH=Auth()
 NOTIF=Notifications(DB.path)
@@ -104,7 +109,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.valid_host(): return self.respond({'error':'میزبان مجاز نیست.'},403)
         url=urlsplit(self.path); q=parse_qs(url.query)
         try:
-            if url.path=='/api/session': return self.respond({'token':TOKEN,'app':'tehnet-content-panel'})
+            if url.path=='/api/session': return self.respond({'token':TOKEN,'app':'tehnet-content-panel','auth_required':AUTH.enabled})
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
             if url.path=='/api/assets': return self.respond(MEDIA.list_assets(q.get('state',[None])[0]))
@@ -142,6 +147,19 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/analytics/schedule':
                 return self.respond(recommend_slot(ANALYTICS,q.get('brand',[brand_default()])[0],q.get('platform',['youtube'])[0],q.get('ctype',['long'])[0]))
             if url.path=='/api/analytics/performance': return self.respond(ANALYTICS.performance(q.get('brand',[None])[0],q.get('platform',[None])[0]))
+            if url.path.startswith('/oauth/callback'):
+                q=parse_qs(url.query)
+                try:
+                    r=oauth_callback(q.get('provider',[''])[0],OAUTH,q.get('code',[''])[0],q.get('state',[''])[0])
+                    return self.respond(r)
+                except Exception as e:
+                    return self.respond({'error':str(e)[:200]},400)
+            if url.path=='/api/oauth/start':
+                prov=data.get('provider'); base='http://127.0.0.1:'+str(PORT)
+                try: return self.respond({'url':oauth_start_url(prov,OAUTH,base)})
+                except DependencyMissing as e: return self.respond({'error':str(e)},400)
+            if url.path=='/api/oauth/status':
+                return self.respond({k:oauth_status(k) for k in OAUTH_PROVIDERS})
             if url.path=='/api/integrations':
                 return self.respond({'core':adapter_status(),'optional':all_optional_integrations()})
             if url.path=='/api/ops/observability':
@@ -237,10 +255,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send(file.read_bytes(),mime+'; charset=utf-8')
         except ValueError as e: self.respond({'error':str(e)},400)
         except Exception: self.respond({'error':'خواندن اطلاعات ناموفق بود؛ فایل‌ها و اجرای پنل را بررسی کنید.'},500)
+    def require_auth(self):
+        """401 when auth enabled and session token invalid. Returns True if responded."""
+        if not AUTH.enabled: return False
+        tok=self.headers.get('X-Panel-Token')
+        if not AUTH.check(tok or ''):
+            self.respond({'error':'نشست منقضی یا نامعتبر است؛ دوباره وارد شوید.'},401)
+            return True
+        return False
     def do_POST(self):
         if not self.valid_host() or self.headers.get('X-Panel-Token')!=TOKEN or self.headers.get('Origin') not in (None,f'http://127.0.0.1:{PORT}',f'http://localhost:{PORT}'):
             return self.respond({'error':'درخواست مجاز نیست؛ پنل را دوباره باز کنید.'},403)
-        if urlsplit(self.path).path=='/api/media': return self.upload_media()
+        if urlsplit(self.path).path=='/api/media': return self.require_auth() or self.upload_media()
+        if self.require_auth(): return
         if self.headers.get_content_type()!='application/json': return self.respond({'error':'قالب درخواست معتبر نیست.'},415)
         try:
             size=int(self.headers.get('Content-Length','0'))
@@ -306,6 +333,12 @@ class Handler(BaseHTTPRequestHandler):
                 ANALYTICS.add_snapshot(data.get('platform','youtube'),data.get('brand'),data.get('external_id'),
                                        data.get('metrics') or {},data.get('source','manual'))
                 return self.respond({'ok':True})
+            if self.path=='/api/gsc/ingest':
+                return self.respond(JM.enqueue('gsc_ingest',{'site':data.get('site'),'start':data.get('start'),'end':data.get('end')},
+                    idempotency_key='gsc:'+uuid.uuid4().hex))
+            if self.path=='/api/gemini/generate':
+                return self.respond(JM.enqueue('gemini_image',{'prompt':data.get('prompt'),'content_id':data.get('content_id')},
+                    idempotency_key='gem:'+uuid.uuid4().hex))
             if self.path=='/api/keywords/add':
                 for row in (data.get('rows') or [data]):
                     KWSTORE.add(row.get('keyword'),row.get('language','fa'),row.get('country','IR'),

@@ -19,9 +19,9 @@
   --nav-glass:rgba(9,14,28,.72);
   --blur:18px; --blur-lg:26px;
   /* accents */
-  --violet:#8b5cf6; --blue:#3b82f6; --cyan:#22d3ee; --magenta:#e879f9;
+  --violet:#7a63d4; --blue:#4a7fd9; --cyan:#39b6d4; --magenta:#cf6fd6;
   --accent:var(--violet); --accent2:var(--cyan);
-  --grad-hero:linear-gradient(120deg,var(--violet),var(--blue) 45%,var(--cyan));
+  --grad-hero:linear-gradient(120deg,var(--violet),var(--blue) 50%,var(--cyan));filter:none
   --grad-soft:linear-gradient(120deg,rgba(139,92,246,.22),rgba(34,211,238,.16));
   /* status */
   --ok:#34d399; --ok-bg:rgba(52,211,153,.13);
@@ -32,8 +32,8 @@
   /* depth & motion */
   --shadow:0 10px 34px rgba(2,6,20,.5),0 2px 8px rgba(2,6,20,.4);
   --shadow-sm:0 4px 16px rgba(2,6,20,.35);
-  --glow-accent:0 0 0 1px rgba(139,92,246,.35),0 6px 26px rgba(139,92,246,.28);
-  --glow-cyan:0 0 18px rgba(34,211,238,.35);
+  --glow-accent:0 0 0 1px rgba(122,99,212,.25),0 4px 18px rgba(74,127,217,.18);
+  --glow-cyan:0 0 10px rgba(57,182,212,.22);
   --r-lg:18px; --r-md:14px; --r-sm:10px;
   --t-fast:.16s cubic-bezier(.4,0,.2,1);
   --t:.3s cubic-bezier(.22,1,.36,1);
@@ -180,7 +180,7 @@ nav a.active{
 nav a.active::after{content:'';position:absolute;inset-inline-start:0;top:22%;bottom:22%;width:3px;border-radius:99px;background:var(--grad-hero);box-shadow:var(--glow-cyan)}
 nav a .icon{opacity:.8}
 nav a.active .icon{color:var(--cyan);opacity:1}
-nav a .count{margin-inline-start:auto;background:rgba(139,92,246,.22);color:#d8b4fe;border-radius:99px;font-size:.66rem;padding:1px 8px;border:1px solid rgba(139,92,246,.3)}
+nav a .count{margin-inline-start:auto;background:rgba(122,99,212,.16);color:#c9d2f2;border-radius:99px;font-size:.66rem;padding:1px 8px;border:1px solid rgba(122,99,212,.24)}
 .sidefoot{font-size:.72rem;color:var(--ink3);padding:14px 20px;border-top:1px solid var(--glass-border-soft)}
 .sidefoot b{color:var(--cyan);font-weight:500}
 
@@ -502,3 +502,8 @@ body::after{ /* film-grain noise for depth (non-animated, ultra light) */
 .intcard .intpurpose{font-size:.82rem;color:var(--ink2)}
 .intcard .intenv{font-size:.72rem;color:var(--ink3);direction:ltr;text-align:right;word-break:break-all}
 @media(max-width:900px){.fnode{width:96px;margin-inline-end:26px}.fnode:not(:last-child)::after{width:14px}.fnode:not(:last-child)::before{inset-inline-start:calc(100% + 16px)}}
+/* login overlay */
+.loginwrap{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
+  background:rgba(4,7,16,.75);backdrop-filter:blur(10px)}
+.logincard{width:min(380px,92vw);padding:30px 30px 22px;border-radius:20px;
+  background:rgba(10,16,32,.9);border:1px solid rgba(158,190,255,.2);box-shadow:0 30px 90px rgba(2,6,20,.7)}

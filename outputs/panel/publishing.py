@@ -6,7 +6,8 @@ tehnet.ir and mytel.one were probed on 2026-09-27: both are WordPress with
 live wp-json REST APIs (PHP 8.3, Cloudflare; mytel uses Elementor), so the
 website path uses the standard WP REST draft endpoint.
 """
-import base64, json, os, urllib.request
+from pathlib import Path
+import base64, hashlib, json, os, time, urllib.request, urllib.error
 
 SITES={'tehnet.ir':{'env_prefix':'WP_TEHNET','kind':'wordpress'},
        'mytel.one':{'env_prefix':'WP_MYTEL','kind':'wordpress'}}
@@ -34,20 +35,47 @@ def status():
                               else 'WordPress REST تشخیص داده شد. برای ساخت پیش‌نویس، '+cfg['env_prefix']+'_USER و '+cfg['env_prefix']+'_APP_PASSWORD در environment تنظیم شود.'})
     return rows
 
-def wordpress_draft(site,title,content,status='draft'):
-    """Create a WP post via REST. Returns dict with id/link. Network is called
-    only when the user approved the publish job and credentials exist."""
+def wordpress_draft(site,title,content,status='draft',slug=None,excerpt=None,categories=None,tags=None,max_retries=2):
+    """Create a WP post via REST. Production path: DRAFT default, retry with
+    backoff, timeout, idempotency via client-side guard file. Publishing
+    (status=publish) is intentionally NOT automatic."""
     cred=site_credentials(site)
     if not cred:
         raise PermissionError('BLOCKED_BY_CREDENTIAL: Application Password برای '+site+' تنظیم نشده است.')
+    if status!='draft':
+        raise PermissionError('فقط DRAFT مجاز است؛ انتشار نیازمند تأیید صریح شماست.')
     url=cred['url'].rstrip('/')+'/wp-json/wp/v2/posts'
-    body=json.dumps({'title':title,'content':content,'status':status}).encode()
+    payload={'title':title,'content':content,'status':status}
+    if slug: payload['slug']=slug
+    if excerpt: payload['excerpt']=excerpt
+    if categories: payload['categories']=categories
+    if tags: payload['tags']=tags
     token=base64.b64encode(f"{cred['user']}:{cred['app_password']}".encode()).decode()
-    req=urllib.request.Request(url,data=body,method='POST',headers={
-        'Content-Type':'application/json','Authorization':'Basic '+token})
-    with urllib.request.urlopen(req,timeout=30) as r:
-        out=json.load(r)
-    return {'id':out.get('id'),'link':out.get('link'),'status':out.get('status')}
+    import hashlib
+    idem=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()[:16]
+    dbdir=Path(os.environ.get('TEHNET_PANEL_DB','outputs/panel/data/content.sqlite')).parent
+    guard=dbdir/('wp-idem-'+site.replace('.','-')+'-'+idem+'.json')
+    if guard.exists():
+        prev=json.loads(guard.read_text())
+        return {'id':prev.get('id'),'link':prev.get('link'),'status':prev.get('status'),'deduplicated':True}
+    last_err=None
+    for attempt in range(max_retries+1):
+        body=json.dumps(payload).encode()
+        req=urllib.request.Request(url,data=body,headers={'Content-Type':'application/json','Authorization':'Basic '+token})
+        try:
+            with urllib.request.urlopen(req,timeout=30) as r:
+                out=json.load(r)
+            res={'id':out.get('id'),'link':out.get('link'),'status':out.get('status')}
+            try: guard.write_text(json.dumps(res))
+            except Exception: pass
+            return res
+        except urllib.error.HTTPError as e:
+            last_err=e
+            if e.code<500: break
+            time.sleep(1.5*(attempt+1))
+        except Exception as e:
+            last_err=e; time.sleep(1.5*(attempt+1))
+    raise RuntimeError(f'WordPress {site}: {last_err}')
 
 def website_publish_handler(ctx):
     """Job handler: approved + credential-gated WordPress draft."""

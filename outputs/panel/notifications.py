@@ -2,7 +2,7 @@
 credential-gated (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in environment).
 No spam: meaningful events only, and every event is shown in the dashboard.
 """
-import json, sqlite3, os, urllib.request
+import json, sqlite3, os, time, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -49,17 +49,35 @@ class Notifications:
             if nid: c.execute('UPDATE notifications SET read=1 WHERE id=?',(nid,))
             else: c.execute('UPDATE notifications SET read=1')
 
-def telegram_send(text):
-    """Real Telegram send; honest credential gate. Returns dict result."""
+def telegram_send(text,link=None,max_retries=2,disable_notification=False):
+    """Real Telegram send (production): caption+link support, timeout, retry
+    with backoff, idempotent per content-hash guard. Never sends without the
+    user's approval flow (tests call with explicit test content only)."""
+    import hashlib
     token=os.environ.get('TELEGRAM_BOT_TOKEN'); chat=os.environ.get('TELEGRAM_CHAT_ID')
     if not token or not chat:
         return {'ok':False,'blocked':'BLOCKED_BY_CREDENTIAL: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID در environment تنظیم نشده است.'}
-    try:
-        req=urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage',
-            data=json.dumps({'chat_id':chat,'text':text[:3500]}).encode(),
-            headers={'Content-Type':'application/json'})
-        with urllib.request.urlopen(req,timeout=20) as r:
-            out=json.load(r)
-        return {'ok':bool(out.get('ok')),'detail':('ارسال شد' if out.get('ok') else str(out.get('description'))[:200])}
-    except Exception as e:
-        return {'ok':False,'detail':str(e)[:200]}
+    payload={'chat_id':chat,'text':(text+((chr(10)+link) if link else ''))[:3800],
+             'parse_mode':'HTML','disable_notification':disable_notification}
+    guard_name='tg-'+hashlib.sha256(payload['text'].encode()).hexdigest()[:16]+'.json'
+    guard=Path(os.environ.get('TEHNET_PANEL_DB','outputs/panel/data/content.sqlite')).parent/'tg-sent'
+    guard.mkdir(parents=True,exist_ok=True)
+    gfile=guard/guard_name
+    if gfile.exists(): return {'ok':True,'deduplicated':True,'detail':'قبلاً همین پیام ارسال شد (idempotent).'}
+    last=None
+    for attempt in range(max_retries+1):
+        try:
+            req=urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage',
+                data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
+            with urllib.request.urlopen(req,timeout=20) as r:
+                out=json.load(r)
+            if out.get('ok'):
+                try: gfile.write_text(json.dumps({'at':now(),'message_id':out['result']['message_id']}))
+                except Exception: pass
+                return {'ok':True,'detail':'ارسال شد'}
+            last=out.get('description','')
+            if 'retry after' in str(last).lower(): time.sleep(3)
+        except Exception as e:
+            last=str(e)
+        if attempt<max_retries: time.sleep(1.5*(attempt+1))
+    return {'ok':False,'detail':str(last)[:200]}

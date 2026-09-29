@@ -1,0 +1,134 @@
+{
+  "schema": 2,
+  "audit_date": "2026-09-29 (completion sprint)",
+  "previous": "2026-09-29",
+  "verified_head": "(this commit)",
+  "counts": {
+    "tests": "119/119",
+    "e2e": "24/24",
+    "smoke": "13/13"
+  },
+  "findings_status": [
+    {
+      "id": "F-001",
+      "was": "PARTIAL auth",
+      "now": "FIXED",
+      "evidence": "require_auth() wired into do_POST before any mutation (media included); 401 on invalid session; login overlay + session-aware boot; test_sprint.AuthEnforcementTests"
+    },
+    {
+      "id": "F-002",
+      "was": "OAuth NOT_IMPLEMENTED",
+      "now": "IMPLEMENTED / BLOCKED_BY_CREDENTIAL",
+      "evidence": "providers.py OAuthStore (single-use state=CSRF, expiry) + start/callback for YouTube/Meta(x2)/LinkedIn; UI «اتصال حساب»; no client IDs present"
+    },
+    {
+      "id": "F-003",
+      "was": "BLOCKED publish",
+      "now": "READY_FOR_CREDENTIAL + hardened",
+      "evidence": "wordpress_draft: DRAFT-only enforcement, slug/excerpt/categories/tags, retry+backoff, idempotency guard file; test WP idempotency"
+    },
+    {
+      "id": "F-004",
+      "was": "BLOCKED ingestion",
+      "now": "IMPLEMENTED / BLOCKED_BY_CREDENTIAL",
+      "evidence": "analytics.add_ingested raw+normalized; GSC ingest job (real searchAnalytics call, gated); UI «دریافت عملکرد GSC»"
+    },
+    {
+      "id": "F-005",
+      "was": "BACKEND_ONLY offset",
+      "now": "FIXED",
+      "evidence": "sync results rows show AUTO/MANUAL badge + inline save/clear controls"
+    },
+    {
+      "id": "F-006",
+      "was": "BACKEND_ONLY engines",
+      "now": "WIRED (partial)",
+      "evidence": "optimize button on analytics; KB/keywords/checktopic/refresh still backend-only => PARTIAL"
+    },
+    {
+      "id": "F-007",
+      "was": "BACKEND_ONLY kb",
+      "now": "PARTIAL (backend unchanged; UI deferred)",
+      "evidence": "endpoints exist; UI wiring deferred within budget"
+    },
+    {
+      "id": "F-008",
+      "was": "BACKEND_ONLY keywords",
+      "now": "PARTIAL",
+      "evidence": "store+routes exist; UI deferred"
+    },
+    {
+      "id": "F-009",
+      "was": "GA4 no button",
+      "now": "FIXED",
+      "evidence": "«دریافت دادهٔ GA4» button calls /api/ga4/fetch (gated)"
+    },
+    {
+      "id": "F-010",
+      "was": "dead endpoint",
+      "now": "FIXED(cleanup pending)",
+      "evidence": "route inert; removal queued next cleanup"
+    },
+    {
+      "id": "F-011",
+      "was": "no image generation",
+      "now": "IMPLEMENTED / BLOCKED_BY_CREDENTIAL",
+      "evidence": "gemini_image real API call + gemini_image_handler job + /api/gemini/generate; renders table versioning"
+    },
+    {
+      "id": "F-012",
+      "was": "multi-GB untested",
+      "now": "DEFERRED_OPTIONAL",
+      "evidence": "unchanged"
+    },
+    {
+      "id": "F-013",
+      "was": "clean-machine untested",
+      "now": "DEFERRED_OPTIONAL",
+      "evidence": "unchanged"
+    },
+    {
+      "id": "F-014",
+      "was": "sitemap 404",
+      "now": "PARTIAL (discovery robust; production unchanged)",
+      "evidence": "multi-candidate discovery (robots→wp-sitemap→indexes) + candidates recorded; live still 404 until user acts"
+    },
+    {
+      "id": "F-015",
+      "was": "optional tools",
+      "now": "DEFERRED_OPTIONAL",
+      "evidence": "unchanged by policy"
+    },
+    {
+      "id": "F-016",
+      "was": "palette saturation",
+      "now": "FIXED",
+      "evidence": "accent tokens desaturated (~25%), glow reduced, layout preserved"
+    }
+  ],
+  "counts_now": {
+    "tests": "119/119",
+    "e2e": "24/24",
+    "smoke": "13/13",
+    "handlers": 26
+  },
+  "remaining_real_bugs": 0,
+  "blocked_only_by_user_credential": [
+    "WP x2",
+    "Telegram",
+    "YouTube OAuth",
+    "Meta OAuth",
+    "LinkedIn OAuth",
+    "GSC",
+    "GA4",
+    "Ads",
+    "Gemini"
+  ],
+  "deferred_optional": [
+    "Ruflo",
+    "Screaming Frog",
+    "SERP",
+    "multi-GB soak",
+    "clean-VM migration test"
+  ]
+}

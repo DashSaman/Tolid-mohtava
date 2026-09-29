@@ -46,4 +46,8 @@
 | تولید تصویر (Thumbnail/Carousel) | ⛔ | GOOGLE_AI_API_KEY | skills |
 | Ruflo (هم‌اردازی) | ⚪ خاموش | RUFLO_ENDPOINT | integrations |
 | Screaming Frog (عنکبوت حرفه‌ای) | ⚪ جایگزین داخلی | نصب+SCREAMING_FROG_PATH | integrations |
+| احراز هویت پنل + Login UI | ✅ (فعال با ADMIN_*) | ADMIN_USER/ADMIN_PASSWORD | ops.py+server.py |
+| OAuth بنیاد (YT/Meta/LinkedIn) | ⛔ READY_FOR_CREDENTIAL | کلاینت OAuth هر سرویس | providers.py |
+| GSC ingestion job | ⛔ READY_FOR_CREDENTIAL | GSC_CREDENTIALS | providers/analytics |
+| Gemini تولید تصویر واقعی | ⛔ READY_FOR_CREDENTIAL | GOOGLE_AI_API_KEY | providers.gemini_image |
 | چند-کاربره/چند-ماشینه همزمان | ❌ خارج از هدف محلی | — | — |

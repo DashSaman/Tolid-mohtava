@@ -107,17 +107,23 @@ def check_robots_and_sitemap(base):
         if m: out['sitemap_url']=m.group(1)
     except Exception as e:
         out['robots']='missing/'+str(e)[:60]
-    sm=out.get('sitemap_url') or base+'/sitemap.xml'
-    try:
-        st,body,final=_fetch_follow(sm,timeout=20)
-        if st==200 and ('<urlset' in body or '<sitemapindex' in body):
-            out['sitemap']='ok'
-            out['sitemap_urls']=len(re.findall(r'<loc>',body))
-        else:
-            out['sitemap']=f'http {st}'
-            out['sitemap_redirect']=final
-    except Exception as e:
-        out['sitemap']='missing/'+str(e)[:60]
+    # robots declaration FIRST, then safe standard candidates
+    candidates=[out.get('sitemap_url')] if out.get('sitemap_url') else []
+    candidates+=[base+'/wp-sitemap.xml',base+'/sitemap_index.xml',base+'/sitemap.xml',base+'/sitemap-index.xml']
+    tried=[]
+    for sm in [c for c in candidates if c]:
+        try:
+            st,body,final=_fetch_follow(sm,timeout=15)
+            tried.append({'url':sm,'status':st,'final':final})
+            if st==200 and ('<urlset' in body or '<sitemapindex' in body):
+                out['sitemap']='ok'; out['sitemap_url_used']=final
+                out['sitemap_urls']=len(re.findall(r'<loc>',body))
+                break
+        except Exception as e:
+            tried.append({'url':sm,'status':'error','detail':str(e)[:60]})
+    out['sitemap_candidates']=tried
+    if out.get('sitemap')!='ok':
+        out['sitemap']=out.get('sitemap') or 'missing'
     return out
 
 def _check_links_broken(links,limit=8):

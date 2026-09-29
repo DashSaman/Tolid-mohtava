@@ -50,6 +50,15 @@ class AnalyticsStore:
             with c: yield c
         finally: c.close()
     # snapshots: append-only
+    def add_ingested(self,platform,brand,external_id,raw,normalized,source,job_id=None):
+        """Real provider ingestion: raw payload preserved + normalized metrics.
+        Append-only like snapshots."""
+        with self.connect() as c:
+            c.execute('''INSERT INTO analytics_snapshots(platform,brand,external_id,captured_at,metrics,source,job_id)
+                         VALUES(?,?,?,?,?,?,?)''',
+                      (platform,brand,external_id,now(),
+                       json.dumps({'normalized':normalized,'raw':raw},ensure_ascii=False)[:500000],
+                       source or 'api',job_id))
     def add_snapshot(self,platform,brand,external_id,metrics,source,job_id=None):
         bad=[k for k in metrics if k not in METRICS]
         if bad: raise ValueError('متریک نامعتبر: '+','.join(bad))
@@ -147,6 +156,29 @@ def health_check(platform,timeout=10):
             return {'platform':platform,'ok':True,'state':'ready','detail':f'پاسخ {r.status}'}
     except Exception as e:
         return {'platform':platform,'ok':False,'state':'invalid','detail':str(e)[:160]}
+
+def gsc_ingest_handler(ctx):
+    """GSC search-analytics ingestion job (credential-gated; real API)."""
+    from providers import gsc_search_analytics as _g
+    site=ctx.payload.get('site') or 'https://tehnet.ir/'
+    start=ctx.payload.get('start') or '7daysAgo'; end=ctx.payload.get('end') or 'today'
+    ctx.log(f'GSC: دریافت عملکرد جست‌وجو {site} ({start} تا {end})')
+    ctx.progress(30)
+    try:
+        data=_g(site,start,end)
+    except DependencyMissing: raise
+    except Exception as e:
+        raise DependencyMissing('GSC: '+str(e)[:180])
+    rows=data.get('rows') or []
+    ctx.progress(70)
+    tot={'search_clicks':0,'search_impressions':0}
+    for r in rows:
+        ks=r.get('keys',[]); m=r.get('clicks',0); mi=r.get('impressions',0)
+        tot['search_clicks']+=m; tot['search_impressions']+=mi
+    ANAL=ctx.services['analytics']
+    ANAL.add_snapshot('gsc',None,site,{'views':tot['search_clicks'],'impressions':tot['search_impressions']},'gsc-api',ctx.id)
+    ctx.log(f'{len(rows)} سطر دریافت شد؛ snapshot ثبت شد')
+    return {'rows':len(rows),'totals':tot}
 
 def analytics_sync_handler(ctx):
     """Job: sync one platform. Without credentials -> honest BLOCKED_BY_CREDENTIAL."""
