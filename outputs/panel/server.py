@@ -356,24 +356,43 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e: self.respond({'error':str(e)},400)
         except Exception: self.respond({'error':'خواندن اطلاعات ناموفق بود؛ فایل‌ها و اجرای پنل را بررسی کنید.'},500)
     def require_auth(self):
-        """401 when auth enabled and session token invalid. Returns True if responded."""
+        """401 when auth enabled and session token invalid. Returns True if responded.
+        The CSRF token equals AUTH-disabled token; when auth is enabled and the
+        caller presents the process CSRF token (not a session), treat as
+        unauthenticated but let the login route through."""
         if not AUTH.enabled: return False
         tok=self.headers.get('X-Panel-Token')
+        if tok==TOKEN:  # CSRF-level caller, not a logged session
+            if urlsplit(self.path).path=='/api/auth/login': return False
+            self.respond({'error':'برای این عملیات باید وارد شوید.'},401)
+            return True
         if not AUTH.check(tok or ''):
             self.respond({'error':'نشست منقضی یا نامعتبر است؛ دوباره وارد شوید.'},401)
             return True
         return False
     def do_POST(self):
-        if not self.valid_host() or self.headers.get('X-Panel-Token')!=TOKEN or self.headers.get('Origin') not in (None,f'http://127.0.0.1:{PORT}',f'http://localhost:{PORT}'):
+        tok=self.headers.get('X-Panel-Token')
+        authed_session=AUTH.enabled and AUTH.check(tok or '')
+        allowed_origins=(None,'http://127.0.0.1:'+str(PORT),'http://localhost:'+str(PORT))
+        if not self.valid_host() or (tok!=TOKEN and not authed_session) or self.headers.get('Origin') not in allowed_origins:
             return self.respond({'error':'درخواست مجاز نیست؛ پنل را دوباره باز کنید.'},403)
-        if urlsplit(self.path).path=='/api/media': return self.require_auth() or self.upload_media()
-        if self.require_auth(): return
+        path=urlsplit(self.path).path
+        if path=='/api/media': return self.require_auth() or self.upload_media()
+        if path=='/api/auth/logout' and self.require_auth(): return
+        if self.require_auth() and path!='/api/auth/login': return
         if self.headers.get_content_type()!='application/json': return self.respond({'error':'قالب درخواست معتبر نیست.'},415)
         try:
             size=int(self.headers.get('Content-Length','0'))
+            if path=='/api/auth/logout':
+                AUTH.logout(self.headers.get('X-Panel-Token')); return self.respond({'ok':True})
             if size<1 or size>1500000: raise ValueError('حجم درخواست معتبر نیست.')
             data=json.loads(self.rfile.read(size))
             if not isinstance(data,dict): raise ValueError('درخواست معتبر نیست.')
+            if path=='/api/auth/login':
+                # reachable without a session (CSRF token above already gates it)
+                if not AUTH.enabled: return self.respond({'ok':True,'note':'احراز هویت فعال نیست؛ پنل فقط روی loopback است.'})
+                r=AUTH.login(data.get('username'),data.get('password'),self.client_address[0])
+                return self.respond(r,200 if r.get('ok') else 401)
             if self.path=='/api/items': return self.respond(DB.save(data))
             if self.path=='/api/project/archive': return self.respond(DB.set_archived(data.get('id'),bool(data.get('archived',True))))
             if self.path=='/api/project/rename': return self.respond(DB.rename(data.get('id'),data.get('title')))
@@ -418,12 +437,6 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
                 t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
                 return self.respond(t)
-            if self.path=='/api/auth/login':
-                if not AUTH.enabled: return self.respond({'ok':True,'note':'احراز هویت فعال نیست؛ پنل فقط روی loopback است.'})
-                r=AUTH.login(data.get('username'),data.get('password'),self.client_address[0])
-                return self.respond(r,200 if r.get('ok') else 401)
-            if self.path=='/api/auth/logout':
-                AUTH.logout(self.headers.get('X-Panel-Token')); return self.respond({'ok':True})
             if self.path=='/api/whisper/model':
                 return self.respond({'model':WSSET.set_whisper_model(data.get('model'))})
             if self.path=='/api/whisper/benchmark':
