@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-29 (final commissioning)",
+  "updated": "2026-09-29 (UI v2 redesign session)",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -903,6 +903,18 @@
       "evidence": "docs/README.fa.md + 5 guides; images from live panel with real E2E data",
       "dependencies": [],
       "blocker": null
+    },
+    {
+      "id": "ui-glass-v2",
+      "name": "Premium glass design system v2 + 22 real screenshots + UI-GUIDE/FIRST-RUN/UI-REFERENCES",
+      "priority": "P1",
+      "status": "working",
+      "tests": [
+        "work smoke 13/13 v2"
+      ],
+      "evidence": "0 backend/API changes (same class names); console-clean desktop+mobile; reduced-motion + pause-on-hidden; CSS-only atmosphere (no WebGL dependency)",
+      "dependencies": [],
+      "blocker": null
     }
   ],
   "last_commit": "this commit",
@@ -916,5 +928,5 @@
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "regression once: 109/109 OK; REAL E2E once: 24/24 FINAL_E2E_VERIFIED (Qwen default); daily UI smoke: 13/13 PASS after 2 real-bug fixes (integration-center data shape, backup WAL + verify json import); backup validated (23 tables, integrity ok, fidelity proven on E2E DB); restart/recovery PASS; Verify-Installation: READY"
+  "last_tests": "regression 109/109; browser smoke v2 13/13 PASS; E2E post-redesign run logged"
 }
