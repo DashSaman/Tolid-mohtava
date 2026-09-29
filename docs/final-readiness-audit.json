@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "audit_date": "2026-09-29",
+  "verified_head": "3137e57",
+  "live_instance": {"port": 8767, "pid": 42784, "serves_current_head": true, "evidence": "served index contains atmo; served style contains aurora tokens; process path = this repo python"},
+  "port_8766": {"state": "occupied", "owner": "AutoClaw.exe (protected legacy proxy) + dead Sep-26 panel removed", "action_needed": "admin kill optional; launcher auto-falls back to 8767"},
+  "counts": {"get_routes": 44, "post_routes": 35, "job_handlers": 15, "tests": "109/109", "e2e": "24/24", "smoke": "13/13"},
+  "findings": [
+    {"id": "F-001", "area": "integrations", "feature": "auth enforcement", "status": "PARTIAL", "severity": "P1-high", "evidence": "ops.Auth exists (PBKDF2+rate-limit) but AUTH.check is not applied to mutation routes; only /api/auth/login endpoint exists; no login UI", "affected_files_routes": ["outputs/panel/server.py", "outputs/panel/ops.py"], "credential_required": false, "recommended_action": "wire AUTH.check into do_POST (and optionally do_GET sensitive) when AUTH.enabled; add minimal login UI; REQUIRED before any remote/Tailscale access"},
+    {"id": "F-002", "area": "integrations", "feature": "OAuth browser flows", "status": "NOT_IMPLEMENTED", "severity": "P1-high", "evidence": "no OAuth client/state/callback code for YouTube/IG/FB/LinkedIn/GSC/GA4/Ads; adapters only declare env vars + health", "affected_files_routes": ["outputs/panel/integrations.py", "outputs/panel/analytics.py"], "credential_required": true, "recommended_action": "implement one reusable OAuth helper (state+callback) before connecting real accounts"},
+    {"id": "F-003", "area": "publishing", "feature": "real publish / social posting", "status": "BLOCKED_BY_CREDENTIAL", "severity": "P1", "evidence": "wordpress_draft() real REST code exists; social adapters declare env only; dry-run is the only wired path", "affected_files_routes": ["outputs/panel/publishing.py"], "credential_required": true, "recommended_action": "test WP draft with real Application Password; decide social scope later"},
+    {"id": "F-004", "area": "analytics", "feature": "real ingestion", "status": "BLOCKED_BY_CREDENTIAL", "severity": "P1", "evidence": "adapters+health+snapshots storage real; no platform API query code except GA4 runReport (gated)", "affected_files_routes": ["outputs/panel/analytics.py"], "credential_required": true, "recommended_action": "after OAuth, implement per-platform query + snapshot job"},
+    {"id": "F-005", "area": "media", "feature": "manual sync offset UI", "status": "BACKEND_ONLY", "severity": "P1-ux", "evidence": "/api/sync/save & /api/sync/clear exist; app.js only reads /api/sync and shows offsets; no save/clear controls", "affected_files_routes": ["outputs/panel/app.js"], "credential_required": false, "recommended_action": "add offset input + save/clear buttons in sync results"},
+    {"id": "F-006", "area": "intelligence", "feature": "checktopic/refresh/optimize UI", "status": "BACKEND_ONLY", "severity": "P2", "evidence": "GET /api/content/checktopic|refresh|optimize + POST /api/analytics/optimize have no buttons", "affected_files_routes": ["outputs/panel/app.js", "outputs/panel/content_intel.py"], "credential_required": false, "recommended_action": "add to project page + planner"},
+    {"id": "F-007", "area": "kb", "feature": "KB search/reindex UI", "status": "BACKEND_ONLY", "severity": "P2", "evidence": "/api/kb/search|stats|reindex unused by app.js", "affected_files_routes": ["outputs/panel/app.js", "outputs/panel/knowledge.py"], "credential_required": false, "recommended_action": "add a search box + reindex button in settings"},
+    {"id": "F-008", "area": "keywords", "feature": "manual keyword entry UI", "status": "BACKEND_ONLY", "severity": "P2", "evidence": "/api/keywords/add + /api/keywords unused by UI", "affected_files_routes": ["outputs/panel/app.js"], "credential_required": false, "recommended_action": "add manual keyword form feeding planner"},
+    {"id": "F-009", "area": "ga4", "feature": "GA4 fetch button", "status": "BLOCKED_BY_CREDENTIAL", "severity": "P2", "evidence": "/api/ga4/fetch real (gated) but no button", "affected_files_routes": ["outputs/panel/app.js"], "credential_required": true, "recommended_action": "add fetch button on analytics page"},
+    {"id": "F-010", "area": "cleanup", "feature": "dead endpoint", "status": "BROKEN(dead code)", "severity": "P3", "evidence": "GET /api/integrations_old_never route exists (dead)", "affected_files_routes": ["outputs/panel/server.py"], "credential_required": false, "recommended_action": "remove route"},
+    {"id": "F-011", "area": "images", "feature": "thumbnail/gemini/carousel/infographic/quote generation", "status": "BLOCKED_BY_CREDENTIAL", "severity": "P2", "evidence": "no image-generation code; upload+approve only; ai_jobs has no image handlers", "affected_files_routes": ["outputs/panel/ai_jobs.py", "outputs/panel/app.js"], "credential_required": true, "recommended_action": "add Gemini image job after key"},
+    {"id": "F-012", "area": "media", "feature": "real-scale (multi-GB, long projects)", "status": "UNTESTED", "severity": "P2-risk", "evidence": "tests use 6-24s fixtures; streaming code exists but no large-file soak test", "affected_files_routes": ["outputs/panel/media.py"], "credential_required": false, "recommended_action": "one soak test with a real multi-GB recording"},
+    {"id": "F-013", "area": "portability", "feature": "clean-machine bootstrap", "status": "UNTESTED", "severity": "P2-risk", "evidence": "scripts exist and pass on current machine; no fresh-VM run recorded", "affected_files_routes": ["setup/*"], "credential_required": false, "recommended_action": "run once on a clean VM/PC when available"},
+    {"id": "F-014", "area": "seo", "feature": "tehnet.ir sitemap", "status": "BLOCKED_BY_CREDENTIAL(external manual)", "severity": "P1-external", "evidence": "re-verified live today: wp-sitemap.xml 404; robots has no Sitemap line; root cause documented", "affected_files_routes": ["docs/SITEMAP-CHECKLIST.fa.md"], "credential_required": true, "recommended_action": "follow docs/SITEMAP-CHECKLIST.fa.md in wp-admin, then re-scan in panel"},
+    {"id": "F-015", "area": "optional", "feature": "Ruflo / Screaming Frog / SERP", "status": "OPTIONAL_NOT_INSTALLED", "severity": "P3", "evidence": "adapters only; disabled states honest", "affected_files_routes": ["outputs/panel/integrations.py"], "credential_required": false, "recommended_action": "install only when needed"},
+    {"id": "F-016", "area": "ux", "feature": "palette saturation", "status": "VISUAL_ISSUE", "severity": "P3", "evidence": "violet/blue saturation near gaming vibe in hero/primary", "affected_files_routes": ["outputs/panel/style.css"], "credential_required": false, "recommended_action": "apply calmer palette later (proposed in audit doc §19)"}
+  ],
+  "workflow_gaps": [
+    "thumbnail image generation (prompt-only via Codex skills)",
+    "publish-real (WP draft ready; social not implemented)",
+    "analytics ingestion (manual recording works)",
+    "manual offset save UI",
+    "optimization/cannibalization/evergreen/KB/keywords/GA4 UI triggers"
+  ],
+  "dead_buttons": 0,
+  "backend_only_endpoints": {"post": 10, "get": 11},
+  "blocked_by_credential": 11,
+  "optional_missing": 3,
+  "real_software_bugs": 0,
+  "docs_mismatches": ["manual offset save claimed usable but no save UI", "KB/search & topic-check & evergreen & optimize & GA4-fetch & auth-login documented in code but not exposed in UI"],
+  "untested_production_risks": ["real OAuth", "real publishing", "real ingestion", "multi-GB media", "clean-machine migration", "concurrent SQLite stress"]
+}
