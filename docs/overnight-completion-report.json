@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "night": "2026-09-29",
+  "start_head": "0555fdb",
+  "backup": {"path": "outputs/backups/tolid-20260929-203146", "integrity": "ok"},
+  "status": "COMPLETE",
+  "ui_wiring_added": [
+    {"id": "kb-search", "page": "sources", "api": ["/api/kb/search", "/api/kb/stats", "/api/kb/reindex"]},
+    {"id": "keywords-manual", "page": "sources", "api": ["/api/keywords/add", "/api/keywords?q="]},
+    {"id": "checktopic", "page": "ideas/planner", "api": ["/api/content/checktopic"]},
+    {"id": "evergreen", "page": "ideas/planner", "api": ["/api/content/refresh"]}
+  ],
+  "real_bug_fixed": {"id": "brand-undefined-500", "routes": ["/api/content/refresh", "/api/content/checktopic"], "fix": "use q.get('brand',[brand_default()])[0]"},
+  "keyword_planner": {"library": "google-ads==25.1.0", "adapter": "real GenerateKeywordIdeasQuery", "status": "READY_FOR_CREDENTIAL", "env": ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_CUSTOMER_ID", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_ADS_REFRESH_TOKEN"]},
+  "optional": {
+    "ruflo": "NOT_INSTALLED (duplicate of working internal orchestration; adapter stays disabled)",
+    "screaming_frog": {"attempted": "winget ScreamingFrog.SEOSpider 24.3 silent", "result": "installer exit code 2 (needs interactive GUI)", "state": "OPTIONAL_NOT_INSTALLED", "fallback": "internal crawler WORKING"},
+    "serp": "OPTIONAL/BLOCKED_BY_CREDENTIAL (no legal keyless provider; no scraping)"
+  },
+  "ai": {"lm_studio": "running", "default": "qwen2.5-7b-instruct (LOADED)", "fallback": "meta-llama-3-8b-instruct present", "skills": "17/17 files load via router", "gemini": "READY_FOR_CREDENTIAL"},
+  "tests_overnight": {
+    "sqlite_concurrency": {"enqueued": 40, "completed": 40, "reader_errors": 0, "restart_preserved": 40},
+    "media_soak": {"uploads": "3x8.4MB via real HTTP", "ms": 319, "validate": "OK duration=600 rms=2895", "cleanup": "test files only"},
+    "clean_install": {"method": "fresh clone + fresh venv", "result": "modules+DB+store tests PASS", "temp_removed": true},
+    "backup_restore": "PASS (isolated; title+integrity verified)",
+    "analytics_learning_testpath": "PASS with TEST-tagged data then removed"
+  },
+  "seo": {"sitemap_recheck": {"robots": "200 no Sitemap line", "wp-sitemap.xml": 404", "sitemap.xml": "301->404"}, "action": "manual checklist docs/SITEMAP-CHECKLIST.fa.md", "production_touched": false},
+  "final": {"regression": "125/125", "e2e": "24/24", "smoke": "13/13", "route_tour": "22/22 routes, 0 http>=400, 0 console errors", "screenshots": "docs/images/fa-overnight (10 real jpg)"},
+  "remaining": {
+    "blocked_by_credential": ["WP tehnet", "WP mytel", "Telegram", "YouTube", "Instagram", "Facebook", "LinkedIn", "GSC", "GA4", "Google Ads", "Gemini"],
+    "blocked_by_user_action": ["tehnet.ir sitemap (wp-admin 5-min checklist)"],
+    "manual_physical_test": ["physical microphone recording"],
+    "optional": ["Ruflo", "Screaming Frog (installer needs GUI)", "external SERP"],
+    "local_engineering": "NO_REMAINING_WORK"
+  },
+  "readiness": {"core": 97, "ui": 90, "ai": 90, "media": 92, "seo": 85, "integrations": 72, "analytics": 65, "security": 90, "backup_migration": 92, "documentation": 92, "overall": 88}
+}

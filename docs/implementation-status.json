@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-09-29 (visual acceptance session v3)",
+  "updated": "2026-09-29 overnight",
   "repo": "https://github.com/DashSaman/Tolid-mohtava",
   "note": "Source of truth for implementation progress. status: working|partial|broken|blocked|not_started. Only a passing test counts as working.",
   "features": [
@@ -780,13 +780,13 @@
       "id": "keyword-provider",
       "name": "KeywordDataProvider (Google Ads/Planner as one provider) + keyword_data store",
       "priority": "P1",
-      "status": "blocked_by_credential",
+      "status": "partial",
       "tests": [
         "tests/test_integrations_kb.py"
       ],
       "evidence": "store+manual ingestion working; Ads API gated",
       "dependencies": [],
-      "blocker": "GOOGLE_ADS_*"
+      "blocker": "google-ads==25.1.0 installed + real adapter READY_FOR_CREDENTIAL (5 env vars)"
     },
     {
       "id": "search-intel-provider",
@@ -915,6 +915,30 @@
       "evidence": "REAL screenshots docs/images/fa-v3 (27 jpg, 1920/1366/393); dashboard pipeline with DONE/ACTIVE/WAIT states; 11 premium integration cards with env guides+test; port-fallback launcher (8766 occupied by protected AutoClaw legacy proxy -> auto 8767); smoke 13/13 adapted&pass; regression 109/109; E2E rerun logged",
       "dependencies": [],
       "blocker": null
+    },
+    {
+      "id": "ui-kb-keywords-checktopic-evergreen",
+      "name": "KB search/reindex + manual keywords + checktopic + evergreen UI",
+      "priority": "P2",
+      "status": "working",
+      "tests": [
+        "route tour 0 http>=400"
+      ],
+      "evidence": "sources/planner pages wired to real APIs; live-checked",
+      "dependencies": [],
+      "blocker": null
+    },
+    {
+      "id": "brand-route-bug",
+      "name": "500 on /api/content/refresh|checktopic (undefined brand)",
+      "priority": "P0",
+      "status": "fixed",
+      "tests": [
+        "live curl + tour"
+      ],
+      "evidence": "q.get brand fallback; both endpoints live OK",
+      "dependencies": [],
+      "blocker": null
     }
   ],
   "last_commit": "this commit",
@@ -928,5 +952,5 @@
     "TELEGRAM_BOT_TOKEN + chat id",
     "GOOGLE_AI_API_KEY (Gemini render paths)"
   ],
-  "last_tests": "regression 109/109; browser smoke v2 13/13 PASS; E2E post-redesign run logged"
+  "last_tests": "regression 125/125 · E2E 24/24 · Smoke 13/13 · route tour 22/22 (0 errors) · sqlite soak 40/0 · media soak PASS · clean-install PASS · backup/restore PASS"
 }

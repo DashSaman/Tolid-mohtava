@@ -215,11 +215,33 @@ async function pageList(view){
   <div class="banner">برنامهٔ هفتگی با شواهد محلی (پروژه‌ها، عملکرد ثبت‌شده، یافته‌های سئو) ساخته می‌شود — نه لیست تصادفی.</div>
   <div class="card"><div class="cardhead"><h2>${icon('i-calendar')} برنامهٔ محتوای هفته (${names[brand]})</h2><button class="sm primary" id="weekly-plan">ساخت برنامهٔ هفته</button></div>
   <div id="weekly-plan-box"><p class="small muted">هر پیشنهاد با «چرا»، حجم نمونه و اطمینان نمایش داده می‌شود.</p></div></div>
+  <div class="grid2">
+  <div class="card"><h2>${icon('i-check')} بررسی تکرار موضوع (کنیبالیزیشن)</h2>
+   <div class="row"><input id="ct-title" placeholder="عنوان موضوع جدید…"><button class="sm primary" id="ct-go">بررسی</button></div>
+   <div id="ct-out" style="margin-top:10px"></div></div>
+  <div class="card"><div class="cardhead"><h2>${icon('i-refresh')} به‌روزرسانی محتوای قدیمی (Evergreen)</h2></div>
+   <div id="ev-list"><div class="skeleton"></div></div></div>
+  </div>
   <div class="grid2"><div class="card"><div class="cardhead"><h2>${icon('i-bulb')} ایده‌های ثبت‌شده</h2><button class="sm primary" id="new">${icon('i-plus','icon sm')}ایده جدید</button></div>
   <div class="rows">${list.map(projRow).join('')||empty('i-bulb','ایده‌ای ثبت نشده','ایده تازه بسازید یا از اسکیل‌های تحقیق کمک بگیرید.')}</div></div>
   <div class="card"><h2>${icon('i-grid')} تولید ایده با اسکیل‌ها</h2>${['niche-research','content-matrix','hook-generator'].map(id=>{const s=skills.find(x=>x.id===id);return s?`<div class="rowitem"><div class="t"><strong>${esc(s.title)}</strong><small>${esc(s.job)}</small></div><div class="actions"><button class="sm" data-skill="${id}">بسته دستور</button></div></div>`:'';}).join('')}</div></div>`
  :`<div class="card"><div class="cardhead"><h2>${icon('i-folder')} ${esc(pagesDef[page].t)}</h2><div class="row"><input id="search" placeholder="جست‌وجوی عنوان…" style="max-width:240px"><button class="sm" id="export">${icon('i-upload','icon sm')}خروجی و تاریخچه</button></div></div>
   <div class="rows" id="item-list">${list.map(projRow).join('')||empty('i-folder','چیزی برای نمایش نیست','با «محتوای جدید» شروع کنید؛ داده نمونه در پنل وجود ندارد.')}</div></div>`;
+ if($('#ct-go'))$('#ct-go').onclick=async()=>{
+   const t=$('#ct-title').value.trim();if(!t){toast('عنوان را بنویس','err');return;}
+   $('#ct-out').innerHTML='<div class="skeleton"></div>';
+   try{
+    const v=await api('/api/content/checktopic?title='+encodeURIComponent(t));
+    const fa={SAFE_NEW_TOPIC:'موضوع جدید امن',UPDATE_EXISTING_CONTENT:'به‌روزرسانی محتوای موجود',MERGE_RECOMMENDED:'ادغام پیشنهاد می‌شود',POTENTIAL_CANNIBALIZATION:'احتمال کنیبالیزیشن',DUPLICATE:'تکراری'};
+    $('#ct-out').innerHTML=`<div class="note"><b>${fa[v.verdict]||v.verdict}</b><br>${esc(v.note||'')}${v.evidence&&v.evidence.best?`<br><small>شبیه‌ترین: ${esc(v.evidence.best.item?((v.evidence.best.item.title)):'')} (امتیاز ${fa(Math.round(v.evidence.best.score*100))}٪) · KB: ${fa(Math.round((v.kb_hits||0)*100))}٪</small>`:''}</div>`;
+   }catch(e){$('#ct-out').innerHTML='';toast(e.message,'err');}
+  };
+  if($('#ev-list'))(async()=>{
+   try{
+    const rows=await api('/api/content/refresh');
+    $('#ev-list').innerHTML=rows.map(r=>`<div class="decisionrow review"><div><strong>${esc(r.title)}</strong><div class="small muted">${r.reasons.map(esc).join(' · ')}</div><small>پیشنهاد: ${r.suggested_changes.map(esc).join('، ')}</small></div><span class="badge ${r.priority==='high'?'danger':'warn'}">${r.priority==='high'?'اولویت بالا':'معمول'}</span></div>`).join('')||'<p class="small muted">محتوایی نیازمند به‌روزرسانی یافت نشد.</p>';
+   }catch(e){$('#ev-list').innerHTML='';}
+  })();
  if($('#weekly-plan'))$('#weekly-plan').onclick=async()=>{
   $('#weekly-plan').disabled=true;
   try{
@@ -1002,7 +1024,41 @@ async function pageNotifications(view){
 }
 async function pageSources(view){
  view.innerHTML=`<div class="card"><h2>${icon('i-book')} منابع پروژه‌های ${names[brand]}</h2>
- <div class="rows">${items.filter(x=>x.sources).map(x=>`<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.sources.slice(0,120))}…</small></div><div class="actions"><button class="sm" data-openproject="${esc(x.id)}">پرونده</button></div></div>`).join('')||empty('i-book','منبعی ثبت نشده','منابع در پرونده هر پروژه ذخیره می‌شوند.')}</div></div>`;
+ <div class="rows">${items.filter(x=>x.sources).map(x=>`<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.sources.slice(0,120))}…</small></div><div class="actions"><button class="sm" data-openproject="${esc(x.id)}">پرونده</button></div></div>`).join('')||empty('i-book','منبعی ثبت نشده','منابع در پرونده هر پروژه ذخیره می‌شوند.')}</div></div>
+ <div class="grid2">
+ <div class="card"><div class="cardhead"><h2>${icon('i-search')} پایگاه دانش (KB)</h2><button class="sm" id="kb-reindex">بازسازی ایندکس</button></div>
+  <div class="row"><input id="kb-q" placeholder="جست‌وجو در سناریوها/متن‌ها/مقاله‌ها…"><button class="sm primary" id="kb-go">جست‌وجو</button></div>
+  <p class="small muted" id="kb-stats">…</p><div id="kb-results"></div></div>
+ <div class="card"><h2>${icon('i-grid')} کلمات کلیدی دستی</h2>
+  <div class="row"><input id="kw-in" placeholder="مثلاً: تنظیم مودم تی‌پی‌لینک"><button class="sm primary" id="kw-add">افزودن</button></div>
+  <div class="rows" id="kw-list" style="margin-top:10px"></div>
+  <p class="small muted">این کلمات در برنامهٔ هفتگی و پیشنهاد سئو استفاده می‌شوند (source=manual).</p></div>
+ </div>`;
+ api('/api/kb/stats').then(st=>{const e=$('#kb-stats');if(e)e.textContent=Object.entries(st||{}).map(([k,v])=>k+': '+fa(v)).join(' · ')||'خالی';}).catch(()=>{});
+ const doKb=async()=>{
+  const q=$('#kb-q').value.trim();if(!q){toast('عبارت جست‌وجو را بنویس','err');return;}
+  $('#kb-results').innerHTML='<div class="skeleton"></div>';
+  try{
+   const hits=await api('/api/kb/search?q='+encodeURIComponent(q));
+   $('#kb-results').innerHTML=hits.map(h=>`<div class="rowitem"><div class="t"><strong>${esc(h.title)}</strong><small>${esc(h.ref_type)} · ${h.content_id?('پروژه: '+esc((items.find(i=>i.id===h.content_id)||{}).title||h.content_id)):'—'} · ${esc((h.body||'').slice(0,100))}…</small></div>${h.content_id?`<div class="actions"><button class="sm" data-openproject="${esc(h.content_id)}">پرونده</button></div>`:''}</div>`).join('')||empty('i-search','نتیجه‌ای پیدا نشد','با واژه‌های دیگری از محتوای خودتان جست‌وجو کنید.');
+  }catch(e){$('#kb-results').innerHTML='';toast(e.message,'err');}
+ };
+ $('#kb-go').onclick=doKb;$('#kb-q').addEventListener('keydown',e=>{if(e.key==='Enter')doKb();});
+ $('#kb-reindex').onclick=async e=>{e.target.disabled=true;
+  try{const r=await api('/api/kb/reindex',{});toast('ایندکس بازسازی شد: '+fa(r.indexed)+' سند','ok');const st=await api('/api/kb/stats');$('#kb-stats').textContent=Object.entries(st||{}).map(([k,v])=>k+': '+fa(v)).join(' · ');}
+  catch(err){toast(err.message,'err');} e.target.disabled=false;};
+ const loadKw=async()=>{
+  try{
+   const rows=await api('/api/keywords?q=');
+   $('#kw-list').innerHTML=rows.slice(0,15).map(r=>`<div class="rowitem"><div class="t"><strong>${esc(r.keyword)}</strong><small>${esc(r.source)} · ${r.volume_monthly?fa(r.volume_monthly)+' جست‌وجو/ماه':'بدون حجم (دستی)'} · ${faDate(r.collected_at)}</small></div></div>`).join('')||'<p class="small muted">کلمه‌ای ثبت نشده.</p>';
+  }catch(e){$('#kw-list').innerHTML='';}
+ };
+ loadKw();
+ $('#kw-add').onclick=async()=>{
+  const v=$('#kw-in').value.trim();if(!v){toast('کلمه را بنویس','err');return;}
+  try{await api('/api/keywords/add',{keyword:v,source:'manual'});$('#kw-in').value='';toast('کلمه ثبت شد','ok');loadKw();}
+  catch(e){toast(e.message,'err');}
+ };
 }
 async function renderProjAI(el,x){
  const hasSource=(x.transcript||x.body||'').trim().length>10;

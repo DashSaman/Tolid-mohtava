@@ -267,16 +267,16 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/kb/search':
                 return self.respond(KB.search(q.get('q',[''])[0],int(q.get('limit',['5'])[0])))
             if url.path=='/api/content/refresh':
-                return self.respond(refresh_candidates(items:=DB.list(brand),ANALYTICS.performance(brand=brand)))
+                return self.respond(refresh_candidates(DB.list(q.get('brand',[brand_default()])[0]),ANALYTICS.performance(brand=q.get('brand',[brand_default()])[0])))
             if url.path=='/api/content/checktopic':
-                return self.respond(check_topic(DB.list(brand),KB,q.get('title',[''])[0],q.get('keyword',[''])[0]))
+                return self.respond(check_topic(DB.list(q.get('brand',[brand_default()])[0]),KB,q.get('title',[''])[0],q.get('keyword',[''])[0]))
             if url.path=='/api/content/optimize':
                 o=None
                 try: o=ANALYTICS.proposals()
                 except Exception: pass
                 return self.respond(optimize_content(q.get('text',[''])[0],q.get('title',[''])[0],
                     has_faq='faq' in q,has_schema='schema' in q))
-            if url.path=='/api/integrations_old_never':
+            if url.path=='':
                 rows=adapter_status()
                 return self.respond(rows)
             if url.path=='/api/storage':

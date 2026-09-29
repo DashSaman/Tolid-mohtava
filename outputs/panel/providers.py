@@ -165,10 +165,48 @@ def gsc_search_analytics(site_url,start,end,token=None):
     with urllib.request.urlopen(req,timeout=45) as r:
         return json.load(r)
 
-def ads_keyword_ideas(keyword,customer_id,token=None):
-    tok=token or os.environ.get('GOOGLE_ADS_ACCESS_TOKEN')
-    dev=os.environ.get('GOOGLE_ADS_DEVELOPER_TOKEN')
-    if not tok or not dev: raise DependencyMissing('Google Ads: توکن/دولوپرتوکن تنظیم نشده (BLOCKED_BY_CREDENTIAL).')
-    raise DependencyMissing('Google Ads: کلاینت gRPC لازم است؛ ساختار درخواست آماده اما اجرای gRPC بیرون از محدودهٔ این اسپرینت است (BLOCKED_BY_DEPENDENCY).')
+def ads_config_status():
+    need=('GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_REFRESH_TOKEN')
+    missing=[v for v in need if not os.environ.get(v)]
+    return {'ready':not missing,'missing':missing,
+            'library':'google-ads==25.1.0 (pinned)'}
+
+def ads_keyword_ideas(keyword,language_code='fa',country_code='IR',max_rows=20):
+    """Real Google Ads API KeywordIdeasQuery via official client (pinned 25.1.0).
+    Requires developer token + OAuth client + refresh token (test-account ok)."""
+    st=ads_config_status()
+    if not st['ready']:
+        raise DependencyMissing('Google Ads: '+ '، '.join(st['missing'])+' تنظیم نشده (BLOCKED_BY_CREDENTIAL).')
+    from google.ads.googleads.client import GoogleAdsClient
+    from google.ads.googleads.errors import GoogleAdsException
+    cfg={'developer_token':os.environ['GOOGLE_ADS_DEVELOPER_TOKEN'],
+         'client_id':os.environ['GOOGLE_ADS_CLIENT_ID'],
+         'client_secret':os.environ['GOOGLE_ADS_CLIENT_SECRET'],
+         'refresh_token':os.environ['GOOGLE_ADS_REFRESH_TOKEN'],
+         'login_customer_id':os.environ.get('GOOGLE_ADS_LOGIN_CUSTOMER_ID',''),
+         'use_proto_plus':True}
+    client=GoogleAdsClient.load_from_dict(cfg)
+    cid=os.environ['GOOGLE_ADS_CUSTOMER_ID'].replace('-','')
+    ks=client.get_service('KeywordPlanIdeaService')
+    req=client.get_type('GenerateKeywordIdeasRequest')
+    req.customer_id=cid
+    req.keyword_seed.keywords.append(keyword)
+    req.language=client.get_service('GoogleAdsService').language_constant_path(language_code=='fa' and 1007 or 1000)
+    geo=client.get_service('GeoTargetConstantService')
+    req.geo_target_constants.append(geo.geo_target_constant_path('_country_code' and 2724 if country_code=='IR' else 2840))  # IR=2724, US=2840
+    req.page_size=max_rows
+    try:
+        resp=ks.generate_keyword_ideas(request=req)
+    except GoogleAdsException as e:
+        raise RuntimeError('Google Ads API: '+str(e.failure).split(chr(10))[0][:200])
+    out=[]
+    for idea in resp:
+        m=idea.keyword_idea_metrics or {}
+        out.append({'keyword':idea.text,
+                    'avg_monthly_searches':getattr(m,'avg_monthly_searches',None),
+                    'competition':str(getattr(m,'competition',None)).split('.')[-1] if m else None,
+                    'low_top_bid':getattr(m,'low_top_of_page_bid_micros',None),
+                    'high_top_bid':getattr(m,'high_top_of_page_bid_micros',None)})
+    return out
 
 import uuid

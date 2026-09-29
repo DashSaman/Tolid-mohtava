@@ -40,7 +40,7 @@
 | انتشار YouTube/Instagram/Facebook/LinkedIn | ⛔ | OAuth هر پلتفرم | analytics ADAPTERS |
 | Analytics واقعی هر پلتفرم | ⛔ | OAuth | analytics ADAPTERS |
 | GA4 (بازدیدکنندگان) | ⛔ | GA4_* | integrations.py |
-| Keyword Planner (حجم جست‌وجو) | ⛔ | GOOGLE_ADS_* | integrations.py |
+| Keyword Planner (حجم جست‌وجو) | 🟡 READY_FOR_CREDENTIAL (google-ads 25.1.0 + آداپتور واقعی) | GOOGLE_ADS_* (۵ متغیر) | providers.py |
 | GSC (عملکرد جست‌وجو) | ⛔ | GSC_CREDENTIALS | analytics |
 | SERP/رقیب | ⛔/⚪ | SERP_API_KEY (اختیاری) | integrations |
 | تولید تصویر (Thumbnail/Carousel) | ⛔ | GOOGLE_AI_API_KEY | skills |
