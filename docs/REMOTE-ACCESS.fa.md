@@ -32,6 +32,17 @@
 - وضعیت: آیکن Tailscale در System tray سبز = متصل. این کامپیوتر در tailnet شما: `amirreza-pc` (100.87.126.12).
 - در گوشی/لپ‌تاپ دیگر: اپ Tailscale را نصب و **با همان اکانت** وارد شوید؛ سپس همان نشانی `ts.net` را باز کنید.
 
+## موبایل (خلاصهٔ ۴ مرحله‌ای)
+
+```
+PHONE:
+1. نصب اپ رسمی Tailscale (App Store / Google Play)
+2. ورود با همان اکانت tailnet (همان که amirreza-pc به آن وصل است)
+3. باز کردن نشانی خصوصی: https://amirreza-pc.<tailnet>.ts.net
+4. ورود با حساب ADMIN پنل (ADMIN_USER / ADMIN_PASSWORD)
+```
+قطع دسترسی خصوصی هر وقت خواستید: روی کامپیوتر `tailscale serve off` (یا Disconnect از منوی Tailscale) — پنل بلافاصله فقط-لوکال می‌شود. تست فیزیکی موبایل: **USER ACTION REQUIRED** (بر عهدهٔ شما).
+
 ## ورود از موبایل/لپ‌تاپ
 
 1. Tailscale متصل (هر دو طرف).
