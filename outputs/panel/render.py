@@ -2,7 +2,7 @@
 
 Non-destructive: renders always write a NEW file; originals untouched.
 """
-import json, sqlite3, subprocess, uuid
+import json, sqlite3, subprocess, tempfile, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -138,7 +138,8 @@ def render_cut_handler(ctx):
     ctx.log(f"رندر {label} با {len(cuts)} برش{' · NVENC' if nvenc else ''}")
     cmd,keep,dur=build_cmd(m['path'],out,cuts,kind,nvenc,has_video,progress=True)
     ctx.progress(3)
-    proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    errfile=tempfile.TemporaryFile()  # stderr to file: undrained stderr pipes deadlock long CPU renders
+    proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=errfile)
     encoder=f"{'h264_nvenc' if (has_video and nvenc) else ('libx264' if has_video else 'aac')}"
     for line in proc.stdout:
         text=line.decode('ascii','replace').strip()
@@ -149,9 +150,9 @@ def render_cut_handler(ctx):
             except ValueError: pass
         if ctx.cancelled():
             proc.kill(); raise JobCancelled()
-    code=proc.wait()
+    code=proc.wait();errfile.close()
     if code!=0:
-        err=proc.stderr.read().decode('utf-8','replace')[-500:]
+        errfile.seek(0);err=errfile.read().decode('utf-8','replace')[-500:]
         out.unlink(missing_ok=True)
         raise RuntimeError('رندر ناموفق بود: '+err)
     if not out.exists() or out.stat().st_size==0: raise RuntimeError('خروجی رندر ساخته نشد.')

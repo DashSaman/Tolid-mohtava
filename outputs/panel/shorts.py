@@ -4,7 +4,7 @@ Candidates come from real transcript content only (no invention). The 9:16
 render composites the clip over a blurred background so screen tutorials are
 never blind-cropped.
 """
-import json, subprocess, uuid, time, threading
+import json, subprocess, uuid, time, threading, tempfile
 from pathlib import Path
 import avtools
 from render import probe_duration
@@ -70,7 +70,10 @@ def render_short_handler(ctx):
          '-c:a','aac','-b:a','128k','-movflags','+faststart',
          '-progress','pipe:1',str(out)]
     ctx.progress(10)
-    proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    # stderr -> temp file, never a pipe: libx264 writes periodic stats to stderr; an undrained
+    # 64KB pipe fills mid-encode and deadlocks ffmpeg when spawned with only stdout being read.
+    errfile=tempfile.TemporaryFile()
+    proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=errfile)
     # hard watchdog: this gblur graph finishes writing its output but occasionally refuses to
     # exit when spawned from the panel process on Windows (idle CPU, pipes never close). Kill at
     # the deadline, then judge success by validating the file itself with ffprobe.
@@ -94,12 +97,12 @@ def render_short_handler(ctx):
                 except ValueError: pass
             if ctx.cancelled():
                 proc.kill(); raise JobCancelled()
-        _,err_b=proc.communicate()
-        err=(err_b or b'')
+        proc.communicate()
     finally:
         watchdog.cancel()
         if grace[0]: grace[0].cancel()
     code=proc.returncode
+    errfile.seek(0); err=errfile.read(); errfile.close()
     if code!=0: ctx.log('FFmpeg با کد خروج غیرصفر/kill پایان یافت؛ خروجی با ffprobe بررسی می‌شود.')
     def _output_valid():
         if not out.exists() or out.stat().st_size==0: return False
