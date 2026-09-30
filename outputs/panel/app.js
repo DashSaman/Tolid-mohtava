@@ -135,17 +135,20 @@ async function render(){
 async function pageDashboard(view){
  const [jobsAll,health,media]=await Promise.all([api('/api/jobs'),api('/api/health'),api('/api/media')]);
  jobs=jobsAll;healthData=health;
- const inProd=items.filter(x=>!['ایده','آماده بررسی'].includes(x.stage)).length;
+ const inProd=items.filter(x=>!['ایده','آماده بررسی'].includes(x.stage));
  const pend=items.filter(x=>x.script_status!=='approved'||x.publish_status!=='approved');
  const editN=items.filter(x=>['تدوین','ضبط'].includes(x.stage)).length;
  const ready=items.filter(x=>x.publish_status==='approved').length;
- const failed=jobs.filter(j=>j.status==='failed'||j.status==='possibly_stuck').length;
+ const failedJobs=jobs.filter(j=>j.status==='failed'||j.status==='possibly_stuck');
  const running=jobs.filter(j=>['running','queued'].includes(j.status));
- const aiOk=health.find(h=>h.name==='faster-whisper')||{};
- const aiChip=healthData&&healthData.length?true:false;
+ const waitAppJobs=jobs.filter(j=>j.status==='waiting_approval');
+ const credMiss=health.filter(h=>h.status==='credential').length;
+ const whisperH=health.find(h=>h.name==='faster-whisper')||{status:'warn'};
+ const gpuH=health.find(h=>h.name.includes('GPU'))||{status:'limited'};
+ const last=items[0];
  const stages=['ایده','پژوهش','بررسی فنی','سناریو','ضبط','تدوین','بازآفرینی','SEO','آماده بررسی'];
  const stageCount={};stages.forEach(st=>stageCount[st]=items.filter(x=>x.stage===st).length);
- const waitApp=jobs.filter(j=>j.status==='waiting_approval').length;
+ const waitApp=waitAppJobs.length;
  const fdef=[
   {k:'idea',t:'ایده',i:'i-bulb',go:'ideas',st:stageCount['ایده']>0||items.length===0?'active':'done',n:fa(items.length)+' پروژه'},
   {k:'research',t:'تحقیق',i:'i-search',go:'projects',st:stageCount['پژوهش']>0?'active':items.length?'done':'',n:'تحقیق و منابع'},
@@ -158,38 +161,48 @@ async function pageDashboard(view){
   {k:'publish',t:'انتشار',i:'i-send',go:'publishing',st:ready>0?'wait':'',n:'dry-run امن'},
   {k:'analytics',t:'Analytics',i:'i-chart',go:'analytics',st:'',n:'پس از اتصال'}
  ];
- const h='';
  view.innerHTML=`
  <div class="hero"><div class="heroline"><div>
-   <h2>اتاق محتوای هوشمند ${names[brand]}</h2>
+   <div class="kicker">اتاق فرمان</div>
+   <h2>کارخانهٔ محتوا · ${names[brand]}</h2>
    <div class="subline">از یک ایدهٔ صوتی فارسی تا سناریوی راستی‌آزمایی‌شده، تدوین غیرمخرب، Shorts، مقالهٔ سئو و بستهٔ انتشار — همه روی همین دستگاه، با تأیید شما در هر گام.</div>
    <div class="row" style="margin-top:12px">
-     <span class="chip ${aiOk.status==='ok'?'ok':'warn'}"><span class="dot"></span> موتور AI: ${aiOk.status==='ok'?'آماده (محلی)':'بررسی کنید'}</span>
-     <span class="chip ${failed?'danger':'ok'}"><span class="dot"></span> ${failed?fa(failed)+' مشکل نیازمند توجه':'سیستم سالم'}</span>
-     <span class="chip vio"><span class="dot"></span> Whisper ${fa(Math.round(0))||''}medium · GPU</span>
+     <span class="chip ${whisperH.status==='ok'?'ok':'warn'}"><span class="dot"></span> AI محلی: ${whisperH.status==='ok'?'آماده':'بررسی کنید'}</span>
+     <span class="chip ${gpuH.status==='ok'?'ok':'info'}"><span class="dot"></span> GPU: ${gpuH.status==='ok'?'فعال':'پروندهٔ CPU'}</span>
+     <span class="chip ${failedJobs.length?'warn':'ok'}"><span class="dot"></span> ${failedJobs.length?fa(failedJobs.length)+' کار نیازمند توجه':'صف سالم'}</span>
    </div></div>
-   <div class="row" style="flex-direction:column;align-items:stretch">
-     <button class="primary" id="hero-new"><svg class="icon sm"><use href="#i-plus"/></svg>ساخت اولین محتوا</button>
-     <button class="ghost" data-page="create" style="color:var(--cyan)">شروع با ویس ←</button>
+   <div class="row" style="flex-direction:column;align-items:stretch;min-width:210px">
+     <button class="primary" id="hero-new"><svg class="icon sm"><use href="#i-plus"/></svg>محتوای جدید</button>
+     ${last?`<button class="ghost" data-openproject="${esc(last.id)}" style="color:var(--teal)">باز کردن آخرین پروژه ←</button>`:`<button class="ghost" data-page="create" style="color:var(--teal)">شروع با ویس ←</button>`}
    </div></div></div>
  <div class="kpis">
-   <div class="kpi"><div class="kico">${icon('i-folder')}</div><div><b>${fa(inProd)}</b><span>محتوای در جریان</span></div></div>
+   <div class="kpi"><div class="kico">${icon('i-folder')}</div><div><b>${fa(inProd.length)}</b><span>محتوای در جریان</span></div></div>
    <div class="kpi ${pend.length+waitApp?'warn':''}"><div class="kico">${icon('i-check')}</div><div><b>${fa(pend.length+waitApp)}</b><span>منتظر تأیید شما</span></div></div>
    <div class="kpi ok"><div class="kico">${icon('i-send')}</div><div><b>${fa(ready)}</b><span>آمادهٔ انتشار</span></div></div>
-   <div class="kpi ${failed?'danger':'ok'}"><div class="kico">${icon('i-activity')}</div><div><b>${fa(running.length)}</b><span>کار فعال · ${fa(failed)} خطا</span></div></div>
+   <div class="kpi ${failedJobs.length?'danger':'ok'}"><div class="kico">${icon('i-activity')}</div><div><b>${fa(running.length)}</b><span>کار فعال · ${fa(failedJobs.length)} خطا</span></div></div>
  </div>
  <div class="card"><div class="cardhead"><h2>${icon('i-grid')} خط تولید</h2><span class="small muted">روی هر مرحله کلیک کنید</span></div>
   <div class="flowwrap"><div class="flow">${fdef.map(f=>`<div class="fnode ${f.st}" data-page="${f.go}"><div class="fico">${icon(f.i)}</div><b>${f.t}</b><small>${f.n}</small></div>`).join('')}</div></div></div>
  <div class="grid2">
-  <div class="card"><div class="cardhead"><h2>${icon('i-folder')} پروژه‌های اخیر</h2><button class="sm" data-page="projects">همه</button></div>
-   ${items.length?`<div class="rows">${items.slice(0,5).map(projRow).join('')}</div>`
+  <div>
+   <div class="card"><div class="cardhead"><h2>${icon('i-alert')} نیازمند توجه شما</h2></div>
+    ${(pend.length+waitApp+failedJobs.length+credMiss)?`<div class="rows">
+     ${pend.length?`<div class="rowitem"><div class="t"><strong>${fa(pend.length)} محتوای منتظر تأیید</strong><small>سناریو یا انتشار — تا تأیید نکنید، مرحلهٔ بعد فعال نمی‌شود</small></div><div class="actions"><button class="sm primary" data-page="approvals">برو به تأییدها</button></div></div>`:''}
+     ${waitApp?`<div class="rowitem"><div class="t"><strong>${fa(waitApp)} کار منتظر تصمیم</strong><small>رندر نهایی پیش از اجرا تأیید می‌خواهد</small></div><div class="actions"><button class="sm primary" data-page="approvals">تصمیم بده</button></div></div>`:''}
+     ${failedJobs.length?`<div class="rowitem"><div class="t"><strong>${fa(failedJobs.length)} کار ناموفق</strong><small>از صفحهٔ کارها «تلاش دوباره» — دلیل خطا همان‌جاست</small></div><div class="actions"><button class="sm" data-page="jobs">صف کارها</button></div></div>`:''}
+     ${credMiss?`<div class="rowitem"><div class="t"><strong>${fa(credMiss)} سرویس بیرونی بدون کلید</strong><small>اتصال حساب‌ها → هر کارت می‌گوید دقیقاً چه متغیری لازم است</small></div><div class="actions"><button class="sm" data-page="settings">اتصال حساب‌ها</button></div></div>`:''}
+    </div>`:empty('i-check','چیزی نیازمند توجه نیست','همهٔ تأییدها انجام شده و صف کارها سالم است.')}
+   </div>
+   <div class="card"><div class="cardhead"><h2>${icon('i-folder')} پروژه‌های اخیر</h2><button class="sm" data-page="projects">همه</button></div>
+    ${items.length?`<div class="rows">${items.slice(0,5).map(projRow).join('')}</div>`
    :`<div class="emptystate"><div class="orb">${icon('i-plus')}</div><h3>اولین محتوای خودت را بساز</h3><p>با یک ویس یا یک ایده شروع کن؛ سیستم خودش تحقیق، سناریو و بستهٔ انتشار را آماده می‌کند و در هر مرحله منتظر تأیید تو می‌ماند.</p><button class="primary" id="empty-new">ساخت اولین محتوا</button> <button class="ghost" data-page="create">راهنمای سریع</button></div>`}
+   </div>
   </div>
   <div>
    <div class="card"><div class="cardhead"><h2>${icon('i-activity')} کارهای زنده</h2><button class="sm" data-page="jobs">صف کارها</button></div>
-    ${running.length?`<div class="rows">${running.slice(0,4).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||j.kind}</strong><div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div></div><div class="actions">${badge(j.status)}</div></div>`).join('')}</div>`:empty('i-activity','کاری در جریان نیست','پس از درخواست تبدیل/رندر اینجا می‌آید.')}
+    ${running.length||waitApp?`<div class="rows">${running.concat(waitAppJobs).slice(0,4).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||j.kind}</strong>${j.status==='running'?`<div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div>`:''}</div><div class="actions">${badge(j.status)}</div></div>`).join('')}</div>`:empty('i-activity','کاری در جریان نیست','پس از درخواست تبدیل/رندر اینجا می‌آید.')}
    </div>
-   <div class="card"><div class="cardhead"><h2>${icon('i-cpu')} سلامت اجزا</h2><button class="sm" data-page="services">جزئیات</button></div>
+   <div class="card"><div class="cardhead"><h2>${icon('i-cpu')} سیستم</h2><button class="sm" data-page="services">جزئیات</button></div>
     <div class="chiprow" style="gap:6px">${health.map(x=>`<span class="badge ${x.status==='ok'?'ok':x.status==='limited'?'warn':x.status==='credential'?'':'danger'}">${esc(x.name)}</span>`).join('')}</div>
    </div>
   </div>
@@ -198,6 +211,7 @@ async function pageDashboard(view){
  const hn=$('#hero-new');if(hn)hn.onclick=()=>go('#/create');
  const en=$('#empty-new');if(en)en.onclick=()=>go('#/create');
  view.querySelectorAll('.fnode[data-page]').forEach(n=>n.onclick=()=>go('#/'+n.dataset.page));
+ view.querySelectorAll('[data-page]').forEach(n=>{if(!n.classList.contains('fnode'))n.onclick=()=>go('#/'+n.dataset.page);});
 }
 function projRow(x){return `<div class="rowitem"><div class="t"><strong>${esc(x.title)}</strong><small>${esc(x.platform||'')} · ${esc(x.stage||'ایده')} · نسخه ${fa(x.revision)} · ${faDate(x.updated)}</small></div><div class="actions">${gateBadge(x.publish_status)}
     <button class="sm primary" data-openproject="${esc(x.id)}">پرونده</button>
