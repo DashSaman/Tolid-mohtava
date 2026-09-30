@@ -95,7 +95,10 @@ function route(){
  if(page==='project'&&h[1]){proj={id:h[1],tab:h[2]||'overview'};}
  else if(pagesDef[page]===undefined)page='dashboard';
  if(jobsTimer){clearInterval(jobsTimer);jobsTimer=null;}
- render();
+ // refresh server state on data-driven pages so mutations made elsewhere (wizard, jobs) are never stale
+ if(['dashboard','projects','scripts','ideas','approvals','publishing','calendar'].includes(page)){
+  loadCore().catch(()=>{}).finally(()=>render());
+ }else render();
 }
 async function render(){
  const def=pagesDef[page]||{t:'داشبورد',s:'',i:'i-home'};
@@ -550,7 +553,8 @@ async function renderProjTab(tab,x,media){
   }
   box.innerHTML=html;
   box.querySelectorAll('[data-txsave]').forEach(b=>b.onclick=async()=>{try{await api('/api/transcripts',{media_id:b.dataset.txsave,text:$('#tx-'+b.dataset.txsave).value});toast('نسخه تازه متن ذخیره شد','ok');}catch(e){toast(e.message,'err');}});
-  box.querySelectorAll('[data-transcribe]').forEach(b=>b.onclick=()=>enqueueJob('transcribe_audio',{media_id:b.dataset.transcribe},'transcribe:'+b.dataset.transcribe));
+  // note: [data-transcribe] is handled by the global click delegation (disable + idempotent enqueue + progress);
+  // a tab-level binding here used to double-fire the same-key enqueue.
  }
  else if(tab==='edit'){
   if(!media.length){el.innerHTML=`<div class="card">${empty('i-film','رسانه‌ای برای تدوین نیست','اول ضبط اصلی را در تب رسانه آپلود کنید.')}</div>`;return;}

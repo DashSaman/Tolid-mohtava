@@ -48,6 +48,17 @@ class JobManager:
                 finished_at TEXT, retry_count INTEGER NOT NULL DEFAULT 0,
                 error TEXT, result TEXT, idempotency_key TEXT)''')
             c.execute('CREATE INDEX IF NOT EXISTS jobs_key ON jobs(idempotency_key)')
+            # atomic same-key dedupe: unique index makes concurrent check-then-insert safe.
+            # First drop duplicate-key history (keep newest per key), then enforce.
+            try:
+                c.execute('''DELETE FROM jobs WHERE id NOT IN (
+                    SELECT id FROM (SELECT id, ROW_NUMBER() OVER (
+                        PARTITION BY idempotency_key ORDER BY created_at DESC, id DESC) rn
+                        FROM jobs WHERE idempotency_key IS NOT NULL) WHERE rn=1)
+                    AND idempotency_key IS NOT NULL''')
+                c.execute('CREATE UNIQUE INDEX IF NOT EXISTS jobs_key_unique ON jobs(idempotency_key)')
+            except sqlite3.OperationalError:
+                pass  # pre-existing duplicates that could not be cleaned: keep non-unique index
         self._recover()
         self._threads=[]
         for i in range(max(0,workers)):
@@ -77,9 +88,17 @@ class JobManager:
             # status. A re-run requires explicit retry() or a different key.
             if row: return self.get(row[0])
         jid=uuid.uuid4().hex
-        with self.connect() as c:
-            c.execute('INSERT INTO jobs(id,kind,payload,status,logs,created_at,idempotency_key) VALUES(?,?,?,?,?,?,?)',
-                      (jid,kind,json.dumps(payload or {},ensure_ascii=False),'queued','[]',now(),idempotency_key))
+        try:
+            with self.connect() as c:
+                c.execute('INSERT INTO jobs(id,kind,payload,status,logs,created_at,idempotency_key) VALUES(?,?,?,?,?,?,?)',
+                          (jid,kind,json.dumps(payload or {},ensure_ascii=False),'queued','[]',now(),idempotency_key))
+        except sqlite3.IntegrityError:
+            # concurrent enqueue with the same key won the unique-index race
+            with self.connect() as c:
+                row=c.execute('SELECT id FROM jobs WHERE idempotency_key=? ORDER BY created_at DESC LIMIT 1',
+                              (idempotency_key,)).fetchone()
+            if row: return self.get(row[0])
+            raise
         self._q.put(jid)
         return self.get(jid)
     def _row(self,row):
