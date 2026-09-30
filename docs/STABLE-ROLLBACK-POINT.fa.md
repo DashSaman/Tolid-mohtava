@@ -7,11 +7,11 @@
 
 | مورد | مقدار |
 |---|---|
-| تگ | `v1.0.0-local-ready` |
+| تگ‌ها | `v1.1.0-ui-rc1` (جدید) · `v1.0.0-local-ready` (نقطهٔ بازگشت پیشین، حفظ‌شده) |
 | کامیت مبنا (فریز) | `0248ab8` |
 | کامیت release | همان کامیتی که این فایل را دارد (تگ روی آن زده شده) |
 | نسخه | `VERSION` = `1.0.0-local-ready` |
-| بکاپ دادهٔ هم‌زمان | `outputs/backups/tolid-20260930-011634` (checksum در `docs/RELEASE-CHECKSUMS.txt`) |
+| بکاپ دادهٔ هم‌زمان | جدیدترین پوشهٔ `outputs/backups/tolid-*` (checksum در `docs/RELEASE-CHECKSUMS.txt`) |
 
 ## بازگشت کد (بدون دست‌زدن به داده‌ها)
 
