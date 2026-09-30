@@ -30,11 +30,32 @@ def panel_port():
         except Exception: pass
     return None,None
 
+def registry_admin_env():
+    """ADMIN_* از رجیستری (User سپس Machine) — تا پنلِ استارت‌شده توسط این اسکریپت
+    همیشه اعتبارنامهٔ تازه‌ی setx-شده را ببیند (فرزند، env والد را به‌ارث می‌برد)."""
+    out={}
+    try:
+        import winreg
+        for root,scope in ((winreg.HKEY_CURRENT_USER,'User'),(winreg.HKEY_LOCAL_MACHINE,'Machine')):
+            try:
+                with winreg.OpenKey(root,'Environment') as k:
+                    for name in ('ADMIN_USER','ADMIN_PASSWORD','ADMIN_PASSWORD_HASH'):
+                        try:
+                            v,_=winreg.QueryValueEx(k,name)
+                            if v and name not in out: out[name]=v
+                        except FileNotFoundError: pass
+            except FileNotFoundError: pass
+    except Exception: pass
+    return out
+
 def start_panel():
     say('· پنل بالا نیست — راه‌اندازی…')
     py=sys.executable
+    env=dict(os.environ)
+    for k,v in registry_admin_env().items():
+        env.setdefault(k,v)
     subprocess.Popen([py,str(ROOT/'scripts'/'start_panel.py')],
-                     cwd=str(ROOT),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                     cwd=str(ROOT),env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     for _ in range(20):
         time.sleep(1)
         port,d=panel_port()
@@ -89,6 +110,20 @@ def main():
     say('✓ Tailscale متصل است'+(f' ({dns})' if dns else ''))
 
     # serve: only tailnet (https 443 → local panel). Idempotent; follows the ACTUAL port.
+    # First run may need one-time tailnet enablement: capture the admin-console URL for the user.
+    r=ts(['serve','--bg','--https=443',f'http://127.0.0.1:{port}'],check=False)
+    if r.returncode!=0 or 'not enabled' in (r.stdout+r.stderr):
+        out=(r.stdout+r.stderr)
+        url=next((l.strip() for l in out.splitlines() if l.strip().startswith('https://login.tailscale.com/')),'')
+        say('')
+        say('USER ACTION REQUIRED: فعال‌سازی یک‌بارهٔ Serve روی tailnet (اقدام ادمین کنسول Tailscale)')
+        if url:
+            say('  این نشانی را در مرورگر باز کنید و تأیید کنید:')
+            say('  '+url)
+            try: webbrowser.open(url)
+            except Exception: pass
+            say('  سپس همین فایل را دوباره اجرا کنید.')
+        sys.exit(4)
     ts(['serve','--bg','--https=443',f'http://127.0.0.1:{port}'],check=False)
     shown=ts(['serve','status'],check=False).stdout.strip()
     say('· تنظیم serve: '+ (shown.splitlines()[0] if shown else 'ok'))
