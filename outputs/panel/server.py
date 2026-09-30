@@ -177,7 +177,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
-        return self.headers.get('Host') in (f'127.0.0.1:{PORT}',f'localhost:{PORT}')
+        # Host whitelist: loopback names (direct browser) plus Tailscale-managed .ts.net names
+        # (local private proxy via `tailscale serve`). This stays the DNS-rebinding defense:
+        # any other Host header — e.g. an attacker domain rebound to 127.0.0.1 — is rejected.
+        h=self.headers.get('Host') or ''
+        host=h.split(':')[0].strip('[]')
+        return (h in (f'127.0.0.1:{PORT}',f'localhost:{PORT}',f'[::1]:{PORT}')
+                or host in ('127.0.0.1','localhost','::1','[::1]')
+                or host.endswith('.ts.net'))
     def stream_file(self,path,size,mime):
         rng=self.headers.get('Range')
         start,end=0,size-1
@@ -373,8 +380,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         tok=self.headers.get('X-Panel-Token')
         authed_session=AUTH.enabled and AUTH.check(tok or '')
-        allowed_origins=(None,'http://127.0.0.1:'+str(PORT),'http://localhost:'+str(PORT))
-        if not self.valid_host() or (tok!=TOKEN and not authed_session) or self.headers.get('Origin') not in allowed_origins:
+        allowed_origins=(None,'http://127.0.0.1:'+str(PORT),'http://localhost:'+str(PORT),
+                         'https://127.0.0.1:'+str(PORT),'https://localhost:'+str(PORT))
+        # same-origin requests stay allowed for private reverse proxies (tailscale serve):
+        # Origin host must equal the Host AND that host must be local (loopback) or a
+        # Tailscale-managed .ts.net name — this keeps DNS-rebinding origins out.
+        origin=self.headers.get('Origin'); host=(self.headers.get('Host') or '').split(':')[0]
+        oh=(origin or '').split('//')[-1].split(':')[0]
+        same_origin=(origin is not None and oh==host and
+                     (host in ('127.0.0.1','localhost','[::1]') or host.endswith('.ts.net')))
+        if not self.valid_host() or (tok!=TOKEN and not authed_session) or (origin not in allowed_origins and not same_origin):
             return self.respond({'error':'درخواست مجاز نیست؛ پنل را دوباره باز کنید.'},403)
         path=urlsplit(self.path).path
         if path=='/api/media': return self.require_auth() or self.upload_media()
