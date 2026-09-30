@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "sprint": "72h-final-polish-hardening-ui",
+  "date": "2026-09-30",
+  "time_used": "single continuous autonomous session (~8h wall-clock of the 72h budget; all mission phases complete)",
+  "status": "COMPLETE",
+  "start_head": "5899c9f",
+  "final_head": "d323e59",
+  "release": "v1.1.0-ui-rc1",
+  "rollback_release": "v1.0.0-local-ready",
+  "push": "SUCCESS",
+  "backups": ["outputs/backups/tolid-20260930-161212 (pre-sprint)", "outputs/backups/tolid-20260930-175852 (release, checksummed)"],
+  "reliability": {
+    "ux_state_bugs_fixed": ["lists refresh on navigation (no F5)", "single-fire transcribe binding", "atomic same-key idempotency (48-thread proof: 1 job)"],
+    "duplicate_job_protection": "PASS",
+    "real_user_workflow": "44/44",
+    "large_media": {"size": "1.01GB", "duration": "1800s (720p)", "result": "PASS", "whisper": "27s with VAD, 25 Persian segments", "upload": "2.1s streamed", "restart_recovery": "honest failure + successful retry"},
+    "concurrency": "PASS (19 jobs, 8 threads: no locks/dupes/loss; cancel+retry correct)",
+    "failure_injection": "9/9 (LLM 401/403/429/500/timeout, LM Studio down, corrupt media x2 — honest Persian errors)",
+    "security": "PASS (traversal, filename sanitization, XSS-as-data, CSRF 403, cross-origin 403, oversized 400, OAuth single-use, parallel-delete exactly-once)",
+    "backup_restore": "PASS (real user data, integrity ok, identical content)",
+    "data_volume": "PASS (100 seeded projects; lists 4-35ms)"
+  },
+  "root_cause_fixes": [
+    "Shorts was fully broken: missing ffmpeg output path + missing -nostdin + REAL root cause: undrained 64KB stderr pipe fills with libx264 stats and deadlocks the child (foreground tests drained both pipes via communicate; render.py survived because NVENC is quiet). Fix: stderr->temp file (+same in render.py CPU path), watchdog+grace, ffprobe validation, EOF clamp. Result: 4s renders, 44/44 journey.",
+    "restore-from-archive was dead UI (fixed in v1.0.0 release session, retained)"
+  ],
+  "visual_design": {
+    "direction": "اتاق فرمان سیگنال — dark-first ink-navy AI content operations studio",
+    "unique": ["waveform signal-strip motif (owned)", "dashed flow conduits animated only on the active pipeline node", "left-rule status badges", "mono tabular numerals"],
+    "palette": {"base": "#080B12/#0D111B/#111827", "surface": "#151A26/#1A2130", "accent": "#4E8CFF", "secondary": "#35B8C0", "rare": "#E2A54B", "status": "#3FBF83/#E2A54B/#F07070"},
+    "pages": {"dashboard": "PASS", "project": "PASS", "recording": "PASS", "editing": "PASS", "approval": "PASS", "seo": "PASS", "analytics": "PASS", "integrations": "PASS", "jobs_health": "PASS", "rtl": "PASS", "mobile": "PASS"},
+    "screenshots": "22 real captures in docs/images/fa-v4/ (+27 raw acceptance shots in work/shots-v4/)",
+    "visual_revision_passes": "1/2",
+    "design_docs": ["docs/DESIGN-SYSTEM.fa.md", "docs/UI-COMPONENT-INVENTORY.md"]
+  },
+  "performance": {
+    "before": "v3: no instrumented baseline recorded; heavier glass/blur layers (516-line css, 3 animated blobs, universal backdrop-filter)",
+    "after": {"first_load_interactive_ms": 461, "dcl_ms": 55, "nav_ms": "46-314", "project_open_ms": 76, "js_heap_mb": 4},
+    "regression": "NONE"
+  },
+  "final_tests": {"automated": "125/125", "e2e": "24/24", "smoke": "13/13", "user_journey": "44/44", "routes": "20/20", "console_errors": 0, "real_bugs_remaining": 0},
+  "external": {
+    "ready_for_credential": ["wordpress_tehnet", "wordpress_mytel", "telegram", "youtube", "instagram", "facebook", "linkedin", "gsc", "ga4", "google_ads", "gemini"],
+    "user_action_required": ["tehnet.ir sitemap via wp-admin", "physical microphone test"],
+    "optional_left": ["Ruflo", "Screaming Frog", "External SERP"]
+  },
+  "final_status": {"local_product": "READY", "local_development": "FROZEN", "overall_readiness_pct": 97},
+  "next_user_step": "Connect real credentials and create the first real production content."
+}
