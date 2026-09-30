@@ -50,6 +50,10 @@ def render_short_handler(ctx):
     if not m: raise ValueError('رسانه پیدا نشد.')
     s=float(ctx.payload.get('start') or 0); e=float(ctx.payload.get('end') or 0)
     if e<=s: raise ValueError('بازه زمانی کاندیدا معتبر نیست.')
+    dur_m=float(m.get('duration') or 0)
+    if dur_m and e>dur_m:  # candidate window may run past EOF (e.g. 20s window on a 24s source)
+        e=dur_m
+        if e<=s+0.5: raise ValueError('بازهٔ کاندیدا بیرون از مدت رسانه است.')
     has_video=True
     outdir=rd.root/m['id']; outdir.mkdir(parents=True,exist_ok=True)
     label=rd.next_label(m['id'],'short')
