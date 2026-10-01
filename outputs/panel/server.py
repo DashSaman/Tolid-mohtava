@@ -603,6 +603,9 @@ def jobKinds_fa():
 if __name__=='__main__':
     import threading
     threading.Thread(target=_watch_jobs,daemon=True).start()
-    server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
+    # bind: loopback on the host; inside Docker (TEHNET_PANEL_BIND) the container can bind all
+# interfaces safely — reachability is still governed by the compose publish (127.0.0.1-only)
+# and the private tolid_internal network.
+    server=ThreadingHTTPServer((os.environ.get('TEHNET_PANEL_BIND','127.0.0.1'),PORT),Handler)
     print(f'Panel: http://127.0.0.1:{PORT}',flush=True)
     server.serve_forever()

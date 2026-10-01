@@ -8,7 +8,7 @@ RUN useradd -m -u 10001 tolid && mkdir -p /cache && chown tolid /cache
 WORKDIR /app
 COPY outputs/panel /app/outputs/panel
 COPY brands /app/brands
-COPY content-policy.fa.md audit.fa.md README.fa.md /app/
+COPY content-policy.fa.md audit.fa.md /app/outputs/
 RUN mkdir -p /app/outputs/panel/data && chown -R tolid /app
 USER tolid
 EXPOSE 8766

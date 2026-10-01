@@ -8,6 +8,7 @@ services:
     env_file: [runtime/secrets/tolid.env]
     environment:
       - TEHNET_PANEL_PORT=8766
+      - TEHNET_PANEL_BIND=0.0.0.0
       - TEHNET_PANEL_DB=/app/outputs/panel/data/content.sqlite
     extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["127.0.0.1:18767:8766"]
