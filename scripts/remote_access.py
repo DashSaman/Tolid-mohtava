@@ -109,22 +109,63 @@ def main():
     except Exception: dns=''
     say('✓ Tailscale متصل است'+(f' ({dns})' if dns else ''))
 
-    # serve: only tailnet (https 443 → local panel). Idempotent; follows the ACTUAL port.
-    # First run may need one-time tailnet enablement: capture the admin-console URL for the user.
-    r=ts(['serve','--bg','--https=443',f'http://127.0.0.1:{port}'],check=False)
-    if r.returncode!=0 or 'not enabled' in (r.stdout+r.stderr):
-        out=(r.stdout+r.stderr)
-        url=next((l.strip() for l in out.splitlines() if l.strip().startswith('https://login.tailscale.com/')),'')
+    # MODE 1 (preferred): HTTPS Tailscale Serve — needs tailnet HTTPS certificates.
+    # MODE 2 (fallback, zero-setup): private tailnet-IP proxy — still ADMIN-authenticated,
+    # tailnet-only, never public. The user does not need to know which mode is active.
+    fqdn=''
+    try:
+        st=json.loads(ts(['status','--json']).stdout); fqdn=((st.get('Self') or {}).get('DNSName') or '').rstrip('.')
+    except Exception: pass
+    serve_ok=False
+    if fqdn:
+        os.chdir(__import__('tempfile').gettempdir())
+        c=ts(['cert',fqdn],check=False)
+        os.chdir(str(ROOT))
+        serve_ok=c.returncode==0
+    if serve_ok:
+        r=ts(['serve','--bg','--https=443',f'http://127.0.0.1:{port}'],check=False)
+        if r.returncode==0:
+            say('✓ حالت Serve (HTTPS خصوصی) فعال شد.')
+        else:
+            say('· Serve تنظیم نشد؛ حالت جایگزین استفاده می‌شود.')
+            serve_ok=False
+    if not serve_ok:
+        # fallback: start (or reuse) the tailnet-IP proxy bound ONLY to the Tailscale address
+        ts_ip=''
+        try:
+            import subprocess as sp
+            ts_ip=sp.run([str(TS),'ip','-4'],capture_output=True,text=True,timeout=10).stdout.strip().splitlines()[0]
+        except Exception: pass
+        if not ts_ip or not ts_ip.startswith('100.'):
+            say('✗ آدرس Tailscale پیدا نشد؛ tailscale را متصل کنید.');sys.exit(5)
+        listening=False
+        try:
+            import socket as sk
+            with sk.create_connection((ts_ip,port),timeout=2): listening=True
+        except Exception: pass
+        if not listening:
+            subprocess.Popen([sys.executable,str(ROOT/'scripts'/'tailscale_proxy.py')],
+                             cwd=str(ROOT),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            for _ in range(10):
+                time.sleep(1)
+                try:
+                    import socket as sk
+                    with sk.create_connection((ts_ip,port),timeout=2): listening=True;break
+                except Exception: pass
+        if not listening:
+            say('✗ پروکسی خصوصی راه‌اندازی نشد؛ logs: work/proxy.log');sys.exit(6)
+        say('✓ حالت جایگزین: پروکسی خصوصی روی آدرس Tailscale (بدون HTTPS؛ رمزنگاری را tailnet تأمین می‌کند).')
+        url=f'http://{ts_ip}:{port}'
         say('')
-        say('USER ACTION REQUIRED: فعال‌سازی یک‌بارهٔ Serve روی tailnet (اقدام ادمین کنسول Tailscale)')
-        if url:
-            say('  این نشانی را در مرورگر باز کنید و تأیید کنید:')
-            say('  '+url)
-            try: webbrowser.open(url)
-            except Exception: pass
-            say('  سپس همین فایل را دوباره اجرا کنید.')
-        sys.exit(4)
-    ts(['serve','--bg','--https=443',f'http://127.0.0.1:{port}'],check=False)
+        say('✓ نشانی خصوصی (فقط دستگاه‌های تأییدشدهٔ Tailscale شما):')
+        say('  '+url)
+        try: webbrowser.open(url)
+        except Exception: pass
+        say('')
+        say('نکته: اگر بعداً HTTPS Certificates را در کنسول Tailscale فعال کردید، دوباره همین')
+        say('فایل را اجرا کنید تا حالت Serve (آدرس ts.net) به‌صورت خودکار جایگزین شود.')
+        sys.exit(0)
+    url=('https://'+dns) if dns else '(نام دستگاه را از tailscale status ببینید)'
     shown=ts(['serve','status'],check=False).stdout.strip()
     say('· تنظیم serve: '+ (shown.splitlines()[0] if shown else 'ok'))
     url=('https://'+dns) if dns else '(نام دستگاه را از tailscale status ببینید)'
