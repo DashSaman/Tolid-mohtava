@@ -11,3 +11,10 @@ Do not alter GrowthOS, WSL, Docker, existing services, external accounts or prod
 Never commit local databases, backups, .env, API keys, tokens or runtime content. Keep runtime state in ignored directories. Source and static project documentation are tracked; real content is not. Third-party skills retain their MIT license.
 
 Run `python -m unittest discover -s tests -v`, `python tests/check_docs.py`, and the HTTP/browser tests when changing relevant behavior. Update bilingual docs and capability status honestly. UI is Persian; English documentation must explain the same features and limitations.
+
+## HOST ISOLATION (بالاترین قانون — غیرقابل‌نقض)
+پیش از هر کاری `docs/HOST-ISOLATION.md` را بخوانید و اجرا کنید:
+فقط منابع دارای مالکیت Tolid-Mohtava؛ کانتینر/تونل/پورت/فایروال/سرویس غیرمرتبت دست‌نخورده؛
+پرون سراسری داکر و ری‌استارت سرویس میزبان مطلقاً ممنوع؛ تعارض → `BLOCKED_BY_HOST_ISOLATION`
+یا `PORT_CONFLICT_EXTERNAL` یا `EXTERNAL HOST FINDING` (فقط گزارش). هر deploy باید
+گاته‌های HOST-001..010 را بگذراند و گزارش `HOST ISOLATION: PASS/FAIL` داشته باشد.
