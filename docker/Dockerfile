@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir "huggingface_hub==0.33.4" "av==18.1.0" faster-whi
 RUN useradd -m -u 10001 tolid && mkdir -p /cache && chown tolid /cache
 WORKDIR /app
 COPY outputs/panel /app/outputs/panel
-COPY brands /app/brands
+COPY brands /app/outputs/brands
 COPY content-policy.fa.md audit.fa.md /app/outputs/
 RUN mkdir -p /app/outputs/panel/data && chown -R tolid /app
 USER tolid

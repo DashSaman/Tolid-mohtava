@@ -55,7 +55,12 @@ const gateBadge=s=>`<span class="badge ${s==='approved'?'ok':s==='rejected'?'dan
 const empty=(iconId,title,body)=>`<div class="empty">${icon(iconId)}<strong>${esc(title)}</strong><p>${esc(body)}</p></div>`;
 
 async function api(path,data){
- const r=await fetch(path,{headers:data?{'Content-Type':'application/json','X-Panel-Token':token}:{},method:data?'POST':'GET',body:data?JSON.stringify(data):undefined});
+ let r=await fetch(path,{headers:data?{'Content-Type':'application/json','X-Panel-Token':token}:{},method:data?'POST':'GET',body:data?JSON.stringify(data):undefined});
+ if(r.status===403&&data){
+  // stale page CSRF (pre-restart tab): the request was rejected at the gate before any
+  // side effect — refresh the page token once and retry; server checks remain enforced.
+  try{const t=(await (await fetch('/api/session')).json()).token;if(t&&t!==token){token=t;r=await fetch(path,{headers:{'Content-Type':'application/json','X-Panel-Token':token},method:'POST',body:JSON.stringify(data)});}}catch(_){}
+ }
  const v=await r.json().catch(()=>({}));
  if(r.status===401){showLogin();throw new Error('نشست منقضی شد؛ دوباره وارد شوید.');}
  if(!r.ok)throw new Error(v.error||'ارتباط با پنل برقرار نشد.');
@@ -1529,9 +1534,16 @@ function showLogin(){
  $('#lg-go').onclick=async()=>{
   const b=$('#lg-go');b.disabled=true;$('#lg-err').textContent='';
   try{
-   const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('#lg-user').value,password:$('#lg-pass').value})});
-   const v=await r.json();
+   let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-Panel-Token':token},body:JSON.stringify({username:$('#lg-user').value,password:$('#lg-pass').value})});
+   if(r.status===403){
+    // gate rejection (missing/stale page CSRF, e.g. tab opened before a server restart):
+    // refresh the page CSRF token once and retry — server checks stay fully enforced.
+    try{token=(await (await fetch('/api/session')).json()).token||token;}catch(_){}
+    r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-Panel-Token':token},body:JSON.stringify({username:$('#lg-user').value,password:$('#lg-pass').value})});
+   }
+   const v=await r.json().catch(()=>({}));
    if(v.ok&&v.token){authed=true;token=v.token;d.remove();boot();}
+   else if(r.status===403){$('#lg-err').textContent='نشست صفحه قدیمی است — یک‌بار صفحه را رفرش (F5) کنید و دوباره وارد شوید.';}
    else{$('#lg-err').textContent=v.error||'ورود ناموفق بود.';}
   }catch(e){$('#lg-err').textContent=e.message;}
   b.disabled=false;
@@ -1582,7 +1594,10 @@ function deleteProjectDialog(id,title){
 async function boot(){
  try{
   const sess=await api('/api/session');
-  token=sess.token;authRequired=!!sess.auth_required;
+  // keep the SESSION token after UI login; only adopt the page CSRF token when not authed
+  // (overwriting here used to replace the session token with the CSRF token -> 401 cascade)
+  if(!authed||!token||token.length<40)token=sess.token;
+  authRequired=!!sess.auth_required;
   if(authRequired&&!authed){showLogin();return;}
   const [sk,pol]=await Promise.all([api('/api/skills'),api('/api/policy')]);
   skills=sk;policy=pol.text;
