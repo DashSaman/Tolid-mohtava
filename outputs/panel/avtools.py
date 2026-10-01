@@ -26,7 +26,9 @@ def ffprobe_path():
     return found
 
 def nvenc_available():
-    """True only if the ffmpeg binary lists h264_nvenc. Honest capability check."""
+    """True only if encoder listed AND no CPU override (containers compile nvenc but lack GPU)."""
+    import os as _os
+    if _os.environ.get("TEHNET_NO_NVENC"): return False
     ff=ffmpeg_path()
     if not ff: return False
     import subprocess
