@@ -1,0 +1,41 @@
+name: tolid-mohtava
+networks:
+  tolid_internal: {}
+services:
+  tolid-web:
+    build: {context: ., dockerfile: docker/Dockerfile}
+    restart: unless-stopped
+    env_file: [runtime/secrets/tolid.env]
+    environment:
+      - TEHNET_PANEL_PORT=8766
+      - TEHNET_PANEL_DB=/app/outputs/panel/data/content.sqlite
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["127.0.0.1:18767:8766"]
+    volumes:
+      - ${TOLID_DATA_DIR:-./runtime/data-staging}:/app/outputs/panel/data
+      - tolid-hf-cache:/cache
+    networks: [tolid_internal]
+  tolid-tailscale:
+    image: tailscale/tailscale:v1.102.4
+    restart: unless-stopped
+    hostname: tolid-remote
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      - TS_EXTRA_ARGS=--accept-dns=false
+      - TS_DEST_IP=127.0.0.1
+    volumes:
+      - tolid-ts-state:/var/lib/tailscale
+    command: >
+      sh -c "apk add --no-cache socat >/dev/null 2>&1;
+             containerboot &
+             CB=$!;
+             for i in $$(seq 1 60); do tailscale status >/dev/null 2>&1 && break; sleep 2; done;
+             tailscale status 2>&1 | head -3;
+             exec socat TCP-LISTEN:8766,fork,reuseaddr TCP:tolid-web:8766"
+    networks: [tolid_internal]
+volumes:
+  tolid-hf-cache: {}
+  tolid-ts-state: {}

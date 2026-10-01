@@ -177,7 +177,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
-        return self.headers.get('Host') in (f'127.0.0.1:{PORT}',f'localhost:{PORT}')
+        # Host whitelist for Docker: loopback hostname on ANY port (host publish 18767 ->
+        # container 8766), tailnet CGNAT addresses 100.64.0.0/10 (tailscale sidecar path),
+        # .ts.net names, and the container-internal service name. Still the DNS-rebinding
+        # defense: any other Host header is rejected.
+        import ipaddress
+        h=self.headers.get('Host') or ''
+        host=h.split(':')[0].strip('[]')
+        if h in (f'127.0.0.1:{PORT}',f'localhost:{PORT}',f'tolid-web:{PORT}'): return True
+        if host in ('127.0.0.1','localhost','::1','[::1]','tolid-web'): return True
+        if host.endswith('.ts.net'): return True
+        try: return ipaddress.ip_address(host) in ipaddress.ip_network('100.64.0.0/10')
+        except ValueError: return False
     def stream_file(self,path,size,mime):
         rng=self.headers.get('Range')
         start,end=0,size-1
@@ -373,7 +384,21 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         tok=self.headers.get('X-Panel-Token')
         authed_session=AUTH.enabled and AUTH.check(tok or '')
-        allowed_origins=(None,'http://127.0.0.1:'+str(PORT),'http://localhost:'+str(PORT))
+        allowed_origins=(None,'http://127.0.0.1:'+str(PORT),'http://localhost:'+str(PORT),
+                         'http://tolid-web:'+str(PORT))
+        import ipaddress as _ipa
+        def _host_ok(hh):
+            hname=(hh or '').split(':')[0].strip('[]')
+            if hname in ('127.0.0.1','localhost','::1','tolid-web'): return True
+            if hname.endswith('.ts.net'): return True
+            try: return _ipa.ip_address(hname) in _ipa.ip_network('100.64.0.0/10')
+            except ValueError: return False
+        _origin=self.headers.get('Origin')
+        _oh=(_origin or '').split('//')[-1]
+        _host=(self.headers.get('Host') or '')
+        same_origin=(_origin is not None and _origin.startswith('http') and _host_ok(_oh) and _host_ok(_host))
+        if _origin is not None and same_origin:
+            allowed_origins=allowed_origins+( _origin,)
         if not self.valid_host() or (tok!=TOKEN and not authed_session) or self.headers.get('Origin') not in allowed_origins:
             return self.respond({'error':'درخواست مجاز نیست؛ پنل را دوباره باز کنید.'},403)
         path=urlsplit(self.path).path
