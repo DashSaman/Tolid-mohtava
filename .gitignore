@@ -18,3 +18,8 @@ node_modules/
 work/
 test-results/
 playwright-report/
+
+# docker runtime secrets (never commit)
+runtime/secrets/*.env
+runtime/data-staging/
+runtime/.env

@@ -1,0 +1,50 @@
+name: tolid-mohtava
+networks:
+  tolid_internal: {}
+services:
+  tolid-web:
+    build: {context: ., dockerfile: docker/Dockerfile}
+    restart: unless-stopped
+    env_file: [runtime/secrets/tolid.env]
+    environment:
+      - TEHNET_PANEL_PORT=8766
+      - TEHNET_PANEL_BIND=0.0.0.0
+      - TEHNET_NO_NVENC=1
+      - TEHNET_PANEL_DB=/app/outputs/panel/data/content.sqlite
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["127.0.0.1:18767:8766"]
+    volumes:
+      # LIVE SQLite lives in a Docker-managed named volume (native Linux fs; correct WAL
+      # locks). The Windows bind mount caused container DB-open failures when any host
+      # process touched the file (oplock translation). Host NEVER opens the live DB.
+      - tolid-db-data:/app/outputs/panel/data
+      # user media/renders remain host-side via explicit read-write bind mounts:
+      - ${TOLID_MEDIA_DIR:-C:/Users/amirreza/.zcode/workspace/default/Tolid-mohtava/outputs/panel/data/media}:/app/outputs/panel/data/media
+      - ${TOLID_RENDERS_DIR:-C:/Users/amirreza/.zcode/workspace/default/Tolid-mohtava/outputs/panel/data/renders}:/app/outputs/panel/data/renders
+      - tolid-hf-cache:/cache
+    networks: [tolid_internal]
+  tolid-tailscale:
+    image: tailscale/tailscale:v1.102.4
+    restart: unless-stopped
+    hostname: tolid-remote
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      - TS_EXTRA_ARGS=--accept-dns=false
+      - TS_DEST_IP=127.0.0.1
+    volumes:
+      - tolid-ts-state:/var/lib/tailscale
+    command: >
+      sh -c "apk add --no-cache socat >/dev/null 2>&1;
+             containerboot &
+             CB=$!;
+             for i in $$(seq 1 60); do tailscale status >/dev/null 2>&1 && break; sleep 2; done;
+             tailscale status 2>&1 | head -3;
+             exec socat TCP6-LISTEN:8766,fork,reuseaddr,bind=[::] TCP:tolid-web:8766"
+    networks: [tolid_internal]
+volumes:
+  tolid-hf-cache: {}
+  tolid-ts-state: {}
+  tolid-db-data: {}

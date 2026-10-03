@@ -177,14 +177,21 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
-        # Host whitelist: loopback names (direct browser) plus Tailscale-managed .ts.net names
-        # (local private proxy via `tailscale serve`). This stays the DNS-rebinding defense:
-        # any other Host header — e.g. an attacker domain rebound to 127.0.0.1 — is rejected.
-        h=self.headers.get('Host') or ''
-        host=h.split(':')[0].strip('[]')
-        return (h in (f'127.0.0.1:{PORT}',f'localhost:{PORT}',f'[::1]:{PORT}')
-                or host in ('127.0.0.1','localhost','::1','[::1]')
-                or host.endswith('.ts.net'))
+        # Unified Host whitelist (superset of both branches; still the DNS-rebinding defense):
+        # loopback on ANY port (host publish 18767 -> container 8766; direct browser),
+        # container service name, Tailscale .ts.net names, and tailnet addresses
+        # (CGNAT 100.64.0.0/10 for the sidecar path, fd7a:115c:a1e0::/48 for its IPv6).
+        import ipaddress
+        h=(self.headers.get('Host') or '').strip()
+        if h.startswith('[') and ']' in h: host=h.split(']')[0][1:]   # [v6]:port
+        else: host=h.split(':')[0].strip('[]')
+        if h in (f'127.0.0.1:{PORT}',f'localhost:{PORT}',f'[::1]:{PORT}',f'tolid-web:{PORT}'): return True
+        if host in ('127.0.0.1','localhost','::1','[::1]','tolid-web'): return True
+        if host.endswith('.ts.net'): return True
+        try:
+            a=ipaddress.ip_address(host)
+            return a in ipaddress.ip_network('100.64.0.0/10') or a in ipaddress.ip_network('fd7a:115c:a1e0::/48')
+        except ValueError: return False
     def stream_file(self,path,size,mime):
         rng=self.headers.get('Range')
         start,end=0,size-1
@@ -381,15 +388,27 @@ class Handler(BaseHTTPRequestHandler):
         tok=self.headers.get('X-Panel-Token')
         authed_session=AUTH.enabled and AUTH.check(tok or '')
         allowed_origins=(None,'http://127.0.0.1:'+str(PORT),'http://localhost:'+str(PORT),
-                         'https://127.0.0.1:'+str(PORT),'https://localhost:'+str(PORT))
-        # same-origin requests stay allowed for private reverse proxies (tailscale serve):
-        # Origin host must equal the Host AND that host must be local (loopback) or a
-        # Tailscale-managed .ts.net name — this keeps DNS-rebinding origins out.
-        origin=self.headers.get('Origin'); host=(self.headers.get('Host') or '').split(':')[0]
-        oh=(origin or '').split('//')[-1].split(':')[0]
-        same_origin=(origin is not None and oh==host and
-                     (host in ('127.0.0.1','localhost','[::1]') or host.endswith('.ts.net')))
-        if not self.valid_host() or (tok!=TOKEN and not authed_session) or (origin not in allowed_origins and not same_origin):
+                         'https://127.0.0.1:'+str(PORT),'https://localhost:'+str(PORT),
+                         'http://tolid-web:'+str(PORT))
+        # Unified same-origin rule for private reverse proxies (tailscale serve / sidecar):
+        # Origin host must equal the Host AND that host must be local (loopback, container
+        # service name), a .ts.net name, or a tailnet address (CGNAT v4 / fd7a v6) —
+        # DNS-rebinding origins stay rejected.
+        import ipaddress as _ipa
+        def _host_ok(hh):
+            raw=(hh or '').strip()
+            if raw.startswith('[') and ']' in raw: hname=raw.split(']')[0][1:]   # [v6]:port
+            else: hname=raw.split(':')[0].strip('[]')
+            if hname in ('127.0.0.1','localhost','::1','[::1]','tolid-web'): return True
+            if hname.endswith('.ts.net'): return True
+            try:
+                a=_ipa.ip_address(hname)
+                return a in _ipa.ip_network('100.64.0.0/10') or a in _ipa.ip_network('fd7a:115c:a1e0::/48')
+            except ValueError: return False
+        _origin=self.headers.get('Origin')
+        same_origin=(_origin is not None and _origin.startswith('http')
+                     and _host_ok(_origin.split('//')[-1]) and _host_ok(self.headers.get('Host') or ''))
+        if not self.valid_host() or (tok!=TOKEN and not authed_session) or (_origin not in allowed_origins and not same_origin):
             return self.respond({'error':'درخواست مجاز نیست؛ پنل را دوباره باز کنید.'},403)
         path=urlsplit(self.path).path
         if path=='/api/media': return self.require_auth() or self.upload_media()
@@ -593,6 +612,9 @@ def jobKinds_fa():
 if __name__=='__main__':
     import threading
     threading.Thread(target=_watch_jobs,daemon=True).start()
-    server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
+    # bind: loopback on the host; inside Docker (TEHNET_PANEL_BIND) the container can bind all
+# interfaces safely — reachability is still governed by the compose publish (127.0.0.1-only)
+# and the private tolid_internal network.
+    server=ThreadingHTTPServer((os.environ.get('TEHNET_PANEL_BIND','127.0.0.1'),PORT),Handler)
     print(f'Panel: http://127.0.0.1:{PORT}',flush=True)
     server.serve_forever()

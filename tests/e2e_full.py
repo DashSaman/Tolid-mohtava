@@ -7,7 +7,8 @@ Reports honestly per step; no faking."""
 import json, os, subprocess, sys, time, urllib.request, uuid
 from pathlib import Path
 
-BASE='http://127.0.0.1:8788'
+import os as _os
+BASE=_os.environ.get('E2E_BASE','http://127.0.0.1:8788')
 PY=sys.executable
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -40,8 +41,16 @@ def step(name,ok,detail=''):
 
 def main():
     token=api('/api/session')['token']
+    if api('/api/session').get('auth_required'):
+        import re as _re, os as _os2
+        _n=open(_os.environ.get('TOLID_CRED_NOTE',_os2.path.expanduser('~/Documents/Tolid-Mohtava-Admin-Credentials.txt')),encoding='utf-8').read()
+        _u=_re.search('Username:[\r\n]+(\S+)',_n).group(1)
+        _p=_re.search('Password:[\r\n]+(.+)',_n).group(1).strip()
+        r=api('/api/auth/login',{'username':_u,'password':_p},token=token)
+        assert r.get('token'),'docker e2e login failed'
+        token=r['token']
     MODEL=os.environ.get('E2E_MODEL','qwen2.5-7b-instruct')
-    api('/api/ai/providers/save',{'name':'lmstudio','base_url':'http://127.0.0.1:1234/v1',
+    api('/api/ai/providers/save',{'name':'lmstudio','base_url':('http://host.docker.internal:1234/v1' if '18767' in BASE else 'http://127.0.0.1:1234/v1'),
         'model':MODEL,'api_key_env':'','tasks':['research','verification','script','social','seo','analysis','hooks','thumbnail']},token)
     step('AI provider pinned: '+MODEL,True)
     # 1) project + real Persian voice

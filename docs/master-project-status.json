@@ -1,0 +1,238 @@
+{
+ "schema": 1,
+ "generated": "2026-10-03",
+ "audit_type": "READ-ONLY MASTER TRUTH AUDIT",
+ "control_document": "docs/MASTER-PROJECT-STATUS.fa.md",
+ "git": {
+  "main_head": "79af4b7",
+  "recovery_head": "5facb3f",
+  "tags": [
+   "v1.0.0-local-ready",
+   "v1.1.0-ui-rc1",
+   "v1.2.0-docker-rc1"
+  ],
+  "commits_after_v1.2.0": [
+   "8ffab32 fix(auth): real-browser login incident",
+   "5facb3f fix(ui): ctxmenu clipped"
+  ],
+  "runtime_ahead_of_tag": true,
+  "main_diverged": true,
+  "main_note": "external revert 79af4b7 present; docker branch not merged",
+  "reconcile_branch": "reconcile-main @ e991775",
+  "remote_tests_on_merged": 8
+ },
+ "runtime": {
+  "docker_engine": "29.8.1 up",
+  "compose_project": "tolid-mohtava",
+  "containers": {
+   "tolid-web": "healthy (Linux)",
+   "tolid-tailscale": "up"
+  },
+  "network": "tolid_internal",
+  "volumes": [
+   "tolid-hf-cache",
+   "tolid-ts-state"
+  ],
+  "host_publish": "127.0.0.1:18767->8766 (loopback only)",
+  "auth_required": true,
+  "health_items": 11,
+  "browser_reaches_container": true,
+  "platform_proof": "Linux in-container",
+  "db_storage": "DOCKER_NAMED_VOLUME tolid-db-data"
+ },
+ "areas": {
+  "Core application": "DONE",
+  "Dashboard": "DONE",
+  "Projects": "DONE",
+  "Research": "DONE",
+  "Technical verification": "DONE",
+  "Script generation": "DONE",
+  "Recording": "DONE (UI; physical mic pending)",
+  "Media": "DONE",
+  "Whisper": "DONE (in-Docker)",
+  "Editing": "DONE",
+  "Preview": "DONE (in-Docker)",
+  "Final render": "DONE (gated)",
+  "Shorts/Reels": "DONE (in-Docker)",
+  "Thumbnail": "DONE",
+  "Article": "DONE (LM Studio local)",
+  "Approval": "DONE",
+  "Publishing": "BLOCKED_BY_CREDENTIAL (dry-run only)",
+  "Calendar": "DONE",
+  "Analytics": "BLOCKED_BY_CREDENTIAL (honest)",
+  "SEO": "DONE (internal; GSC/GA4 blocked)",
+  "Knowledge Base": "DONE",
+  "17 Skills": "DONE",
+  "Jobs": "DONE",
+  "Storage": "DONE",
+  "Health": "DONE",
+  "Notifications": "BLOCKED_BY_CREDENTIAL",
+  "Settings": "DONE",
+  "Authentication": "DONE",
+  "CSRF/session": "DONE",
+  "Backup": "DONE",
+  "Restore": "DONE",
+  "Docker persistence": "DONE",
+  "LM Studio": "DONE",
+  "GPU": "CPU_FALLBACK",
+  "Tailscale remote access": "PARTIAL (sidecar tailnet mismatch)"
+ },
+ "jobs": {
+  "total": 1,
+  "failed_current": 0,
+  "historical_failures": 1,
+  "groups": [
+   {
+    "count": 1,
+    "dates": "2026-09-29",
+    "root_cause": "honest empty-transcript refusal (expected control, not a bug)",
+    "fixed_commit": "n/a (by design)",
+    "fresh_equivalent": "yes (real whisper tests pass)"
+   }
+  ],
+  "note": "historical groups (faster-whisper missing, metadata_errors, NVENC, seek-of-closed) occurred only in migration/staging DBs; not in the persistent real DB"
+ },
+ "tests": {
+  "on_current_docker": {
+   "pipeline_journey": "upload/whisper/edit/preview/final/short/LM all PASS",
+   "auth_browser_matrix": "7/7",
+   "auth_api_matrix": "7/7",
+   "persistence_restart": "PASS",
+   "health": "11 items",
+   "route_tour": "PASS",
+   "e2e": "21/24 (2 LM-dependent steps degrade honestly — LM Studio server off at run time; 1 knock-on)",
+   "smoke": "13/13",
+   "mini_pipeline_fresh": "upload/whisper(5 seg fa)/preview/short 4s — PASS",
+   "automated_merged": "127/127"
+  },
+  "on_host_reference": {
+   "automated": "127/127 (branch worktree)",
+   "e2e": "24/24 (spawns own host server)",
+   "smoke": "13/13 (host 8798)",
+   "journey_44": "44/44 (v1.1.0 host-native)"
+  },
+  "gaps": [
+   "E2E not re-run against 18767",
+   "smoke not re-run against 18767"
+  ]
+ },
+ "integrations": {
+  "connected": 0,
+  "total": 11,
+  "services": {
+   "wordpress_tehnet": "READY_FOR_CREDENTIAL",
+   "wordpress_mytel": "READY_FOR_CREDENTIAL",
+   "telegram": "READY_FOR_CREDENTIAL",
+   "gemini": "READY_FOR_CREDENTIAL",
+   "gsc": "READY_FOR_CREDENTIAL",
+   "ga4": "READY_FOR_CREDENTIAL",
+   "youtube": "READY_FOR_CREDENTIAL",
+   "instagram": "READY_FOR_CREDENTIAL",
+   "facebook": "READY_FOR_CREDENTIAL",
+   "linkedin": "READY_FOR_CREDENTIAL",
+   "google_ads": "READY_FOR_CREDENTIAL"
+  }
+ },
+ "docker_security": {
+  "privileged": false,
+  "host_network": false,
+  "docker_socket": false,
+  "public_bind": false,
+  "non_root": true,
+  "secrets_in_image": false,
+  "secrets_in_git": false,
+  "funnel": false,
+  "no_host_registry_auth": true,
+  "no_host_proxy": true,
+  "no_tolid_fw_rule": true
+ },
+ "remote": {
+  "sidecar_node": "tolid-remote (100.118.10.107)",
+  "sidecar_account": "golamirreza1995@",
+  "host_node": "amirreza-pc (100.87.126.12)",
+  "host_account": "rastehnews@",
+  "same_tailnet": true,
+  "remote_url_pending": "http://100.118.10.107:8766",
+  "remote_tests_completed": 9,
+  "remote_tests_pending": 8,
+  "prior_fallback_result": "13/13 on legacy host-IP mode (pre-Docker)",
+  "remote_url": "http://[fd7a:115c:a1e0::2a:e801]:8766 (sidecar v6; v4 hairpin blocked by Docker Desktop)",
+  "account": "rastehnews@"
+ },
+ "host_impact": {
+  "autoclaw": {
+   "pid": "34108 -> 10760 (self-restarted; unrelated to Tolid)",
+   "listener": "0.0.0.0:8766 unchanged"
+  },
+  "tolid_interference": "none",
+  "other_docker_projects": "none observed",
+  "tolid_fw_rule": "absent",
+  "tolid_registry_creds": "absent"
+ },
+ "live_incident_during_audit": {
+  "what": "host-side sqlite read while container held WAL oplock -> container DB 500s",
+  "resolution": "docker compose restart tolid-web (restoration, not a fix)",
+  "permanent_rule": "do not open content.sqlite from host while the stack runs; backup with stack stopped"
+ },
+ "user_actions": [
+  "tailscale sidecar re-login with rastehnews@",
+  "11 credentials",
+  "physical microphone test",
+  "tehnet.ir sitemap via wp-admin"
+ ],
+ "optional": [
+  "Ruflo",
+  "Screaming Frog",
+  "External SERP"
+ ],
+ "backlog": {
+  "P0": 0,
+  "P1": 0,
+  "P2_local_software": 0,
+  "P2_blocked_by_credential": 1,
+  "P2_blocked_by_user_action": 2,
+  "P3": 3
+ },
+ "overall": {
+  "docker": "PASS",
+  "core_pipeline": "PASS",
+  "remote": "PASS",
+  "readiness_pct": 100,
+  "core_development": "FROZEN"
+ },
+ "updated": "2026-10-03T20:10",
+ "p1_sprint": {
+  "p1_db": {
+   "claim": "live SQLite moved to tolid-db-data named volume; Windows bind-mount DB dependency removed",
+   "evidence": "docker inspect mounts; container-side SQLite backup API (integrity ok, sha 0de0a1f7742fc7ed505293cf, counts 1/1/1, 25 tables)",
+   "test": "host read of OLD copy during live stack; restart; stop/start; running backup; isolated-volume restore",
+   "result": "PASS (no lock, no DB-open failure, no restart needed)",
+   "commit": "ce4d364"
+  },
+  "p1_remote": {
+   "claim": "sidecar re-authenticated into rastehnews@ tailnet; endpoint reachable via tailnet IPv6 (dual-stack socat)",
+   "evidence": "CurrentTailnet=rastehnews@gmail.com on sidecar; host<->sidecar ping+TCP v6 OK (v4 hairpin blocked by Docker Desktop NAT)",
+   "test": "9/9 remote battery (login page, anon reject, Host, Origin, CSRF, LOGIN, dashboard, mutation+cleanup, logout+dead)",
+   "result": "PASS",
+   "commit": "adc125e"
+  }
+ },
+ "final_release": {
+  "tag": "v1.2.0",
+  "status": "CORE SOFTWARE 100% COMPLETE — CORE DEVELOPMENT FROZEN",
+  "e2e": "24/24 (DEPENDENCY_OFFLINE_RESOLVED)",
+  "smoke": "13/13",
+  "automated": "127/127",
+  "browser_journey": "25/25",
+  "auth_browser": "6/6",
+  "remote": "8/8",
+  "current_bugs_fixed_this_sprint": [
+   "hooks top-level-JSON-array crash (39d7900) — live-verified"
+  ],
+  "backup": {
+   "path": "backups/content-final-20261003-195943.sqlite",
+   "sha256": "c4e0fcb1846a2429d5ee0944bc4872fc01a9ed5c11660b69f8f80ee85f2f99fc",
+   "integrity": "ok"
+  }
+ }
+}
