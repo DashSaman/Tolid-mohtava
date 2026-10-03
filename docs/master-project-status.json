@@ -17,7 +17,9 @@
   ],
   "runtime_ahead_of_tag": true,
   "main_diverged": true,
-  "main_note": "external revert 79af4b7 present; docker branch not merged"
+  "main_note": "external revert 79af4b7 present; docker branch not merged",
+  "reconcile_branch": "reconcile-main @ e991775",
+  "remote_tests_on_merged": 8
  },
  "runtime": {
   "docker_engine": "29.8.1 up",
@@ -35,7 +37,8 @@
   "auth_required": true,
   "health_items": 11,
   "browser_reaches_container": true,
-  "platform_proof": "Linux in-container"
+  "platform_proof": "Linux in-container",
+  "db_storage": "DOCKER_NAMED_VOLUME tolid-db-data"
  },
  "areas": {
   "Core application": "DONE",
@@ -96,7 +99,11 @@
    "auth_api_matrix": "7/7",
    "persistence_restart": "PASS",
    "health": "11 items",
-   "route_tour": "PASS"
+   "route_tour": "PASS",
+   "e2e": "21/24 (2 LM-dependent steps degrade honestly — LM Studio server off at run time; 1 knock-on)",
+   "smoke": "13/13",
+   "mini_pipeline_fresh": "upload/whisper(5 seg fa)/preview/short 4s — PASS",
+   "automated_merged": "127/127"
   },
   "on_host_reference": {
    "automated": "127/127 (branch worktree)",
@@ -144,11 +151,13 @@
   "sidecar_account": "golamirreza1995@",
   "host_node": "amirreza-pc (100.87.126.12)",
   "host_account": "rastehnews@",
-  "same_tailnet": false,
+  "same_tailnet": true,
   "remote_url_pending": "http://100.118.10.107:8766",
-  "remote_tests_completed": 0,
+  "remote_tests_completed": 9,
   "remote_tests_pending": 8,
-  "prior_fallback_result": "13/13 on legacy host-IP mode (pre-Docker)"
+  "prior_fallback_result": "13/13 on legacy host-IP mode (pre-Docker)",
+  "remote_url": "http://[fd7a:115c:a1e0::2a:e801]:8766 (sidecar v6; v4 hairpin blocked by Docker Desktop)",
+  "account": "rastehnews@"
  },
  "host_impact": {
   "autoclaw": {
@@ -178,16 +187,32 @@
  ],
  "backlog": {
   "P0": 0,
-  "P1": 1,
-  "P2": 6,
+  "P1": 0,
+  "P2": 4,
   "P3": 3,
-  "total": 10
+  "total": 11
  },
  "overall": {
   "docker": "PASS",
   "core_pipeline": "PASS",
-  "remote": "PARTIAL",
-  "readiness_pct": 96
+  "remote": "PASS",
+  "readiness_pct": 98
  },
- "updated": "2026-10-03T17:20"
+ "updated": "2026-10-03T15:30",
+ "p1_sprint": {
+  "p1_db": {
+   "claim": "live SQLite moved to tolid-db-data named volume; Windows bind-mount DB dependency removed",
+   "evidence": "docker inspect mounts; container-side SQLite backup API (integrity ok, sha 0de0a1f7742fc7ed505293cf, counts 1/1/1, 25 tables)",
+   "test": "host read of OLD copy during live stack; restart; stop/start; running backup; isolated-volume restore",
+   "result": "PASS (no lock, no DB-open failure, no restart needed)",
+   "commit": "ce4d364"
+  },
+  "p1_remote": {
+   "claim": "sidecar re-authenticated into rastehnews@ tailnet; endpoint reachable via tailnet IPv6 (dual-stack socat)",
+   "evidence": "CurrentTailnet=rastehnews@gmail.com on sidecar; host<->sidecar ping+TCP v6 OK (v4 hairpin blocked by Docker Desktop NAT)",
+   "test": "9/9 remote battery (login page, anon reject, Host, Origin, CSRF, LOGIN, dashboard, mutation+cleanup, logout+dead)",
+   "result": "PASS",
+   "commit": "adc125e"
+  }
+ }
 }
