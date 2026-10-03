@@ -34,11 +34,13 @@
    "expected": "graceful parse_error + strict retry (as hooks fix does)",
    "actual": "AttributeError 'list' object has no attribute 'get' — raw traceback in UI",
    "evidence": "static audit: research/techverif/packages/social/article/pinned UNGUARDED; 4 live hooks crashes in Jobs UI; hooks fixed in 39d7900, other 6 handlers not",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "response-shape assumption in _llm_json callers",
    "blocks_production": true,
-   "fix_scope": "apply 39d7900 pattern centrally in _llm_json return + per-handler tolerance"
+   "fix_scope": "apply 39d7900 pattern centrally in _llm_json return + per-handler tolerance",
+   "status": "FIXED",
+   "fix_note": "_normalize_llm central boundary in ai_jobs (dict|semantic-list|None) + hooks list_key contract; shape matrix tests; live 8/8 handlers (pipeline incl.) completed"
   },
   {
    "id": "UX-001",
@@ -49,11 +51,13 @@
    "expected": "meaningful Persian primary message; details expandable",
    "actual": "\"'list' object has no attribute 'get'\", \"<urlopen error [Errno 101]...>\" rendered inline",
    "evidence": "screenshot docs/defects/screenshots/UX-jobs-raw-errors.png",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "errors surfaced verbatim",
    "blocks_production": false,
-   "fix_scope": "presentation-layer sanitize in app.js job rows"
+   "fix_scope": "presentation-layer sanitize in app.js job rows",
+   "status": "FIXED",
+   "fix_note": "jobErrShort() sanitizer in app.js — Persian summary + expandable جزئیات فنی; visual acceptance 7/7 no raw text"
   },
   {
    "id": "UX-002",
@@ -64,11 +68,13 @@
    "expected": "Persian display names for every kind",
    "actual": "6 kinds missing from jobKinds map",
    "evidence": "live #view scan; DB kinds vs jobKinds diff: enhance_audio, optimize_content, seo_proposals, seo_scan, shorts_v2, sync_content",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "map not extended",
    "blocks_production": false,
-   "fix_scope": "add 6 labels"
+   "fix_scope": "add 6 labels",
+   "status": "FIXED",
+   "fix_note": "jobKinds completed (6 labels) + generic «فرآیند:» fallback; visual: zero snake_case on Jobs"
   },
   {
    "id": "UX-003",
@@ -79,11 +85,13 @@
    "expected": "filters + context for old failures",
    "actual": "flat list; 12 red LM-off-era rows dominate",
    "evidence": "live check: no filter, no historical labels",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "no semantics layer",
    "blocks_production": false,
-   "fix_scope": "filter chips + softened historical rows"
+   "fix_scope": "filter chips + softened historical rows",
+   "status": "FIXED",
+   "fix_note": "filters: همه/در صف/در حال اجرا/منتظر تأیید/کامل/ناموفق/لغو/ناموفقِ جدید/قدیمی؛ visual 7/7"
   },
   {
    "id": "OPS-001",
@@ -94,11 +102,13 @@
    "expected": "BLOCKED_BY_DEPENDENCY + Persian reason only",
    "actual": "message contains <urlopen error [Errno 101] Network is unreachable>",
    "evidence": "live LM-off test (server safely stopped/restarted)",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "exception text concatenated",
    "blocks_production": false,
-   "fix_scope": "strip errno details"
+   "fix_scope": "strip errno details",
+   "status": "FIXED",
+   "fix_note": "ai.chat classifies timeout/connection/HTTP into Persian hints; raw urlopen gone from primary messages"
   },
   {
    "id": "OPS-002",
@@ -109,11 +119,13 @@
    "expected": "pre-check or immediate blocked status",
    "actual": "queues, runs, fails at request time (looks like crash)",
    "evidence": "observed; no probe in enqueue path",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "no health check",
    "blocks_production": false,
-   "fix_scope": "cheap TCP probe on enqueue"
+   "fix_scope": "cheap TCP probe on enqueue",
+   "status": "FIXED",
+   "fix_note": "ai_preflight() before AI enqueue + retry — 409 blocked_dependency with Persian message (live-verified both states)"
   },
   {
    "id": "OPS-003",
@@ -124,11 +136,13 @@
    "expected": "placeholder or exclusion",
    "actual": "5 console+HTTP 404s /api/media/file?id=...",
    "evidence": "page-tour thumbs errs:5 http:5",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "rows outlive files",
    "blocks_production": false,
-   "fix_scope": "placeholder or filter"
+   "fix_scope": "placeholder or filter",
+   "status": "FIXED",
+   "fix_note": "thumbs render «فایل موجود نیست» tile via media.exists; visual: 0 HTTP>=400 (was 5)"
   },
   {
    "id": "DATA-001",
@@ -139,11 +153,13 @@
    "expected": "linkable/orphan-marked history",
    "actual": "29 jobs -> missing content ids",
    "evidence": "container-side DB audit",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "delete keeps evidence",
    "blocks_production": false,
-   "fix_scope": "mark/filter orphans in UI"
+   "fix_scope": "mark/filter orphans in UI",
+   "status": "FIXED",
+   "fix_note": "jobs rows show «پروژهٔ مرتبط دیگر موجود نیست» for orphans; history preserved"
   },
   {
    "id": "DATA-002",
@@ -154,11 +170,13 @@
    "expected": "row+file lifecycle consistent",
    "actual": "12 rows path-not-exists",
    "evidence": "DB audit",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "thumbnail/test delete paths",
    "blocks_production": false,
-   "fix_scope": "reconcile or filter"
+   "fix_scope": "reconcile or filter",
+   "status": "FIXED",
+   "fix_note": "media API carries exists flag; consumers render placeholder/missing tile; rows preserved"
   },
   {
    "id": "UX-004",
@@ -169,11 +187,13 @@
    "expected": "clean Persian list",
    "actual": "RAW-TRACE match",
    "evidence": "page-tour flag",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "raw error stored",
    "blocks_production": false,
-   "fix_scope": "sanitize bodies"
+   "fix_scope": "sanitize bodies",
+   "status": "FIXED",
+   "fix_note": "notification bodies pass jobErrShort; kind fallback Persian; page check PASS"
   },
   {
    "id": "UX-005",
@@ -184,11 +204,13 @@
    "expected": "Persian",
    "actual": "RAW-EN flag",
    "evidence": "page-tour flag",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "mixed details",
    "blocks_production": false,
-   "fix_scope": "translate"
+   "fix_scope": "translate",
+   "status": "FIXED",
+   "fix_note": "health names Persianized (پایتون/تبدیل‌کنندهٔ ویدیو/پایگاه داده/صف کارها/…); page check PASS"
   },
   {
    "id": "OPS-004",
@@ -199,11 +221,13 @@
    "expected": "validation + honest failure",
    "actual": "queued with payload.site=null then completed",
    "evidence": "live API test",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "handler ignores url param",
    "blocks_production": false,
-   "fix_scope": "validate + pass through"
+   "fix_scope": "validate + pass through",
+   "status": "FIXED",
+   "fix_note": "seo_scan validates http(s) URL at enqueue (400 Persian); payload.site never null"
   },
   {
    "id": "OPS-005",
@@ -214,11 +238,13 @@
    "expected": "current v6 sidecar URL",
    "actual": "http://100.118.10.107:8766",
    "evidence": "doc grep",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "pre-v6-fix text",
    "blocks_production": false,
-   "fix_scope": "update line"
+   "fix_scope": "update line",
+   "status": "FIXED",
+   "fix_note": "runbook remote URL = current v6 + instruction to re-derive on node change"
   },
   {
    "id": "DOC-001",
@@ -229,11 +255,13 @@
    "expected": "docker-first, native=rollback",
    "actual": "3 docs native-first",
    "evidence": "grep list",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "banner-only MB-8 pass",
    "blocks_production": false,
-   "fix_scope": "rewrite start sections"
+   "fix_scope": "rewrite start sections",
+   "status": "FIXED",
+   "fix_note": "QUICKSTART/INSTALLATION/RUNBOOK rewritten docker-first; native = ROLLBACK ONLY"
   },
   {
    "id": "BUG-002",
@@ -244,11 +272,13 @@
    "expected": "dependency re-check + clear blocked state",
    "actual": "re-failed; row updated in place",
    "evidence": "live retry test",
-   "current": true,
+   "current": false,
    "historical": false,
    "root_cause": "retry re-executes by design",
    "blocks_production": false,
-   "fix_scope": "combine with OPS-002"
+   "fix_scope": "combine with OPS-002",
+   "status": "FIXED",
+   "fix_note": "retry pre-flights dependency: 409 BLOCKED_BY_DEPENDENCY while LM off; clean re-run when healthy (live-verified)"
   },
   {
    "id": "HIST-001",
@@ -295,5 +325,24 @@
    "blocks_production": false,
    "fix_scope": "none"
   }
- ]
+ ],
+ "repair_sprint": {
+  "date": "2026-10-03",
+  "branch": "fix/v1.2.1-defect-repair",
+  "result": "ALL 15 CURRENT DEFECTS FIXED",
+  "evidence": {
+   "automated": "129/129",
+   "e2e": "24/24",
+   "smoke": "13/13",
+   "browser_journey": "25-step fresh project (2 AI jobs hit transient LM 4xx under 5-way concurrency; both completed on standard Retry — classified DEPENDENCY_BUSY, not software)",
+   "lm_offline": "GRACEFUL (enqueue+retry 409 blocked_dependency, Persian)",
+   "lm_online": "8/8 handler families completed live",
+   "shape_matrix": "PASS (tests/test_ai_shapes.py)",
+   "jobs_visual": "7/7",
+   "thumbs": "0 404",
+   "notifications": "PASS",
+   "health": "PASS",
+   "db": "integrity ok; 0 stuck; 0 dup keys; failed jobs all historical/transient-dependency"
+  }
+ }
 }

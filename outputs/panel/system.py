@@ -74,20 +74,20 @@ def health_payload(db_path,queue_counts,workers):
     db=Path(db_path)
     gpu=gpu_detected()
     return [
-      {'name':'Python','status':'ok','detail':platform.python_version()+' · '+platform.platform()},
-      {'name':'FFmpeg','status':'ok' if ff else 'setup','detail':ffmpeg_version() or avtools.ffmpeg_missing()},
-      {'name':'FFprobe','status':'ok' if avtools.ffprobe_path() else 'setup','detail':avtools.ffprobe_path() or ''},
-      {'name':'faster-whisper','status':'ok' if whisper_ok else 'setup',
+      {'name':'پایتون','status':'ok','detail':platform.python_version()+' · '+platform.platform()},
+      {'name':'تبدیل‌کنندهٔ ویدیو (FFmpeg)','status':'ok' if ff else 'setup','detail':ffmpeg_version() or avtools.ffmpeg_missing()},
+      {'name':'بررسی رسانه (FFprobe)','status':'ok' if avtools.ffprobe_path() else 'setup','detail':avtools.ffprobe_path() or ''},
+      {'name':'تبدیل گفتار (Whisper)','status':'ok' if whisper_ok else 'setup',
        'detail':('v'+wv) if wv else 'نصب نشده؛ متن دستی یا نصب بسته'},
-      {'name':'GPU','status':'limited' if gpu else 'off',
+      {'name':'پردازندهٔ گرافیکی (GPU)','status':'limited' if gpu else 'off',
        'detail':(gpu['name']+' · '+gpu['driver']) if gpu else 'GPU مخصوص پیدا نشد؛ پردازش روی CPU انجام می‌شود'},
-      {'name':'NVENC','status':'ok' if avtools.nvenc_available() else 'limited',
+      {'name':'رمزگذاری ویدیو (NVENC)','status':'ok' if avtools.nvenc_available() else 'limited',
        'detail':'رندر نهایی با NVENC' if avtools.nvenc_available() else 'رندر نهایی با CPU انجام می‌شود'},
-      {'name':'Database','status':'ok' if db.exists() else 'setup','detail':str(db)+' · '+(db.stat().st_size//1024 if db.exists() else 0).__str__()+' KB'},
-      {'name':'Worker / صف کارها','status':'ok','detail':f'{workers} worker · '+' · '.join(f'{k}: {v}' for k,v in queue_counts.items())},
-      {'name':'LLM','status':'credential','detail':'هیچ اتصال مدل زبانی پیکربندی نشده است'},
-      {'name':'سرویس‌های SEO','status':'credential','detail':'DispatchSEO در GrowthOS ارجاع شده؛ اتصال زنده تأیید نشده'},
-      {'name':'انتشار شبکه‌های اجتماعی','status':'credential','detail':'OAuth لازم است؛ فعلاً فقط بسته dry-run'},
+      {'name':'پایگاه داده','status':'ok' if db.exists() else 'setup','detail':str(db)+' · '+(db.stat().st_size//1024 if db.exists() else 0).__str__()+' KB'},
+      {'name':'صف کارها','status':'ok','detail':f'{workers} worker · '+' · '.join(f'{k}: {v}' for k,v in queue_counts.items())},
+      {'name':'مدل زبانی محلی (LLM)','status':'credential','detail':'هیچ اتصال مدل زبانی پیکربندی نشده است'},
+      {'name':'سرویس‌های سئو','status':'credential','detail':'DispatchSEO در GrowthOS ارجاع شده؛ اتصال زنده تأیید نشده'},
+      {'name':'انتشار در شبکه‌ها','status':'credential','detail':'OAuth لازم است؛ فعلاً فقط بسته dry-run'},
     ]
 
 def drives():

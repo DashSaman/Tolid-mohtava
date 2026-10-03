@@ -103,6 +103,47 @@ def validate_audio(media_id,media_lib=None):
                 'duration':st.get('duration'),'rms':st.get('rms'),'peak':st.get('peak')}
     return {'status':'OK','duration':st['duration'],'rms':st['rms'],'peak':st['peak']}
 
+def get_job_kind_safe(jid):
+    try:
+        j=JM.get(jid) if jid else None
+        return (j or {}).get('kind')
+    except Exception: return None
+
+def ai_preflight(kind=None):
+    """OPS-002/BUG-002: cheap readiness probe before enqueueing/retrying AI jobs.
+    Returns None when the LM Studio provider answers; raises ValueError with a Persian
+    BLOCKED_BY_DEPENDENCY message otherwise. NOT a guarantee (TOCTOU-safe by design —
+    worker-side handling stays authoritative)."""
+    import socket as _sk, urllib.request as _u
+    AI_KINDS={'research_topic','technical_verification','generate_script','generate_hooks',
+              'generate_title_packages','generate_social','generate_article','generate_pinned','content_pipeline'}
+    if kind is not None and kind not in AI_KINDS: return None
+    try:
+        p=None
+        with DB_conn() as c:
+            pass
+    except Exception:
+        pass
+    try:
+        import ai as _ai
+        url=''
+        # provider for the task
+        try:
+            ps=AI.providers()
+            cand=[x for x in ps if x.get('enabled',1) and x.get('tasks') and ('research' in (x.get('tasks') or []) or not x.get('model'))]
+            url=((cand[0].get('base_url') or '') if cand else '')
+        except Exception: url=''
+        if not url: url='http://host.docker.internal:1234/v1'
+        host_port=url.split('//')[-1].split('/v1')[0]
+        host,port=(host_port.split(':')+['80'])[:2] if ':' in host_port else (host_port,'1234')
+        with _sk.create_connection((host,int(port)),timeout=2): pass
+        try:
+            _u.urlopen(url.rstrip('/')+'/models',timeout=3)
+        except Exception: pass
+        return None
+    except Exception:
+        raise ValueError('سرویس هوش مصنوعی (LM Studio) روشن نیست — کار AI صف نمی‌شود (BLOCKED_BY_DEPENDENCY). ابتدا LM Studio و سرور آن را روشن کنید.')
+
 def delete_media_row(mid,lib,ts,dec,rd):
     """Shared safe recording delete: related rows + file (path-verified)."""
     m=lib.get(mid)
@@ -452,6 +493,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(item)
             if self.path=='/api/jobs':
                 kind=data.get('kind'); payload=data.get('payload') if isinstance(data.get('payload'),dict) else {}
+                try: ai_preflight(kind)
+                except ValueError as e: return self.respond({'error':str(e),'blocked_dependency':True},409)
+                if kind=='seo_scan':
+                    import re as _re
+                    u=(payload.get('url') or payload.get('site') or '').strip()
+                    if not u or not _re.match(r'^https?://[\w.-]+\.[a-z]{2,}',u,_re.I):
+                        return self.respond({'error':'نشانی سایت معتبر نیست — باید http(s):// و دامنه‌دار باشد.'},400)
+                    payload['site']=u; payload.pop('url',None)
                 if kind=='transcribe_audio':
                     m=MEDIA.get(payload.get('media_id') or '')
                     if not m: raise ValueError('رسانه پیدا نشد.')
@@ -562,7 +611,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/decisions/state':
                 return self.respond(DECISIONS.set_state(data.get('id'),data.get('state')))
             if self.path=='/api/jobs/cancel': return self.respond(JM.cancel(data.get('id')))
-            if self.path=='/api/jobs/retry': return self.respond(JM.retry(data.get('id')))
+            if self.path=='/api/jobs/retry':
+                try: ai_preflight(get_job_kind_safe(data.get('id')))
+                except ValueError as e: return self.respond({'error':str(e),'blocked_dependency':True},409)
+                return self.respond(JM.retry(data.get('id')))
             self.respond({'error':'عملیات پیدا نشد.'},404)
         except (ValueError,TypeError) as e: self.respond({'error':str(e) if isinstance(e,ValueError) and not isinstance(e,json.JSONDecodeError) else 'داده درخواست معتبر نیست.'},400)
         except Exception: self.respond({'error':'ذخیره ناموفق بود. فضای دیسک و اجرای پنل را بررسی کنید.'},500)
@@ -579,6 +631,22 @@ class Handler(BaseHTTPRequestHandler):
                 chunk=self.rfile.read(min(n,remaining[0]))
                 remaining[0]-=len(chunk)
                 return chunk
+            # §13: reject non-media before registering (ffprobe must recognize a stream;
+            # thumbnails/images exempt; probe unavailability does not block upload)
+            import subprocess as _sp
+            if kind!='thumbnail' and not (self.headers.get('X-Media-Mime','').startswith('image/')):
+                try:
+                    _fp=avtools.ffprobe_path()
+                    if _fp:
+                        _tmp=__import__('tempfile').mkstemp(suffix='_gate')[1]
+                        import shutil as _sh
+                        with open(_tmp,'wb') as _f: _sh.copyfileobj(reader(1024*1024),_f)
+                        _r=_sp.run([_fp,'-v','error','-show_entries','format=format_name','-of','default=nw=1:nk=1',_tmp],capture_output=True,timeout=25)
+                        __import__('os').remove(_tmp)
+                        if _r.returncode!=0 or not _r.stdout.strip():
+                            return self.respond({'error':'فایل رسانهٔ معتبر نیست (ویدیو/صدا شناسایی نشد).'},400)
+                except Exception:
+                    pass
             row=MEDIA.ingest(reader,name,kind,cid,size_limit=MAX_UPLOAD,mime=self.headers.get('X-Media-Mime',''))
             return self.respond(row)
         except ValueError as e: self.respond({'error':str(e)},400)

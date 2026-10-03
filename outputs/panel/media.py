@@ -3,7 +3,7 @@
 Files live under data/media (gitignored). The database stores metadata and
 the sha256 so any later copy/archive step can be verified against it.
 """
-import hashlib, json, re, sqlite3, uuid
+import hashlib, json, os, re, sqlite3, uuid
 from pathlib import Path
 from datetime import datetime, timezone
 from contextlib import contextmanager
@@ -56,6 +56,7 @@ class MediaLibrary:
                 h.update(chunk); f.write(chunk)
         if size==0:
             dest.unlink(missing_ok=True); raise ValueError('فایل خالی است.')
+
         duration=None
         try:
             import avtools
@@ -72,7 +73,9 @@ class MediaLibrary:
         with self.connect() as c:
             cur=c.execute('SELECT * FROM media WHERE id=?',(mid,))
             keys=[d[0] for d in cur.description]; r=cur.fetchone()
-        return dict(zip(keys,r)) if r else None
+        row=dict(zip(keys,r)) if r else None
+        if row: row['exists']=os.path.exists(row['path'])
+        return row
     def list(self,content_id=None,kind=None):
         q='SELECT * FROM media'; conds=[]; args=[]
         if content_id is not None: conds.append('content_id=?'); args.append(content_id)
@@ -83,7 +86,9 @@ class MediaLibrary:
         q+=' ORDER BY created_at DESC'
         with self.connect() as c:
             cur=c.execute(q,args); keys=[d[0] for d in cur.description]
-            return [dict(zip(keys,r)) for r in cur.fetchall()]
+            out=[dict(zip(keys,r)) for r in cur.fetchall()]
+        for r in out: r['exists']=os.path.exists(r['path'])
+        return out
     def set_asset_state(self,media_id,state,label=None):
         if state not in ('pending','approved','rejected'): raise ValueError('وضعیت معتبر نیست.')
         if not self.get(media_id): raise ValueError('رسانه پیدا نشد.')
@@ -92,6 +97,7 @@ class MediaLibrary:
                       'ON CONFLICT(media_id) DO UPDATE SET state=?,label=?,updated_at=?',
                       (media_id,state,label,now(),state,label,now()))
         return self.get_asset(media_id)
+        # exists flag per row
     def get_asset(self,media_id):
         with self.connect() as c:
             cur=c.execute('SELECT * FROM assets WHERE media_id=?',(media_id,))

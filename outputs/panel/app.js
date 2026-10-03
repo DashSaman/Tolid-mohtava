@@ -13,8 +13,17 @@ const faDate=iso=>{try{return new Date(iso).toLocaleString('fa-IR');}catch{retur
 const icon=(id,cls='icon')=>`<svg class="${cls}"><use href="#${id}"/></svg>`;
 
 const mediaKinds={voice:'صوت ایده/دیکته',screen:'ضبط صفحه',face:'فیس‌کم',external_audio:'صدای جدا',broll:'برول',thumbnail:'تصویر/Thumbnail'};
-const jobKinds={transcribe_audio:'تبدیل گفتار به متن',edit_detect:'تحلیل تدوین',render_cut:'رندر',render_short:'رندر عمودی (Short)',publish_dryrun:'بسته پیش‌نمایش انتشار',website_publish:'پیش‌نویس وردپرس',research_topic:'تحقیق موضوع',technical_verification:'بررسی فنی',generate_script:'تولید سناریو',generate_hooks:'تولید هوک',generate_title_packages:'بسته‌های عنوان/کاور',generate_social:'نسخهٔ شبکه‌ها',generate_article:'مقاله و سئو',generate_pinned:'کامنت پین',content_pipeline:'خط تولید کامل AI'};
-const jobStatus={queued:'در صف',running:'در حال اجرا',waiting_approval:'منتظر تأیید شما',completed:'کامل شد',failed:'ناموفق',cancelled:'لغو شد'};
+const jobKinds={transcribe_audio:'تبدیل گفتار به متن',edit_detect:'تحلیل تدوین',render_cut:'رندر',render_short:'رندر عمودی (Short)',publish_dryrun:'بسته پیش‌نمایش انتشار',website_publish:'پیش‌نویس وردپرس',research_topic:'تحقیق موضوع',technical_verification:'بررسی فنی',generate_script:'تولید سناریو',generate_hooks:'تولید هوک',generate_title_packages:'بسته‌های عنوان/کاور',generate_social:'نسخهٔ شبکه‌ها',generate_article:'مقاله و سئو',generate_pinned:'کامنت پین',content_pipeline:'خط تولید کامل AI',seo_scan:'اسکن سئوی سایت',seo_proposals:'پیشنهادهای اصلاح سئو',shorts_v2:'رتبه‌بندی هوشمند Shorts',optimize_content:'بهینه‌سازی محتوا',sync_content:'همگام‌سازی تراک‌ها',enhance_audio:'بهبود صدا',weekly_plan:'برنامهٔ هفتگی'};
+function jobErrShort(j){
+ const e=j&&j.error||'';
+ if(!e)return '';
+ if(e.startsWith('BLOCKED_BY_DEPENDENCY'))return 'وابستگی (سرویس هوش مصنوعی) در دسترس نبود — قابل تلاش دوباره';
+ if(e.startsWith('INVALID_AUDIO'))return 'صدای قابل استفاده تشخیص داده نشد';
+ if(/object has no attribute|Traceback|AttributeError/.test(e))return 'خطای پردازش خروجی هوش مصنوعی (جزئیات فنی)';
+ if(/urlopen|Errno|Connection|timed out/i.test(e))return 'خطای اتصال به سرویس (جزئیات فنی)';
+ return e.split(String.fromCharCode(10))[0].slice(0,90);
+}
+const jobStatus={queued:'در صف',running:'در حال اجرا',waiting_approval:'منتظر تأیید شما',completed:'کامل شد',failed:'ناموفق',cancelled:'لغو شد',blocked:'مسدود (وابستگی)'};
 const jobBadge={queued:'warn',running:'info',waiting_approval:'accent',completed:'ok',failed:'danger',cancelled:'muted'};
 const decFa={active:'حذف خودکار',restored:'بازگردانده‌شده',proposed:'نیاز به بررسی',dismissed:'نگه داشته شد'};
 const stageOrder=['ایده','پژوهش','بررسی فنی','سناریو','تأیید سناریو','ضبط','تدوین','بازآفرینی','SEO','آماده بررسی'];
@@ -205,7 +214,7 @@ async function pageDashboard(view){
   </div>
   <div>
    <div class="card"><div class="cardhead"><h2>${icon('i-activity')} کارهای زنده</h2><button class="sm" data-page="jobs">صف کارها</button></div>
-    ${running.length||waitApp?`<div class="rows">${running.concat(waitAppJobs).slice(0,4).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||j.kind}</strong>${j.status==='running'?`<div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div>`:''}</div><div class="actions">${badge(j.status)}</div></div>`).join('')}</div>`:empty('i-activity','کاری در جریان نیست','پس از درخواست تبدیل/رندر اینجا می‌آید.')}
+    ${running.length||waitApp?`<div class="rows">${running.concat(waitAppJobs).slice(0,4).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</strong>${j.status==='running'?`<div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div>`:''}</div><div class="actions">${badge(j.status)}</div></div>`).join('')}</div>`:empty('i-activity','کاری در جریان نیست','پس از درخواست تبدیل/رندر اینجا می‌آید.')}
    </div>
    <div class="card"><div class="cardhead"><h2>${icon('i-cpu')} سیستم</h2><button class="sm" data-page="services">جزئیات</button></div>
     <div class="chiprow" style="gap:6px">${health.map(x=>`<span class="badge ${x.status==='ok'?'ok':x.status==='limited'?'warn':x.status==='credential'?'':'danger'}">${esc(x.name)}</span>`).join('')}</div>
@@ -355,7 +364,7 @@ async function pageWizard(view){
  if(w.step===4&&w.job)pollWizardJob();
  bindWizard();
 }
-function jobProgressHtml(j){return `<div class="rowitem" style="border:none"><div class="t"><strong>${jobKinds[j.kind]||j.kind}</strong><small>${esc(j.error||faDate(j.created_at))}</small><div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div></div><div class="actions">${badge(j.status)}</div></div>`;}
+function jobProgressHtml(j){return `<div class="rowitem" style="border:none"><div class="t"><strong>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</strong><small>${esc(jobErrShort(j)||faDate(j.created_at))}</small><div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div></div><div class="actions">${badge(j.status)}</div></div>`;}
 async function pollWizardJob(){
  const w=wizard;if(!w.job)return;
  try{
@@ -783,7 +792,9 @@ async function pageShorts(view){
  $('#short-cands').onclick=async()=>{const id=$('#short-src').value;if(id)await loadShortsCandidates({querySelector:s=>$(s)},media.find(m=>m.id===id));};
 }
 function assetCard(m){
- return `<div class="asset"><img src="/api/media/file?id=${esc(m.id)}" alt="${esc(m.orig_name)}" loading="lazy">
+ if(m.exists===false) return `<div class="asset" style="display:flex;align-items:center;justify-content:center;min-height:112px;background:#10141d"><small class="muted">فایل موجود نیست</small></div>`;
+ return `<div class="asset"><img src="/api/media/file?id=${esc(m.id)}" alt="${esc(m.orig_name)}" loading="lazy"
+   onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns='http://www.w3.org/2000/svg' width='170' height='112'><rect width='100%' height='100%' fill='#151A26'/><text x='50%' y='50%' fill='#7C8AA0' font-size='12' text-anchor='middle' font-family='Vazirmatn'>فایل موجود نیست</text></svg>')"">
  <div class="meta"><div>${esc(m.orig_name)}</div><div class="row" style="margin-top:6px">
  <button class="sm ok" data-asset="${esc(m.id)}" data-state="approved">تأیید</button>
  <button class="sm danger" data-asset="${esc(m.id)}" data-state="rejected">رد</button></div></div></div>`;
@@ -820,7 +831,7 @@ async function pageApprovals(view){
   <div class="rows">${pubPend.map(x=>approvalRow(x,'publish')).join('')||empty('i-send','انتشار منتظری نیست','پس از تأیید سناریو و ثبت نسخه نهایی، انتشار از همین‌جا تأیید می‌شود.')}</div></div>
  </div>
  <div class="card"><div class="cardhead"><h2>${icon('i-activity')} تأیید کارها (رندر نهایی و …)</h2></div>
- <div class="rows">${waiting.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||j.kind}</strong><small>${esc(j.result?.question||faDate(j.created_at))}</small></div>
+ <div class="rows">${waiting.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</strong><small>${esc(j.result?.question||faDate(j.created_at))}</small></div>
   <div class="actions"><button class="sm primary" data-jobaction="approve" data-id="${esc(j.id)}">تأیید</button><button class="sm danger" data-jobaction="reject" data-id="${esc(j.id)}">رد</button></div></div>`).join('')||empty('i-activity','کاری منتظر تأیید نیست','رندرهای نهایی قبل از اجرا از اینجا تأیید می‌شوند.')}</div></div>`;
  $$('[data-decide2]').forEach(b=>b.onclick=async()=>{await decideGate(b.dataset.id,Number(b.dataset.revision),b.dataset.gate,b.dataset.status);});
  $$('[data-jobaction]').forEach(b=>b.onclick=async()=>{await jobAction(b.dataset.jobaction,b.dataset.id);await render();});
@@ -973,15 +984,20 @@ async function pageSeo(view){
 let jobFilter='';
 async function pageJobs(view){
  await loadJobs();
- const chips=['','queued','running','waiting_approval','completed','failed','cancelled'];
- const list=jobFilter?jobs.filter(j=>j.status===jobFilter):jobs;
+ const items=await api('/api/items?brand='+brand).catch(()=>[]);
+ const knownIds=new Set(items.map(x=>x.id));
+ const isOld=j=>j.created_at&&j.created_at<'2026-10-03T15:45'; // pre-repair era
+ const list=jobFilter==='old'?jobs.filter(j=>isOld(j)):
+            jobFilter==='current_fail'?jobs.filter(j=>j.status==='failed'&&!isOld(j)):
+            jobFilter?jobs.filter(j=>j.status===jobFilter):jobs;
  view.innerHTML=`
- <div class="chiprow" style="margin-bottom:16px">${[['','همه'],['queued','در صف'],['running','در حال اجرا'],['waiting_approval','منتظر تأیید'],['completed','کامل'],['failed','ناموفق'],['cancelled','لغو']].map(([v,l])=>`<button class="${jobFilter===v?'active':''}" data-jfilter="${v}">${l}</button>`).join('')}
+ <div class="chiprow" style="margin-bottom:16px">${[['','همه'],['queued','در صف'],['running','در حال اجرا'],['waiting_approval','منتظر تأیید'],['completed','کامل'],['failed','ناموفق'],['cancelled','لغو'],['current_fail','ناموفقِ جدید'],['old','قدیمی / نیازمند بررسی']].map(([v,l])=>`<button class="${jobFilter===v?'active':''}" data-jfilter="${v}">${l}</button>`).join('')}
  <button id="jobs-refresh">${icon('i-refresh','icon sm')}به‌روزرسانی</button></div>
  <div class="table-wrap"><table class="table"><thead><tr><th>کار</th><th>وضعیت</th><th>پیشرفت</th><th>شروع</th><th>مدت</th><th>تلاش مجدد</th><th></th></tr></thead>
  <tbody>${list.map(j=>{
    const dur=j.started_at&&j.finished_at?((new Date(j.finished_at)-new Date(j.started_at))/1000).toFixed(0)+'s':j.status==='running'?'…':'—';
-   return `<tr><td><b>${jobKinds[j.kind]||j.kind}</b>${j.error?`<div class="small" style="color:var(--danger)">${esc(j.error.slice(0,70))}</div>`:''}</td>
+   const orphan=(j.payload&&j.payload.content_id&&!knownIds.has(j.payload.content_id));
+   return `<tr><td><b>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</b>${orphan?`<div class="small muted">پروژهٔ مرتبط دیگر موجود نیست</div>`:''}${j.error?`<div class="small" style="color:var(--danger)">${esc(jobErrShort(j))}</div>${j.error.length>jobErrShort(j).length?`<details class="small"><summary>جزئیات فنی</summary><pre style="white-space:pre-wrap">${esc(j.error)}</pre></details>`:''}`:''}</td>
    <td>${badge(j.status)}</td><td style="min-width:120px"><div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div></td>
    <td class="small muted">${j.started_at?faDate(j.started_at):'—'}</td><td>${dur}</td><td>${fa(j.retry_count)}</td>
    <td><button class="sm" data-job="${esc(j.id)}">جزئیات</button></td></tr>`;
@@ -1045,12 +1061,12 @@ async function pageNotifications(view){
  view.innerHTML=`
  <div class="card"><div class="cardhead"><h2>${icon('i-bell')} اعلان‌های ثبت‌شده${notif.unread?` <span class="badge danger">${fa(notif.unread)} خوانده‌نشده</span>`:''}</h2>
  <div class="row"><button class="sm" id="notif-read">${icon('i-check','icon sm')}خواندن همه</button><button class="sm" id="notif-telegram">آزمون Telegram</button></div></div>
- <div class="rows">${notif.items.map(n=>`<div class="rowitem" style="${n.read?'opacity:.55':''}"><div class="t"><strong>${esc(n.title)}</strong><small>${esc(n.body||'')} · ${faDate(n.created_at)}</small></div><div class="actions"><span class="badge ${n.kind==='job_failed'?'danger':n.kind==='approval_needed'?'warn':'info'}">${({approval_needed:'تأیید',job_failed:'ناموفق',render_done:'رندر',ai_done:'هوشمند'})[n.kind]||n.kind}</span></div></div>`).join('')||empty('i-bell','اعلانی ثبت نشده','رویدادهای مهم (شکست کار، نیاز به تأیید، رندر کامل) اینجا ثبت می‌شوند.')}</div></div>
+ <div class="rows">${notif.items.map(n=>`<div class="rowitem" style="${n.read?'opacity:.55':''}"><div class="t"><strong>${esc(n.title)}</strong><small>${esc(jobErrShort({error:n.body||''})||n.body||'')} · ${faDate(n.created_at)}</small></div><div class="actions"><span class="badge ${n.kind==='job_failed'?'danger':n.kind==='approval_needed'?'warn':'info'}">${({approval_needed:'تأیید',job_failed:'ناموفق',render_done:'رندر',ai_done:'هوشمند',job_blocked:'مسدود',job_started:'شروع'})[n.kind]||'رویداد'}</span></div></div>`).join('')||empty('i-bell','اعلانی ثبت نشده','رویدادهای مهم (شکست کار، نیاز به تأیید، رندر کامل) اینجا ثبت می‌شوند.')}</div></div>
  <div class="card"><h2>${icon('i-activity')} وضعیت زندهٔ پروژه‌ها</h2>
  <div class="rows">
  ${pending.map(x=>`<div class="rowitem"><div class="t"><strong>تأییدهای پروژه «${esc(x.title)}» ناقص است</strong><small>سناریو: ${x.script_status} · انتشار: ${x.publish_status}</small></div><div class="actions"><button class="sm" data-openproject="${esc(x.id)}">بررسی</button></div></div>`).join('')}
  ${waiting.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]} منتظر تأیید شماست</strong><small>${faDate(j.created_at)}</small></div><div class="actions"><button class="sm" data-goto="approvals">مرکز تأیید</button></div></div>`).join('')}
- ${failed.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]} ناموفق بود</strong><small>${esc((j.error||'').slice(0,90))}</small></div><div class="actions"><button class="sm" data-goto="jobs">صف کارها</button></div></div>`).join('')}
+ ${failed.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]} ناموفق بود</strong><small>${esc(jobErrShort(j))}</small></div><div class="actions"><button class="sm" data-goto="jobs">صف کارها</button></div></div>`).join('')}
  ${(pending.length+waiting.length+failed.length)?'':empty('i-bell','همه چیز مرتب است','هیچ مورد بازی وجود ندارد.')}</div></div>
  <p class="small muted">ارسال Telegram به TELEGRAM_BOT_TOKEN و TELEGRAM_CHAT_ID در environment نیاز دارد؛ بدون آن، دکمهٔ آزمون صادقانه «BLOCKED_BY_CREDENTIAL» برمی‌گرداند.</p>`;
  $('#notif-read').onclick=async()=>{await api('/api/notifications/read',{});await render();};
@@ -1515,7 +1531,7 @@ $('#transcript-file').addEventListener('change',async e=>{
 });
 async function jobDetail(id){
  const j=await api('/api/job?id='+encodeURIComponent(id));
- $('#job-detail').innerHTML=`<h3>${jobKinds[j.kind]||j.kind}</h3>
+ $('#job-detail').innerHTML=`<h3>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</h3>
  <p>${badge(j.status)} ${j.progress?fa(j.progress)+'٪':''}</p>
  ${j.error?`<p class="small" style="color:var(--danger)">${esc(j.error)}</p>`:''}
  ${j.result?`<pre>${esc(JSON.stringify(j.result,null,1))}</pre>`:''}
