@@ -150,9 +150,9 @@ def render_cut_handler(ctx):
             except ValueError: pass
         if ctx.cancelled():
             proc.kill(); raise JobCancelled()
-    code=proc.wait();errfile.close()
+    code=proc.wait()
     if code!=0:
-        errfile.seek(0);err=errfile.read().decode('utf-8','replace')[-500:]
+        errfile.seek(0);err=errfile.read().decode('utf-8','replace')[-500:];errfile.close()
         out.unlink(missing_ok=True)
         raise RuntimeError('رندر ناموفق بود: '+err)
     if not out.exists() or out.stat().st_size==0: raise RuntimeError('خروجی رندر ساخته نشد.')
