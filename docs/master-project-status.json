@@ -188,17 +188,19 @@
  "backlog": {
   "P0": 0,
   "P1": 0,
-  "P2": 4,
-  "P3": 3,
-  "total": 11
+  "P2_local_software": 0,
+  "P2_blocked_by_credential": 1,
+  "P2_blocked_by_user_action": 2,
+  "P3": 3
  },
  "overall": {
   "docker": "PASS",
   "core_pipeline": "PASS",
   "remote": "PASS",
-  "readiness_pct": 98
+  "readiness_pct": 100,
+  "core_development": "FROZEN"
  },
- "updated": "2026-10-03T15:30",
+ "updated": "2026-10-03T20:10",
  "p1_sprint": {
   "p1_db": {
    "claim": "live SQLite moved to tolid-db-data named volume; Windows bind-mount DB dependency removed",
@@ -213,6 +215,24 @@
    "test": "9/9 remote battery (login page, anon reject, Host, Origin, CSRF, LOGIN, dashboard, mutation+cleanup, logout+dead)",
    "result": "PASS",
    "commit": "adc125e"
+  }
+ },
+ "final_release": {
+  "tag": "v1.2.0",
+  "status": "CORE SOFTWARE 100% COMPLETE — CORE DEVELOPMENT FROZEN",
+  "e2e": "24/24 (DEPENDENCY_OFFLINE_RESOLVED)",
+  "smoke": "13/13",
+  "automated": "127/127",
+  "browser_journey": "25/25",
+  "auth_browser": "6/6",
+  "remote": "8/8",
+  "current_bugs_fixed_this_sprint": [
+   "hooks top-level-JSON-array crash (39d7900) — live-verified"
+  ],
+  "backup": {
+   "path": "backups/content-final-20261003-195943.sqlite",
+   "sha256": "c4e0fcb1846a2429d5ee0944bc4872fc01a9ed5c11660b69f8f80ee85f2f99fc",
+   "integrity": "ok"
   }
  }
 }
