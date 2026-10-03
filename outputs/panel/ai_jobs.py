@@ -35,18 +35,30 @@ def _ctx_text(services,content_id):
 def _finish(ctx,content_id,kind,oid,status,result,raw,provider,model,job_id,payload=None):
     ctx.services['ai'].save_output(oid,content_id,kind,status,payload,result,raw,provider,model,job_id)
 
-def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400,validator=None):
+def _normalize_llm(data,list_key=None):
+    """CENTRAL AI response-shape boundary (BUG-001). Contract:
+    dict -> dict; list-of-one-dict -> that dict (model wrapped it);
+    a bare JSON array -> {list_key: [...]} ONLY for handlers that declare a
+    semantic list contract (hooks); everything else -> None (=> structured
+    parse_error + strict retry). NEVER returns a raw list to a handler, so no
+    handler can hit `list has no attribute get`."""
+    if isinstance(data,dict): return data
+    if isinstance(data,list):
+        if list_key and data and all(isinstance(x,str) for x in data):
+            return {list_key:data}                     # semantic bare-list (e.g. hook texts)
+        if list_key and data and all(isinstance(x,dict) for x in data):
+            return {list_key:data}                     # row objects without the wrapper
+        if len(data)==1 and isinstance(data[0],dict): return data[0]
+    return None
+
+def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400,validator=None,list_key=None):
     """Structured-output pipeline: extract → repair → validate → one stricter
     retry → honest parse_error. Never fabricates missing fields."""
     ctx.progress(20)
     out=ai.chat(ctx.services['ai'],task,messages,max_tokens=max_tokens,temperature=0.4)
     ctx.log(f"پاسخ از {out['provider']} دریافت شد ({out['model']})")
     ctx.progress(55)
-    data=extract_json(out['content'])
-    if isinstance(data,list):
-        # model returned a top-level JSON array; if it holds a single dict with the
-        # expected shape, use it — otherwise treat as parse_error so the strict retry fires
-        data=next((d for d in data if isinstance(d,dict)),None) if len(data)==1 else None
+    data=_normalize_llm(extract_json(out['content']),list_key)
     problems=validator(data) if (data is not None and validator) else []
     if data is None or problems:
         reason='خروجی JSON نبود' if data is None else '؛ '.join(problems)
@@ -56,7 +68,7 @@ def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400,validator=No
             {'role':'system','content':'یادآوری حیاتی: پاسخ را فقط و فقط به شکل یک JSON خام و معتبر بده — بدون مقدمه، بدون توضیح، بدون markdown، بدون کلید ستاره‌دار. ساختار فیلدها دقیقاً همان باشد که خواسته شد. مشکل قبلی: '+reason})
         try:
             out2=ai.chat(ctx.services['ai'],task,retry,max_tokens=min(max_tokens+800,4800),temperature=0.2)
-            data2=extract_json(out2['content'])
+            data2=_normalize_llm(extract_json(out2['content']),list_key)
             problems2=validator(data2) if (data2 is not None and validator) else []
             if data2 is not None and not problems2:
                 ctx.log('تلاش دوم موفق بود')
@@ -180,7 +192,7 @@ def generate_hooks_handler(ctx):
       +skill[:1200]+'\n\n'
       'موضوع: '+item['title']+'\nمتن: '+((item.get('transcript') or item.get('body') or '')[:1200])+'\n\n'+JSON_HOOKS)
     out,data=_llm_json(ctx,content_id,'hooks',oid,'hooks',
-                       [{'role':'system','content':system},{'role':'user','content':user}],max_tokens=900)
+                       [{'role':'system','content':system},{'role':'user','content':user}],max_tokens=900,list_key='hooks')
     hooks=data.get('hooks',[]) if isinstance(data,dict) else (data if isinstance(data,list) else [])
     result={'hooks':hooks}
     _finish(ctx,content_id,'hooks',oid,'ok',result,'',out['provider'],out['model'],ctx.id)

@@ -163,9 +163,13 @@ def chat(store,task,messages,max_tokens=900,temperature=0.6,timeout=600,provider
     try:
         out=_request(p['base_url'].rstrip('/')+'/chat/completions',payload,timeout,key)
     except urllib.error.HTTPError as e:
-        raise DependencyMissing(f"پرووایدر {p['name']} خطا داد: {e.code} {e.read().decode('utf-8','replace')[:200]}")
-    except Exception as e:
-        raise DependencyMissing(f"اتصال به پرووایدر {p['name']} ممکن نشد: {str(e)[:200]}")
+        detail=e.read().decode('utf-8','replace')[:160]
+        hint='مدل بارگذاری نشده یا درخواست نامعتبر است' if e.code in (400,404) else ('مهلت پاسخ سرویس هوش مصنوعی تمام شد' if e.code==504 else 'خطای سرویس هوش مصنوعی')
+        raise DependencyMissing(f"سرویس هوش مصنوعی ({p['name']}) پاسخ داد: {e.code} — {hint}. جزئیات فنی در لاگ.")
+    except TimeoutError:
+        raise DependencyMissing('مهلت پاسخ سرویس هوش مصنوعی تمام شد (timeout). جزئیات فنی در لاگ.')
+    except (ConnectionRefusedError,ConnectionResetError,OSError) as e:
+        raise DependencyMissing(f'سرویس هوش مصنوعی ({p["name"]}) در دسترس نیست — LM Studio/پرووایدر خاموش است؟ (BLOCKED_BY_DEPENDENCY)')
     content=(out.get('choices') or [{}])[0].get('message',{}).get('content','')
     return {'content':content,'provider':p['name'],'model':out.get('model') or model or ''}
 
