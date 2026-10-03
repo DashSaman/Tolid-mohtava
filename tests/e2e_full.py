@@ -50,7 +50,7 @@ def main():
         assert r.get('token'),'docker e2e login failed'
         token=r['token']
     MODEL=os.environ.get('E2E_MODEL','qwen2.5-7b-instruct')
-    api('/api/ai/providers/save',{'name':'lmstudio','base_url':'http://127.0.0.1:1234/v1',
+    api('/api/ai/providers/save',{'name':'lmstudio','base_url':('http://host.docker.internal:1234/v1' if '18767' in BASE else 'http://127.0.0.1:1234/v1'),
         'model':MODEL,'api_key_env':'','tasks':['research','verification','script','social','seo','analysis','hooks','thumbnail']},token)
     step('AI provider pinned: '+MODEL,True)
     # 1) project + real Persian voice

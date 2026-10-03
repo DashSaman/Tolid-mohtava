@@ -43,6 +43,10 @@ def _llm_json(ctx,content_id,kind,oid,task,messages,max_tokens=1400,validator=No
     ctx.log(f"پاسخ از {out['provider']} دریافت شد ({out['model']})")
     ctx.progress(55)
     data=extract_json(out['content'])
+    if isinstance(data,list):
+        # model returned a top-level JSON array; if it holds a single dict with the
+        # expected shape, use it — otherwise treat as parse_error so the strict retry fires
+        data=next((d for d in data if isinstance(d,dict)),None) if len(data)==1 else None
     problems=validator(data) if (data is not None and validator) else []
     if data is None or problems:
         reason='خروجی JSON نبود' if data is None else '؛ '.join(problems)
@@ -177,7 +181,8 @@ def generate_hooks_handler(ctx):
       'موضوع: '+item['title']+'\nمتن: '+((item.get('transcript') or item.get('body') or '')[:1200])+'\n\n'+JSON_HOOKS)
     out,data=_llm_json(ctx,content_id,'hooks',oid,'hooks',
                        [{'role':'system','content':system},{'role':'user','content':user}],max_tokens=900)
-    result={'hooks':data.get('hooks',[])}
+    hooks=data.get('hooks',[]) if isinstance(data,dict) else (data if isinstance(data,list) else [])
+    result={'hooks':hooks}
     _finish(ctx,content_id,'hooks',oid,'ok',result,'',out['provider'],out['model'],ctx.id)
     return {'output_id':oid,'count':len(result['hooks'])}
 
