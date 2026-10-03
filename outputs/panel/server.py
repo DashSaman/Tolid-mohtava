@@ -182,12 +182,16 @@ class Handler(BaseHTTPRequestHandler):
         # .ts.net names, and the container-internal service name. Still the DNS-rebinding
         # defense: any other Host header is rejected.
         import ipaddress
-        h=self.headers.get('Host') or ''
-        host=h.split(':')[0].strip('[]')
+        h=(self.headers.get('Host') or '').strip()
+        if h.startswith('[') and ']' in h: host=h.split(']')[0][1:]   # [v6]:port
+        else: host=h.split(':')[0].strip('[]')
         if h in (f'127.0.0.1:{PORT}',f'localhost:{PORT}',f'tolid-web:{PORT}'): return True
         if host in ('127.0.0.1','localhost','::1','[::1]','tolid-web'): return True
         if host.endswith('.ts.net'): return True
-        try: return ipaddress.ip_address(host) in ipaddress.ip_network('100.64.0.0/10')
+        try:
+            import ipaddress as _ip
+            a=_ip.ip_address(host)
+            return a in _ip.ip_network('100.64.0.0/10') or a in _ip.ip_network('fd7a:115c:a1e0::/48')
         except ValueError: return False
     def stream_file(self,path,size,mime):
         rng=self.headers.get('Range')
@@ -388,10 +392,14 @@ class Handler(BaseHTTPRequestHandler):
                          'http://tolid-web:'+str(PORT))
         import ipaddress as _ipa
         def _host_ok(hh):
-            hname=(hh or '').split(':')[0].strip('[]')
+            raw=(hh or '').strip()
+            if raw.startswith('[') and ']' in raw: hname=raw.split(']')[0][1:]   # [v6]:port
+            else: hname=raw.split(':')[0].strip('[]')
             if hname in ('127.0.0.1','localhost','::1','tolid-web'): return True
             if hname.endswith('.ts.net'): return True
-            try: return _ipa.ip_address(hname) in _ipa.ip_network('100.64.0.0/10')
+            try:
+                a=_ipa.ip_address(hname)
+                return a in _ipa.ip_network('100.64.0.0/10') or a in _ipa.ip_network('fd7a:115c:a1e0::/48')
             except ValueError: return False
         _origin=self.headers.get('Origin')
         _oh=(_origin or '').split('//')[-1]

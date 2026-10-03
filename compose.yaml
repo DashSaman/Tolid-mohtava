@@ -42,7 +42,7 @@ services:
              CB=$!;
              for i in $$(seq 1 60); do tailscale status >/dev/null 2>&1 && break; sleep 2; done;
              tailscale status 2>&1 | head -3;
-             exec socat TCP-LISTEN:8766,fork,reuseaddr TCP:tolid-web:8766"
+             exec socat TCP6-LISTEN:8766,fork,reuseaddr,bind=[::] TCP:tolid-web:8766"
     networks: [tolid_internal]
 volumes:
   tolid-hf-cache: {}
