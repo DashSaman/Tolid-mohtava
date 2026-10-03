@@ -14,7 +14,13 @@ services:
     extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["127.0.0.1:18767:8766"]
     volumes:
-      - ${TOLID_DATA_DIR:-./runtime/data-staging}:/app/outputs/panel/data
+      # LIVE SQLite lives in a Docker-managed named volume (native Linux fs; correct WAL
+      # locks). The Windows bind mount caused container DB-open failures when any host
+      # process touched the file (oplock translation). Host NEVER opens the live DB.
+      - tolid-db-data:/app/outputs/panel/data
+      # user media/renders remain host-side via explicit read-write bind mounts:
+      - ${TOLID_MEDIA_DIR:-C:/Users/amirreza/.zcode/workspace/default/Tolid-mohtava/outputs/panel/data/media}:/app/outputs/panel/data/media
+      - ${TOLID_RENDERS_DIR:-C:/Users/amirreza/.zcode/workspace/default/Tolid-mohtava/outputs/panel/data/renders}:/app/outputs/panel/data/renders
       - tolid-hf-cache:/cache
     networks: [tolid_internal]
   tolid-tailscale:
@@ -41,3 +47,4 @@ services:
 volumes:
   tolid-hf-cache: {}
   tolid-ts-state: {}
+  tolid-db-data: {}
