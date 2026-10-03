@@ -1,7 +1,5 @@
 # شروع سریع (QUICKSTART فارسی)
 
-> **وضعیت فعلی (v1.2.0): اجرا در Docker.** راه‌اندازی روزمره: `Start-Tolid-Docker.cmd` ← پنل محلی: `http://127.0.0.1:18767` · دیتابیس: volume نام‌دار داکر (بکاپ: `Backup-Tolid-Docker.cmd` / بازگردانی: `Restore-Tolid-Docker.cmd`) · راه‌دور خصوصی: سایدکار Tailscale داکر. اجرای بومی (`Open-Panel.cmd`) فقط مسیر rollback است.
-
 ## حداقل سخت‌افزار
 - ویندوز ۱۰/۱۱، ۱۶GB RAM، ۲۰GB فضای آزاد. (بدون GPU هم کار می‌کند؛ فقط کندتر.)
 
