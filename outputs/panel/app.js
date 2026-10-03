@@ -1412,6 +1412,15 @@ function openEditor(id){
 }
 
 /* ── global events ───────────────────────────────────────────── */
+document.addEventListener('toggle',e=>{
+ const d=e.target;
+ if(d.matches&&d.matches('details.ctxmenu')&&d.open){
+  const m=d.querySelector('.ctxitems');if(!m)return;
+  m.classList.remove('up');
+  const r=m.getBoundingClientRect();
+  if(r.bottom>window.innerHeight-8)m.classList.add('up');
+ }
+},true);
 document.addEventListener('click',async e=>{
  const b=e.target.closest('button');if(!b)return;
  try{
