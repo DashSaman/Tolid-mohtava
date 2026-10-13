@@ -14,34 +14,34 @@
 
 ## ۵. Transcript خودکار
 پیشرفت تبدیل در «کارها»؛ متن با زمان‌بندی در تب Transcript:
-![Transcript](images/fa-v4/08-transcript.jpg)
+![Transcript](images/fa-v3/08-transcript.jpg)
 
 ## ۶. تحقیق ← ۷. سناریو
 تب **هوش مصنوعی** ← «خط تولید کامل» ← صبر تا سبز شود؛ خروجی‌ها (تحقیق، سناریو، هوک، بسته‌ها) همان‌جا:
-![هوش مصنوعی](images/fa-v4/05-ai-brain.jpg)
+![هوش مصنوعی](images/fa-v3/05-ai-brain.jpg)
 سناریوی خوب؟ «ثبت به‌عنوان سناریوی پروژه» ← تب سناریو ← «تأیید سناریو برای ضبط».
-![سناریو](images/fa-v4/06-script.jpg)
+![سناریو](images/fa-v3/06-script.jpg)
 
 ## ۸. آپلود ضبط‌ها ← ۹. تدوین خودکار
 تب **رسانه** ← فایل فیس‌کم و ضبط صفحه را بدهید ← «همگام‌سازی خودکار تراک‌ها».
-![رسانه](images/fa-v4/07-media.jpg)
+![رسانه](images/fa-v3/07-media.jpg)
 تب **تدوین** ← «تحلیل تدوین» ← گزارش را ببینید؛ هر برش اشتباه را «بازگردانی» کنید:
-![تدوین](images/fa-v4/09-editing.jpg)
+![تدوین](images/fa-v3/09-editing.jpg)
 
 ## ۱۰. Preview ← ۱۱. Final
 «ساخت Preview» ← پخش کنترل کنید ← «ساخت نسخهٔ نهایی» ← **مرکز تأیید** ← تأیید:
-![تأیید](images/fa-v4/12-approvals.jpg)
+![تأیید](images/fa-v3/12-approvals.jpg)
 
 ## ۱۲. Shorts ← ۱۳. مقاله و سئو
 تب Shorts ← «رتبه‌بندی هوشمند V2» ← «رندر این کاندیدا».
-![Shorts](images/fa-v4/10-shorts.jpg)
+![Shorts](images/fa-v3/10-shorts.jpg)
 تب هوش مصنوعی ← «مقاله و سئو»؛ صفحهٔ سئو ← «اجرای اسکن».
-![سئو](images/fa-v4/13-seo.jpg)
+![سئو](images/fa-v3/13-seo.jpg)
 
 ## ۱۴. تأیید انتشار (Dry-Run) ← ۱۵. Analytics
 مرکز تأیید ← «تأیید انتشار» ← بستهٔ dry-run در صفحهٔ انتشار:
-![انتشار](images/fa-v4/11-publishing.jpg)
+![انتشار](images/fa-v3/11-publishing.jpg)
 عملکرد واقعی را در Analytics ثبت کنید تا یادگیری شروع شود:
-![Analytics](images/fa-v4/14-analytics.jpg)
+![Analytics](images/fa-v3/14-analytics.jpg)
 
 **تمام!** از این‌جا به بعد روزانه فقط: [DAILY-USE](DAILY-USE.fa.md) · همهٔ دکمه‌ها: [UI-GUIDE](UI-GUIDE.fa.md)

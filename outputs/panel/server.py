@@ -4,7 +4,7 @@ from urllib.parse import urlsplit,parse_qs
 import json, mimetypes, os, secrets, socket, uuid, sqlite3, subprocess
 from store import Store
 from registry import skill_registry
-from jobs import JobManager
+from jobs import JobManager, DependencyMissing
 from media import MediaLibrary, KINDS as MEDIA_KINDS
 from transcribe import Transcripts
 from editing import EditDecisions, report_lines
@@ -58,12 +58,13 @@ JM=JobManager(DB.path,handlers=build_handlers()|{
   'whisper_benchmark':benchmark_handler,'sync_content':sync_content_handler,
   'enhance_audio':enhance_audio_handler,'seo_scan':seo_scan_handler,'archive_copy':archive_copy_handler,
   'analytics_sync':analytics_sync_handler,'optimize_content':optimize_content_handler,
-  'weekly_plan':weekly_plan_handler,'seo_proposals':seo_proposals_handler,'shorts_v2':shorts_v2_handler},workers=2,
+  'weekly_plan':weekly_plan_handler,'seo_proposals':seo_proposals_handler,'shorts_v2':shorts_v2_handler,
+  'gsc_ingest':gsc_ingest_handler,'gemini_image':gemini_image_handler},workers=2,
               services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
                         'store':DB,'dryrun_root':str(DATA/'dryrun'),
                         'ai':AISTORE,'policy':POLICY_TEXT,
                         'whisper_settings':WSSET,'sync':SYNCSTORE,'seo':SEOSTORE,'archive':ARCHIVE,
-                        'analytics':ANALYTICS,'keywords':KWSTORE,'kb':KB})
+                        'analytics':ANALYTICS,'keywords':KWSTORE,'kb':KB,'oauth':OAUTH})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 def brand_default(): return 'tehran-network'
@@ -110,39 +111,20 @@ def get_job_kind_safe(jid):
     except Exception: return None
 
 def ai_preflight(kind=None):
-    """OPS-002/BUG-002: cheap readiness probe before enqueueing/retrying AI jobs.
-    Returns None when the LM Studio provider answers; raises ValueError with a Persian
-    BLOCKED_BY_DEPENDENCY message otherwise. NOT a guarantee (TOCTOU-safe by design —
-    worker-side handling stays authoritative)."""
-    import socket as _sk, urllib.request as _u
-    AI_KINDS={'research_topic','technical_verification','generate_script','generate_hooks',
-              'generate_title_packages','generate_social','generate_article','generate_pinned','content_pipeline'}
-    if kind is not None and kind not in AI_KINDS: return None
-    try:
-        p=None
-        with DB_conn() as c:
-            pass
-    except Exception:
-        pass
-    try:
-        import ai as _ai
-        url=''
-        # provider for the task
-        try:
-            ps=AI.providers()
-            cand=[x for x in ps if x.get('enabled',1) and x.get('tasks') and ('research' in (x.get('tasks') or []) or not x.get('model'))]
-            url=((cand[0].get('base_url') or '') if cand else '')
-        except Exception: url=''
-        if not url: url='http://host.docker.internal:1234/v1'
-        host_port=url.split('//')[-1].split('/v1')[0]
-        host,port=(host_port.split(':')+['80'])[:2] if ':' in host_port else (host_port,'1234')
-        with _sk.create_connection((host,int(port)),timeout=2): pass
-        try:
-            _u.urlopen(url.rstrip('/')+'/models',timeout=3)
-        except Exception: pass
-        return None
-    except Exception:
-        raise ValueError('سرویس هوش مصنوعی (LM Studio) روشن نیست — کار AI صف نمی‌شود (BLOCKED_BY_DEPENDENCY). ابتدا LM Studio و سرور آن را روشن کنید.')
+    """Probe the same task provider the worker will use; never silently reroute."""
+    from ai import readiness
+    tasks={'research_topic':'research','technical_verification':'verification',
+           'generate_script':'script','generate_hooks':'hooks','generate_title_packages':'thumbnail',
+           'generate_social':'social','generate_article':'seo','generate_pinned':'social',
+           'content_pipeline':'research'}
+    if kind is not None and kind not in tasks: return None
+    p=AISTORE.provider_for_task(tasks.get(kind,'research'))
+    result=readiness(p)
+    if not result['ok']:
+        raise ValueError(result['detail']+' (BLOCKED_BY_DEPENDENCY)')
+
+def oauth_public_base():
+    return os.environ.get('OAUTH_REDIRECT_BASE') or ('http://127.0.0.1:18767' if os.environ.get('TEHNET_PANEL_BIND')=='0.0.0.0' else f'http://127.0.0.1:{PORT}')
 
 def delete_media_row(mid,lib,ts,dec,rd):
     """Shared safe recording delete: related rows + file (path-verified)."""
@@ -215,6 +197,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length',str(len(data)))
         self.send_header('Cache-Control','no-store')
         self.send_header('X-Content-Type-Options','nosniff')
+        if getattr(self,'session_cookie',None): self.send_header('Set-Cookie',self.session_cookie)
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
@@ -259,8 +242,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.valid_host(): return self.respond({'error':'میزبان مجاز نیست.'},403)
         url=urlsplit(self.path); q=parse_qs(url.query)
+        if url.path.startswith('/api/') and url.path not in ('/api/session','/api/health') and self.require_auth(): return
         try:
-            if url.path=='/api/session': return self.respond({'token':TOKEN,'app':'tehnet-content-panel','auth_required':AUTH.enabled})
+            if url.path=='/api/session':
+                from http.cookies import SimpleCookie
+                cookie=SimpleCookie()
+                try:cookie.load(self.headers.get('Cookie',''))
+                except Exception:pass
+                saved=cookie.get('tehnet_session')
+                authenticated=bool(AUTH.enabled and saved and AUTH.check(saved.value))
+                return self.respond({'token':TOKEN,'app':'tehnet-content-panel','auth_required':AUTH.enabled,'authenticated':authenticated})
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
             if url.path=='/api/assets': return self.respond(MEDIA.list_assets(q.get('state',[None])[0]))
@@ -286,7 +277,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/archive': return self.respond(ARCHIVE.list())
             if url.path=='/api/sync': return self.respond(SYNCSTORE.for_content(q.get('content_id',[''])[0]))
             if url.path=='/api/analytics/status':
-                rows=adapter_status()
+                rows=adapter_status(OAUTH)
                 for r in rows:
                     snaps=ANALYTICS.snapshots(r['platform'],limit=5)
                     r['snapshots']=len(ANALYTICS.snapshots(r['platform'],limit=1000))
@@ -301,18 +292,22 @@ class Handler(BaseHTTPRequestHandler):
             if url.path.startswith('/oauth/callback'):
                 q=parse_qs(url.query)
                 try:
-                    r=oauth_callback(q.get('provider',[''])[0],OAUTH,q.get('code',[''])[0],q.get('state',[''])[0])
-                    return self.respond(r)
+                    r=oauth_callback(q.get('provider',[None])[0],OAUTH,q.get('code',[''])[0],q.get('state',[''])[0],oauth_public_base())
+                    self.send_response(303); self.send_header('Location','/#/integrations'); self.end_headers(); return
                 except Exception as e:
                     return self.respond({'error':str(e)[:200]},400)
             if url.path=='/api/oauth/start':
-                prov=data.get('provider'); base='http://127.0.0.1:'+str(PORT)
+                if self.require_auth(): return
+                prov=q.get('provider',[''])[0]; base=oauth_public_base()
                 try: return self.respond({'url':oauth_start_url(prov,OAUTH,base)})
                 except DependencyMissing as e: return self.respond({'error':str(e)},400)
             if url.path=='/api/oauth/status':
                 return self.respond({k:oauth_status(k) for k in OAUTH_PROVIDERS})
+            if url.path=='/api/youtube/status':
+                from youtube_adapter import connection_status
+                return self.respond(connection_status(OAUTH))
             if url.path=='/api/integrations':
-                return self.respond({'core':adapter_status(),'optional':all_optional_integrations()})
+                return self.respond({'core':adapter_status(OAUTH),'optional':all_optional_integrations()})
             if url.path=='/api/ops/observability':
                 JM.mark_stale_running()
                 return self.respond(JM.observability())
@@ -364,7 +359,7 @@ class Handler(BaseHTTPRequestHandler):
                 qc={}
                 for st in ('queued','running','waiting_approval','completed','failed','cancelled'):
                     qc[st]=len(JM.list(status=st))
-                return self.respond(health_payload(DB.path,qc,len(JM._threads)))
+                return self.respond(health_payload(DB.path,qc,len(JM._threads),AISTORE.provider_for_task('research')))
             if url.path=='/api/media/file': return self.serve_media(q)
             if url.path=='/api/renders': return self.respond(RENDERS.list(q.get('media_id',[''])[0]))
             if url.path=='/api/renders/file':
@@ -417,6 +412,14 @@ class Handler(BaseHTTPRequestHandler):
         unauthenticated but let the login route through."""
         if not AUTH.enabled: return False
         tok=self.headers.get('X-Panel-Token')
+        if not tok or tok==TOKEN:
+            from http.cookies import SimpleCookie
+            cookie=SimpleCookie()
+            try:
+                cookie.load(self.headers.get('Cookie',''))
+                saved=cookie.get('tehnet_session')
+                if saved and AUTH.check(saved.value):tok=saved.value
+            except Exception:pass
         if tok==TOKEN:  # CSRF-level caller, not a logged session
             if urlsplit(self.path).path=='/api/auth/login': return False
             self.respond({'error':'برای این عملیات باید وارد شوید.'},401)
@@ -459,7 +462,18 @@ class Handler(BaseHTTPRequestHandler):
         try:
             size=int(self.headers.get('Content-Length','0'))
             if path=='/api/auth/logout':
-                AUTH.logout(self.headers.get('X-Panel-Token')); return self.respond({'ok':True})
+                session_token=self.headers.get('X-Panel-Token')
+                if not session_token or session_token==TOKEN:
+                    from http.cookies import SimpleCookie
+                    cookie=SimpleCookie()
+                    try:
+                        cookie.load(self.headers.get('Cookie',''))
+                        saved=cookie.get('tehnet_session')
+                        if saved:session_token=saved.value
+                    except Exception:pass
+                AUTH.logout(session_token)
+                self.session_cookie='tehnet_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
+                return self.respond({'ok':True})
             if size<1 or size>1500000: raise ValueError('حجم درخواست معتبر نیست.')
             data=json.loads(self.rfile.read(size))
             if not isinstance(data,dict): raise ValueError('درخواست معتبر نیست.')
@@ -467,6 +481,7 @@ class Handler(BaseHTTPRequestHandler):
                 # reachable without a session (CSRF token above already gates it)
                 if not AUTH.enabled: return self.respond({'ok':True,'note':'احراز هویت فعال نیست؛ پنل فقط روی loopback است.'})
                 r=AUTH.login(data.get('username'),data.get('password'),self.client_address[0])
+                if r.get('ok'):self.session_cookie='tehnet_session='+r['token']+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200'
                 return self.respond(r,200 if r.get('ok') else 401)
             if self.path=='/api/items': return self.respond(DB.save(data))
             if self.path=='/api/project/archive': return self.respond(DB.set_archived(data.get('id'),bool(data.get('archived',True))))
@@ -536,7 +551,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(JM.enqueue('archive_copy',{'content_id':data.get('content_id'),'passport_path':data.get('passport_path'),'approved':data.get('approved')},
                     idempotency_key='archive:'+data.get('content_id','')+':'+uuid.uuid4().hex))
             if self.path=='/api/analytics/sync':
-                return self.respond(JM.enqueue('analytics_sync',{'platform':data.get('platform')},idempotency_key='as:'+str(data.get('platform'))+':'+uuid.uuid4().hex))
+                return self.respond(JM.enqueue('analytics_sync',{'platform':data.get('platform'),'brand':data.get('brand',brand_default())},idempotency_key='as:'+str(data.get('platform'))+':'+uuid.uuid4().hex))
             if self.path=='/api/analytics/optimize':
                 return self.respond(JM.enqueue('optimize_content',data,idempotency_key='opt:'+str(data.get('content_id'))+':'+uuid.uuid4().hex))
             if self.path=='/api/analytics/record':
@@ -553,7 +568,7 @@ class Handler(BaseHTTPRequestHandler):
                                        data.get('metrics') or {},data.get('source','manual'))
                 return self.respond({'ok':True})
             if self.path=='/api/gsc/ingest':
-                return self.respond(JM.enqueue('gsc_ingest',{'site':data.get('site'),'start':data.get('start'),'end':data.get('end')},
+                return self.respond(JM.enqueue('gsc_ingest',{'site':data.get('site'),'start':data.get('start'),'end':data.get('end'),'brand':data.get('brand',brand_default())},
                     idempotency_key='gsc:'+uuid.uuid4().hex))
             if self.path=='/api/gemini/generate':
                 return self.respond(JM.enqueue('gemini_image',{'prompt':data.get('prompt'),'content_id':data.get('content_id')},
@@ -569,13 +584,39 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/ga4/fetch':
                 try:
                     metrics=ga4_fetch()
-                    ANALYTICS.add_snapshot('ga4',brand,None,
+                    ANALYTICS.add_snapshot('ga4',data.get('brand',brand_default()),None,
                         {k:v for k,v in metrics.items()},'ga4-api')
                     return self.respond({'ok':True,'metrics':metrics})
                 except DependencyMissing as e:
                     return self.respond({'error':str(e)},400)
             if self.path=='/api/integrations/test':
-                return self.respond(adapter_health(data.get('platform')))
+                platform=data.get('platform')
+                if platform in ('ga4','google_ads','gemini'):
+                    try:
+                        if platform=='ga4':
+                            from integrations import ga4_status
+                            if ga4_status()['state']!='ready': raise DependencyMissing('GA4_PROPERTY_ID و GA4_ACCESS_TOKEN را تنظیم کنید.')
+                            ga4_fetch()
+                        elif platform=='google_ads':
+                            from providers import ads_keyword_ideas
+                            ads_keyword_ideas('network training',max_rows=1)
+                        else:
+                            key=os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_AI_API_KEY')
+                            if not key: raise DependencyMissing('GEMINI_API_KEY را تنظیم کنید.')
+                            import urllib.request
+                            req=urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models',headers={'x-goog-api-key':key})
+                            with urllib.request.urlopen(req,timeout=10) as response: json.load(response)
+                        return self.respond({'ok':True,'detail':'ارتباط با سرویس تأیید شد.'})
+                    except DependencyMissing as e:return self.respond({'ok':False,'detail':str(e)})
+                    except Exception:return self.respond({'ok':False,'detail':'سرویس پاسخ معتبر نداد؛ تنظیمات حساب و دسترسی شبکه را بررسی کنید.'})
+                if data.get('platform')=='youtube':
+                    from youtube_adapter import channel_statistics
+                    try:
+                        channel,metrics=channel_statistics(OAUTH)
+                        return self.respond({'ok':True,'detail':'کانال متصل: '+channel})
+                    except Exception:return self.respond({'ok':False,'detail':'اتصال برنامهٔ Google و حساب YouTube را کامل کنید.'})
+                if platform not in PLATFORMS:return self.respond({'error':'سرویس ناشناخته است.'},400)
+                return self.respond(adapter_health(platform))
             if self.path=='/api/weekly-plan':
                 return self.respond(JM.enqueue('weekly_plan',{'brand':data.get('brand',brand_default())},idempotency_key='wp:'+str(data.get('brand'))+':'+uuid.uuid4().hex))
             if self.path=='/api/seo/proposals':

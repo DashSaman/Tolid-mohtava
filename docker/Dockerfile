@@ -8,6 +8,9 @@ ENTRYPOINT ["/entrypoint.sh"]
 RUN pip install --no-cache-dir "huggingface_hub==0.33.4" "av==18.1.0" faster-whisper==1.2.1 google-ads==25.1.0 \
  && python -c "import faster_whisper,huggingface_hub;print('fw',faster_whisper.__version__,'hf',huggingface_hub.__version__)" \
  && ffmpeg -version | head -1
+RUN pip install --no-cache-dir nvidia-cublas-cu12==12.9.2.10 nvidia-cudnn-cu12==9.27.0.42 nvidia-cuda-nvrtc-cu12==12.9.86
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.12/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.12/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib
+RUN pip install --no-cache-dir google-api-python-client==2.201.0
 RUN useradd -m -u 10001 tolid && mkdir -p /cache && chown tolid /cache
 WORKDIR /app
 COPY outputs/panel /app/outputs/panel

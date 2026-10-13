@@ -15,7 +15,10 @@ def now(): return datetime.now(timezone.utc).isoformat()
 
 # ── GA4 (visitors after arrival) ──────────────────────────────
 GA4_METRICS=('users','sessions','engaged_sessions','engagement_rate',
-             'conversions','events','sessions_per_user')
+             'conversions','events','sessions_per_user','views')
+GA4_API_NAMES={'users':'totalUsers','sessions':'sessions','engaged_sessions':'engagedSessions',
+               'engagement_rate':'engagementRate','conversions':'keyEvents','events':'eventCount',
+               'sessions_per_user':'sessionsPerUser','views':'screenPageViews'}
 
 def ga4_status():
     missing=[v for v in ('GA4_PROPERTY_ID','GA4_ACCESS_TOKEN') if not os.environ.get(v)]
@@ -29,13 +32,15 @@ def ga4_fetch(property_id=None,token=None):
     if not pid or not tok:
         raise DependencyMissing('GA4: GA4_PROPERTY_ID / GA4_ACCESS_TOKEN تنظیم نشده (BLOCKED_BY_CREDENTIAL).')
     body=json.dumps({'dateRanges':[{'startDate':'7daysAgo','endDate':'today'}],
-        'metrics':[{'name':m} for m in GA4_METRICS]}).encode()
+        'metrics':[{'name':GA4_API_NAMES[m]} for m in GA4_METRICS]}).encode()
     req=urllib.request.Request(f'https://analyticsdata.googleapis.com/v1beta/properties/{pid}:runReport',
         data=body,headers={'Authorization':'Bearer '+tok,'Content-Type':'application/json'})
     with urllib.request.urlopen(req,timeout=30) as r:
         out=json.load(r)
-    row=(out.get('rows') or [{}])[0].get('metricValues',{})
-    return {m:float(row.get(m,{}).get('value',0)) for m in GA4_METRICS}
+    rows=out.get('rows') or []
+    if not rows: return {m:0.0 for m in GA4_METRICS}
+    values={h['name']:float(v['value']) for h,v in zip(out.get('metricHeaders',[]),rows[0].get('metricValues',[]))}
+    return {local:values[api] for local,api in GA4_API_NAMES.items() if api in values}
 
 # ── Keyword data (Google Ads / Keyword Planner as ONE provider) ─
 class KeywordStore:
@@ -71,7 +76,7 @@ class KeywordStore:
             return [dict(zip(keys,r)) for r in cur.fetchall()]
 
 def keyword_provider_status():
-    missing=[v for v in ('GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_REFRESH_TOKEN') if not os.environ.get(v)]
+    missing=[v for v in ('GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_REFRESH_TOKEN') if not os.environ.get(v)]
     return {'provider':'google_ads_keyword_planner',
             'state':'ready' if not missing else 'blocked_by_credential',
             'missing_env':missing,

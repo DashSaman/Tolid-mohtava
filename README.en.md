@@ -1,3 +1,5 @@
+Current daily setup and capability limits: [DAILY-READY.en.md](docs/DAILY-READY.en.md).
+
 # Tehran Network & MyTel Content Room
 
 [فارسی](README.md) · [Technical reference](docs/TECHNICAL.md) · [Work log](docs/CHANGELOG.md)

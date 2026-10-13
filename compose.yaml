@@ -9,9 +9,11 @@ services:
     environment:
       - TEHNET_PANEL_PORT=8766
       - TEHNET_PANEL_BIND=0.0.0.0
-      - TEHNET_NO_NVENC=1
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
       - TEHNET_PANEL_DB=/app/outputs/panel/data/content.sqlite
+      - 'TEHNET_STORAGE_PATHS=[{"path":"/app/outputs/panel/data/media","label":"رسانه و خروجی","type":"fixed"},{"path":"/archive","label":"My Passport","type":"removable"}]'
     extra_hosts: ["host.docker.internal:host-gateway"]
+    gpus: all
     ports: ["127.0.0.1:18767:8766"]
     volumes:
       # LIVE SQLite lives in a Docker-managed named volume (native Linux fs; correct WAL
@@ -22,6 +24,8 @@ services:
       - ${TOLID_MEDIA_DIR:-C:/Users/amirreza/.zcode/workspace/default/Tolid-mohtava/outputs/panel/data/media}:/app/outputs/panel/data/media
       - ${TOLID_RENDERS_DIR:-C:/Users/amirreza/.zcode/workspace/default/Tolid-mohtava/outputs/panel/data/renders}:/app/outputs/panel/data/renders
       - tolid-hf-cache:/cache
+      # Reuse already downloaded host models; no second large download.
+      - ${TOLID_HF_CACHE_DIR:-C:/Users/amirreza/.cache/huggingface/hub}:/cache/hub:ro
     networks: [tolid_internal]
   tolid-tailscale:
     image: tailscale/tailscale:v1.102.4

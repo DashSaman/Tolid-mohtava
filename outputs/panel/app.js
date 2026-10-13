@@ -14,6 +14,7 @@ const icon=(id,cls='icon')=>`<svg class="${cls}"><use href="#${id}"/></svg>`;
 
 const mediaKinds={voice:'صوت ایده/دیکته',screen:'ضبط صفحه',face:'فیس‌کم',external_audio:'صدای جدا',broll:'برول',thumbnail:'تصویر/Thumbnail'};
 const jobKinds={transcribe_audio:'تبدیل گفتار به متن',edit_detect:'تحلیل تدوین',render_cut:'رندر',render_short:'رندر عمودی (Short)',publish_dryrun:'بسته پیش‌نمایش انتشار',website_publish:'پیش‌نویس وردپرس',research_topic:'تحقیق موضوع',technical_verification:'بررسی فنی',generate_script:'تولید سناریو',generate_hooks:'تولید هوک',generate_title_packages:'بسته‌های عنوان/کاور',generate_social:'نسخهٔ شبکه‌ها',generate_article:'مقاله و سئو',generate_pinned:'کامنت پین',content_pipeline:'خط تولید کامل AI',seo_scan:'اسکن سئوی سایت',seo_proposals:'پیشنهادهای اصلاح سئو',shorts_v2:'رتبه‌بندی هوشمند Shorts',optimize_content:'بهینه‌سازی محتوا',sync_content:'همگام‌سازی تراک‌ها',enhance_audio:'بهبود صدا',weekly_plan:'برنامهٔ هفتگی'};
+Object.assign(jobKinds,{youtube_upload:'آپلود خصوصی یوتیوب',gsc_ingest:'دریافت دادهٔ Search Console',gemini_image:'تولید تصویر'});
 function jobErrShort(j){
  const e=j&&j.error||'';
  if(!e)return '';
@@ -64,7 +65,7 @@ const gateBadge=s=>`<span class="badge ${s==='approved'?'ok':s==='rejected'?'dan
 const empty=(iconId,title,body)=>`<div class="empty">${icon(iconId)}<strong>${esc(title)}</strong><p>${esc(body)}</p></div>`;
 
 async function api(path,data){
- let r=await fetch(path,{headers:data?{'Content-Type':'application/json','X-Panel-Token':token}:{},method:data?'POST':'GET',body:data?JSON.stringify(data):undefined});
+ let r=await fetch(path,{headers:data?{'Content-Type':'application/json','X-Panel-Token':token}:{'X-Panel-Token':token},method:data?'POST':'GET',body:data?JSON.stringify(data):undefined});
  if(r.status===403&&data){
   // stale page CSRF (pre-restart tab): the request was rejected at the gate before any
   // side effect — refresh the page token once and retry; server checks remain enforced.
@@ -157,7 +158,7 @@ async function pageDashboard(view){
  const running=jobs.filter(j=>['running','queued'].includes(j.status));
  const waitAppJobs=jobs.filter(j=>j.status==='waiting_approval');
  const credMiss=health.filter(h=>h.status==='credential').length;
- const whisperH=health.find(h=>h.name==='faster-whisper')||{status:'warn'};
+ const llmH=health.find(h=>h.name.includes('LLM'))||{status:'warn'};
  const gpuH=health.find(h=>h.name.includes('GPU'))||{status:'limited'};
  const last=items[0];
  const stages=['ایده','پژوهش','بررسی فنی','سناریو','ضبط','تدوین','بازآفرینی','SEO','آماده بررسی'];
@@ -181,8 +182,8 @@ async function pageDashboard(view){
    <h2>کارخانهٔ محتوا · ${names[brand]}</h2>
    <div class="subline">از یک ایدهٔ صوتی فارسی تا سناریوی راستی‌آزمایی‌شده، تدوین غیرمخرب، Shorts، مقالهٔ سئو و بستهٔ انتشار — همه روی همین دستگاه، با تأیید شما در هر گام.</div>
    <div class="row" style="margin-top:12px">
-     <span class="chip ${whisperH.status==='ok'?'ok':'warn'}"><span class="dot"></span> AI محلی: ${whisperH.status==='ok'?'آماده':'بررسی کنید'}</span>
-     <span class="chip ${gpuH.status==='ok'?'ok':'info'}"><span class="dot"></span> GPU: ${gpuH.status==='ok'?'فعال':'پروندهٔ CPU'}</span>
+     <span class="chip ${llmH.status==='ok'?'ok':'warn'}"><span class="dot"></span> AI محلی: ${llmH.status==='ok'?'آماده':'بررسی کنید'}</span>
+     <span class="chip ${gpuH.status==='ok'?'ok':'info'}"><span class="dot"></span> GPU: ${gpuH.status==='ok'?'فعال':'پردازش روی CPU'}</span>
      <span class="chip ${failedJobs.length?'warn':'ok'}"><span class="dot"></span> ${failedJobs.length?fa(failedJobs.length)+' کار نیازمند توجه':'صف سالم'}</span>
    </div></div>
    <div class="row" style="flex-direction:column;align-items:stretch;min-width:210px">
@@ -204,7 +205,7 @@ async function pageDashboard(view){
      ${pend.length?`<div class="rowitem"><div class="t"><strong>${fa(pend.length)} محتوای منتظر تأیید</strong><small>سناریو یا انتشار — تا تأیید نکنید، مرحلهٔ بعد فعال نمی‌شود</small></div><div class="actions"><button class="sm primary" data-page="approvals">برو به تأییدها</button></div></div>`:''}
      ${waitApp?`<div class="rowitem"><div class="t"><strong>${fa(waitApp)} کار منتظر تصمیم</strong><small>رندر نهایی پیش از اجرا تأیید می‌خواهد</small></div><div class="actions"><button class="sm primary" data-page="approvals">تصمیم بده</button></div></div>`:''}
      ${failedJobs.length?`<div class="rowitem"><div class="t"><strong>${fa(failedJobs.length)} کار ناموفق</strong><small>از صفحهٔ کارها «تلاش دوباره» — دلیل خطا همان‌جاست</small></div><div class="actions"><button class="sm" data-page="jobs">صف کارها</button></div></div>`:''}
-     ${credMiss?`<div class="rowitem"><div class="t"><strong>${fa(credMiss)} سرویس بیرونی بدون کلید</strong><small>اتصال حساب‌ها → هر کارت می‌گوید دقیقاً چه متغیری لازم است</small></div><div class="actions"><button class="sm" data-page="settings">اتصال حساب‌ها</button></div></div>`:''}
+     ${credMiss?`<div class="rowitem"><div class="t"><strong>اتصال سرویس‌های بیرونی نیازمند تنظیم است</strong><small>اتصال حساب‌ها → هر کارت می‌گوید دقیقاً چه متغیری لازم است</small></div><div class="actions"><button class="sm" data-page="integrations">اتصال حساب‌ها</button></div></div>`:''}
     </div>`:empty('i-check','چیزی نیازمند توجه نیست','همهٔ تأییدها انجام شده و صف کارها سالم است.')}
    </div>
    <div class="card"><div class="cardhead"><h2>${icon('i-folder')} پروژه‌های اخیر</h2><button class="sm" data-page="projects">همه</button></div>
@@ -861,12 +862,18 @@ async function jobAction(act,id){
 
 /* ── publishing ──────────────────────────────────────────────── */
 async function pagePublishing(view){
- const [drys,dests]=await Promise.all([api('/api/jobs').then(js=>js.filter(j=>j.kind==='publish_dryrun').slice(0,10)),api('/api/publishing')]);
+ const [drys,dests,yt,renderRows,mediaRows]=await Promise.all([api('/api/jobs').then(js=>js.filter(j=>j.kind==='publish_dryrun').slice(0,10)),api('/api/publishing'),api('/api/youtube/status'),api('/api/renders'),api('/api/media')]);
+ const finals=renderRows.filter(r=>r.kind==='final'&&r.encoder!=='aac'&&items.some(x=>x.publish_status==='approved'&&mediaRows.some(m=>m.id===r.media_id&&m.content_id===x.id)));
+ const yd=dests.find(d=>d.destination==='YouTube');if(yd){yd.state=yt.connected?'ready':'credential';yd.detail=yt.detail;}
  view.innerHTML=`
  <div class="grid3">${dests.map(d=>`
  <div class="card" style="margin:0"><h2>${esc(d.destination)}</h2>
  <span class="badge ${d.state==='ready'?'ok':'warn'}">${d.state==='ready'?'آماده — Credential ثبت شده':'نیازمند Credential'}</span>
  <p class="small muted">${esc(d.detail)}</p></div>`).join('')}</div>
+ <div class="card"><h2>${icon('i-send')} آپلود خصوصی یوتیوب</h2>
+ <p class="small muted">${esc(yt.detail)} درخواست ابتدا به مرکز تأیید می‌رود. ویدیو خصوصی می‌ماند؛ انتشار عمومی از YouTube Studio با بازبینی شماست.</p>
+ <div class="row"><label>نسخهٔ نهایی<select id="yt-render">${finals.map(r=>`<option value="${esc(r.id)}">${esc(r.media_name||r.label)} · ${esc(r.label)}</option>`).join('')||'<option value="">رندر نهایی از پروژهٔ تأییدشده‌ای نیست</option>'}</select></label>
+ <button class="sm primary" id="yt-upload" ${!yt.connected||!finals.length?'disabled':''}>درخواست آپلود خصوصی</button><button class="sm" id="yt-setup">اتصال حساب یوتیوب</button></div></div>
  <div class="card"><h2>${icon('i-send')} پیش‌نویس وردپرس</h2>
  <p class="small muted">هر دو سایت وردپرس هستند (wp-json فعال). درخواست پیش‌نویس پس از تأیید انتشار ثبت می‌شود و اجرای واقعی دوباره در مرکز تأیید تأیید می‌شود؛ به Application Password در environment نیاز دارد.</p>
  <div class="row"><label>سایت<select id="wp-site" style="max-width:180px"><option value="tehnet.ir">tehnet.ir</option><option value="mytel.one">mytel.one</option></select></label>
@@ -875,6 +882,13 @@ async function pagePublishing(view){
  <div class="card"><h2>${icon('i-send')} بسته‌های dry-run</h2>
  <p class="small muted">پس از تأیید انتشار، یک بسته بازبینی ساخته می‌شود که دقیقاً مشخص می‌کند چه چیزی کجا می‌رفت — بدون ارسال واقعی.</p>
  <div class="rows">${drys.map(j=>`<div class="rowitem"><div class="t"><strong>${esc(j.result?.platform||'بسته')} — نسخه ${fa(j.result?.revision||1)}</strong><small>${faDate(j.created_at)}${j.result?.warnings?.length?' · هشدار: '+esc(j.result.warnings.join('، ')):''}</small></div><div class="actions"><span class="badge ${j.status==='completed'?'ok':jobBadge[j.status]}">${jobStatus[j.status]}</span></div></div>`).join('')||empty('i-send','بسته‌ای ساخته نشده','تأیید انتشار در مرکز تأیید، بسته dry-run می‌سازد.')}</div></div>`;
+ $('#yt-setup').onclick=()=>location.hash='#/integrations';
+ $('#yt-upload').onclick=async()=>{
+  const r=finals.find(r=>r.id===$('#yt-render').value),m=r&&mediaRows.find(m=>m.id===r.media_id),x=m&&items.find(x=>x.id===m.content_id);
+  if(!x){toast('رندر نهایی را انتخاب کنید','err');return;}
+  await enqueueJob('youtube_upload',{content_id:x.id,revision:x.revision,render_id:r.id},'youtube:'+x.id+':'+x.revision+':'+r.id);
+  toast('درخواست آپلود خصوصی در مرکز تأیید ثبت شد','ok');
+ };
  $('#wp-draft').onclick=async()=>{
   const cid=$('#wp-content').value,x=items.find(i=>i.id===cid);
   if(!x){toast('اول پروژه تأییدشده را انتخاب کنید','err');return;}
@@ -921,16 +935,16 @@ async function pageAnalytics(view){
  <button class="sm primary" id="ap-record">ثبت رکورد پایه برای پروژهٔ انتخابی</button></div></div>`;
  $$('[data-sync]').forEach(b=>b.onclick=async()=>{
   b.disabled=true;
-  try{const j=await api('/api/analytics/sync',{platform:b.dataset.sync});await trackJob(j.id);}
+  try{const j=await api('/api/analytics/sync',{platform:b.dataset.sync,brand});await trackJob(j.id);}
   catch(e){toast(e.message,'err');}
   b.disabled=false;
  });
  $$('[data-propapprove]').forEach(b=>b.onclick=async()=>{await api('/api/analytics/proposal/decide',{id:b.dataset.propapprove,decision:'approved'});await render();toast('تأیید ثبت شد','ok');});
  $$('[data-propreject]').forEach(b=>b.onclick=async()=>{await api('/api/analytics/proposal/decide',{id:b.dataset.propreject,decision:'rejected'});await render();});
  const gi=$('#gsc-ingest');if(gi)gi.onclick=async()=>{gi.disabled=true;
-  try{const j=await api('/api/gsc/ingest',{site:'https://tehnet.ir/'});await trackJob(j.id);}catch(e){toast(e.message,'err');} gi.disabled=false;};
+  try{const j=await api('/api/gsc/ingest',{site:'https://'+domains[brand]+'/',brand});await trackJob(j.id);}catch(e){toast(e.message,'err');} gi.disabled=false;};
  const g4=$('#ga4-fetch');if(g4)g4.onclick=async()=>{g4.disabled=true;
-  try{await api('/api/ga4/fetch',{});toast('دادهٔ GA4 در snapshotها ثبت شد','ok');await render();}
+  try{await api('/api/ga4/fetch',{brand});toast('دادهٔ GA4 در snapshotها ثبت شد','ok');await render();}
   catch(e){toast(e.message,'err');} g4.disabled=false;};
  const ob=$('#opt-run');if(ob)ob.onclick=async()=>{const cid=$('#ap-content')?.value;if(!cid){toast('پروژه را انتخاب کنید','err');return;}
   ob.disabled=true;try{const j=await api('/api/analytics/optimize',{content_id:cid,platform:'youtube'});await trackJob(j.id);}catch(e){toast(e.message,'err');} ob.disabled=false;};
@@ -954,9 +968,12 @@ async function pageSeo(view){
  <div class="card"><h2>چک‌لیست مقاله پیش از انتشار</h2>
  <ul>${['هدف جست‌وجو، کلمه اصلی و کلمات مرتبط','عنوان، توضیح متا و ساختار تیترها','لینک داخلی، منابع و نشانی صفحه','متن جایگزین تصاویر و داده ساختاریافته','canonical، indexability و محتوای تکراری'].map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
  const loadScans=async()=>{
-  const d=await api('/api/seo/scans?site='+$('#seo-site').value+'&full=1');
+  const siteControl=$('#seo-site'),result=$('#seo-result');
+  if(!siteControl||!result)return;
+  const d=await api('/api/seo/scans?site='+siteControl.value+'&full=1');
+  if(!result.isConnected)return;
   const latest=d.scans[0];
-  $('#seo-result').innerHTML=latest?`
+  result.innerHTML=latest?`
   <div class="stats"><div class="stat ${latest.issues?'warn':'ok'}"><span>مشکل‌های یافت‌شده</span><b>${fa(latest.issues)}</b></div>
   <div class="stat"><span>صفحات اسکن‌شده</span><b>${fa((latest.summary||{}).pages_scanned||0)}</b></div>
   <div class="stat"><span>تاریخ اسکن</span><b style="font-size:1rem">${faDate(latest.created_at)}</b></div></div>
@@ -966,7 +983,7 @@ async function pageSeo(view){
   <div class="rows">${d.scans.map(sc=>`<div class="rowitem"><div class="t"><strong>${fa(sc.issues)} مشکل</strong><small>${faDate(sc.created_at)}</small></div><div class="actions"><span class="badge ${sc.issues?'warn':'ok'}">${sc.issues?'نیاز به توجه':'سالم'}</span></div></div>`).join('')}</div></details>`
   :empty('i-search','هنوز اسکنی اجرا نشده','دکمهٔ اجرای اسکن، سایت را واقعاً می‌خزد و نتیجه را تاریخچه می‌کند.');
  };
- loadScans();
+ loadScans().catch(e=>toast(e.message,'err'));
  $('#seo-propose').onclick=async()=>{
   try{const j=await api('/api/seo/proposals',{site:$('#seo-site').value});await trackJob(j.id);toast('پیشنهادها در صفحهٔ Analytics آمادهٔ تأییدند','ok');}
   catch(e){toast(e.message,'err');}
@@ -1176,18 +1193,18 @@ async function pageIntegrations(view){
  };
  const PURPOSE={
   'tehnet.ir':'ساخت پیش‌نویس مقاله در سایت تهران نتورک','mytel.one':'ساخت پیش‌نویس مقاله در سایت MyTel',
-  'youtube':'انتشار ویدیو + Analytics واقعی','instagram':'انتشار پست/Reels + Analytics','facebook':'انتشار به Page + Analytics',
-  'linkedin':'انتشار پست + Analytics','telegram':'اعلان‌های پنل در تلگرام شما','gsc':'عملکرد جست‌وجوی دو سایت',
+  'youtube':'آپلود خصوصی پس از تأیید + آمار کل کانال','instagram':'بستهٔ انتشار دستی؛ دریافت خودکار آمار پیاده‌سازی نشده','facebook':'بستهٔ انتشار دستی؛ دریافت خودکار آمار پیاده‌سازی نشده',
+  'linkedin':'بستهٔ انتشار دستی؛ دریافت خودکار آمار پیاده‌سازی نشده','telegram':'اعلان‌های پنل در تلگرام شما','gsc':'عملکرد جست‌وجوی دو سایت',
   'ga4':'رفتار بازدیدکنندگان پس از ورود','google_ads':'حجم/رقابت کلمات کلیدی برای برنامه‌ریز','gemini':'تولید تصویر کاور و کاروسل'
  };
  const list=[...core.map(c=>({p:c.platform,fa:c.platform_fa,env:c.env,scopes:c.scopes,state:c.state})),
   {p:'ga4',fa:'Google Analytics 4',env:['GA4_PROPERTY_ID','GA4_ACCESS_TOKEN'],scopes:'Data API Viewer',state:(opt.ga4||{}).state||'blocked_by_credential'},
-  {p:'google_ads',fa:'Google Keyword Planner',env:['GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_REFRESH_TOKEN'],scopes:'keywordideas readonly',state:(opt.keyword_planner||{}).state||'blocked_by_credential'},
+  {p:'google_ads',fa:'Google Keyword Planner',env:['GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_REFRESH_TOKEN'],scopes:'keywordideas readonly',state:(opt.keyword_planner||{}).state||'blocked_by_credential'},
   {p:'gemini',fa:'Gemini (تولید تصویر)',env:['GOOGLE_AI_API_KEY'],scopes:'API Key',state:'blocked_by_credential'}];
- const stateFa=st=>st==='ready'?'<span class="badge ok">متصل — Credential ثبت شده</span>':st==='invalid'?'<span class="badge danger">Credential نامعتبر</span>':'<span class="badge warn">نیازمند Credential</span>';
+ const stateFa=st=>st==='ready'?'<span class="badge ok">تنظیم شده — تست اتصال لازم است</span>':st==='invalid'?'<span class="badge danger">Credential نامعتبر</span>':'<span class="badge warn">نیازمند Credential</span>';
  view.innerHTML=`<div class="hero" style="padding:22px 26px"><div class="heroline"><div>
   <h2 style="font-size:1.25rem">اتصال حساب‌ها</h2>
-  <div class="subline">برای امنیت، Credentialها از <b>environment</b> خوانده می‌شوند — مقدار Secret هیچ‌وقت نمایش یا ذخیره نمی‌شود. بعد از تنظیم، همین‌جا «تست اتصال» را بزنید.</div></div>
+  <div class="subline">کلیدها از تنظیمات محلی خوانده می‌شوند و در صفحه نمایش داده نمی‌شوند. توکن OAuth در پایگاه دادهٔ محلی نگهداری می‌شود. بعد از تنظیم، «تست اتصال» را بزنید.</div></div>
   <span class="chip info"><span class="dot"></span> ${fa(list.length)} سرویس</span></div></div>
  <div class="intgrid">${list.map(r=>`<div class="intcard">
    <div class="spread"><div class="row"><div class="intico">${esc((r.fa||'').trim()[0]||'•')}</div>
@@ -1201,6 +1218,11 @@ async function pageIntegrations(view){
      ${['youtube','instagram','facebook','linkedin'].includes(r.p)?`<button class="sm accent" data-oauth="${esc(r.p)}">اتصال حساب</button>`:''}
    </div></div>`).join('')}</div>
  <div id="intcfgbox"></div>`;
+ $$('[data-oauth]').forEach(b=>b.onclick=async()=>{
+  b.disabled=true;
+  try{const r=await api('/api/oauth/start?provider='+encodeURIComponent(b.dataset.oauth));location.href=r.url;}
+  catch(e){toast(e.message,'err');b.disabled=false;}
+ });
  $$('[data-inttest]').forEach(b=>b.onclick=async()=>{b.disabled=true;
    try{const r=await api('/api/integrations/test',{platform:b.dataset.inttest});
      toast(r.ok?('اتصال سالم: '+(r.detail||'')):('ناموفق: '+(r.detail||r.state)),r.ok?'ok':'err');}
@@ -1211,8 +1233,8 @@ async function pageIntegrations(view){
    <p><b>چه چیزی لازم است؟</b> ${esc(r.env.join(' و '))}</p>
    <p><b>از کجا بگیرم؟</b> ${esc(SETUP[r.p]||'')}</p>
    <p><b>Scope لازم:</b> ${esc(r.scopes||'—')}</p>
-   <p><b>کجا وارد کنم؟</b> برای امنیت، این Credential از Environment خوانده می‌شود: در PowerShell با <code>[Environment]::SetEnvironmentVariable('NAME','value','User')</code> تنظیم و پنل را بازراه‌اندازی کنید.</p>
-   <p><b>چطور تست کنم؟</b> برگردید و «تست اتصال» را بزنید؛ وضعیت باید «متصل» شود.</p></dialog>`;
+   <p><b>کجا وارد کنم؟</b> در نسخهٔ Docker، مقدارها را در فایل محلی <code>runtime/secrets/tolid.env</code> قرار دهید و پنل را با <code>Start-Tolid-Docker.cmd</code> بازراه‌اندازی کنید. برای یوتیوب، <code>Connect-YouTube.cmd</code> شناسه و Secret برنامه را با ورودی مخفی ثبت می‌کند؛ سپس «اتصال حساب» را بزنید. کلیدها را در چت یا محتوای پروژه وارد نکنید.</p>
+   <p><b>چطور تست کنم؟</b> برگردید و «تست اتصال» را بزنید؛ پیام نتیجهٔ درخواست را بررسی کنید.</p></dialog>`;
    const c=$('#intcfgclose');if(c)c.onclick=()=>c.closest('dialog').remove();});
 }
 async function pageSettings(view){
@@ -1238,7 +1260,7 @@ async function pageSettings(view){
   try{
    const d=await api('/api/ai/providers');
    $('#ai-providers').innerHTML=`<div class="rows">${d.providers.map(p=>`<div class="rowitem"><div class="t"><strong>${esc(p.name)}</strong><small><code>${esc(p.base_url||'—')}</code> · مدل: ${esc(p.model||'پیش‌فرض سرور')} · وظایف: ${p.tasks.map(t=>esc(d.tasks[t]||t)).join('، ')||'—'}</small>${p.last_health?`<small>آخرین بررسی: ${esc(p.last_health_detail||'')}</small>`:''}</div>
-   <div class="actions"><span class="badge ${p.last_health&&p.last_health.startsWith('ok')?'ok':p.last_health&&p.last_health.includes('CREDENTIAL')?'warn':'danger'}">${p.last_health?p.last_health.startsWith('ok')?'سالم':p.last_health.includes('CREDENTIAL')?'نیازمند Credential':'قطع':'بررسی نشده'}</span>
+   <div class="actions"><span class="badge ${p.last_health_detail?.startsWith('ok:')?'ok':p.last_health_detail?.includes('CREDENTIAL')?'warn':'danger'}">${!p.enabled?'غیرفعال':p.last_health?p.last_health_detail?.startsWith('ok:')?'سالم':p.last_health_detail?.includes('CREDENTIAL')?'نیازمند Credential':'قطع':'بررسی نشده'}</span>
    <button class="sm" data-aihealth="${esc(p.name)}">بررسی سلامت</button></div></div>`).join('')}</div>`;
    $('#ai-tasks').innerHTML=`<h3 style="margin:12px 0 6px">طبقه‌بندی ۱۷ اسکیل در اجرای خودکار</h3><div class="chiprow">${d.classification.map(c=>`<span class="badge ${c.classification==='AUTOMATED'?'ok':c.classification==='BLOCKED_BY_CREDENTIAL'?'warn':''}" title="${esc(c.id)}">${esc(c.id)}: ${esc(c.classification_fa)}</span>`).join('')}</div>`;
    $$('[data-aihealth]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await api('/api/ai/health',{name:b.dataset.aihealth});toast((r.ok?'سالم: ':'قطع: ')+(r.detail||''),'ok');await loadAI();}catch(e){toast(e.message,'err');}b.disabled=false;});
@@ -1261,7 +1283,7 @@ async function pageSettings(view){
    const opt=resp.optional||{};
    const list=[...(resp.core||[]),
      {...(opt.ga4||{state:'blocked_by_credential'}),platform:'ga4',platform_fa:'Google Analytics 4 (GA4)',scopes:'GA4 Data API (Viewer)',env:['GA4_PROPERTY_ID','GA4_ACCESS_TOKEN'],state:(opt.ga4||{}).state||'blocked_by_credential'},
-     {...(opt.keyword_planner||{}),platform:'google_ads',platform_fa:'Google Ads Keyword Planner',scopes:'keywordideas readonly',env:['GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_REFRESH_TOKEN'],state:(opt.keyword_planner||{}).state||'blocked_by_credential'},
+     {...(opt.keyword_planner||{}),platform:'google_ads',platform_fa:'Google Ads Keyword Planner',scopes:'keywordideas readonly',env:['GOOGLE_ADS_DEVELOPER_TOKEN','GOOGLE_ADS_CUSTOMER_ID','GOOGLE_ADS_CLIENT_ID','GOOGLE_ADS_CLIENT_SECRET','GOOGLE_ADS_REFRESH_TOKEN'],state:(opt.keyword_planner||{}).state||'blocked_by_credential'},
      {platform:'gemini',platform_fa:'Gemini (تولید تصویر)',scopes:'API Key',env:['GOOGLE_AI_API_KEY'],state:'blocked_by_credential'}];
    const rows2=list;
    const OAUTHABLE=['youtube','instagram','facebook','linkedin'];
@@ -1270,8 +1292,8 @@ async function pageSettings(view){
     <small>scope لازم: ${esc(r.scopes)}</small>
     <small>متغیرها: ${r.env.map(esc).join('، ')}</small>
     <small>راهنما: ${esc(SETUP[r.platform]||'—')}</small></div>
-    <div class="actions"><span class="badge ${r.state==='ready'?'ok':'warn'}">${r.state==='ready'?'متصل — Credential ثبت شده':'BLOCKED_BY_CREDENTIAL'}</span>
-    <button class="sm" data-inttest="${esc(r.platform)}">تست اتصال</button></div></div>`).join('')+'</div><p class="small muted">مقادیر Secret هرگز نمایش/ذخیره نمی‌شوند؛ تست اتصال واقعی انجام می‌شود.</p>';
+    <div class="actions"><span class="badge ${r.state==='ready'?'ok':'warn'}">${r.state==='ready'?'تنظیم شده — تست لازم است':'BLOCKED_BY_CREDENTIAL'}</span>
+    <button class="sm" data-inttest="${esc(r.platform)}">تست اتصال</button></div></div>`).join('')+'</div><p class="small muted">مقادیر Secret در صفحه نمایش داده نمی‌شوند؛ توکن OAuth در پایگاه دادهٔ محلی نگهداری می‌شود.</p>';
    $$('[data-oauth]').forEach(b=>b.onclick=async()=>{
     b.disabled=true;
     try{const r=await api('/api/oauth/start',{provider:b.dataset.oauth});
@@ -1296,14 +1318,20 @@ async function pageSettings(view){
    $('#ai-whisper').innerHTML=`<div class="row"><label>مدل تبدیل گفتار<select id="wh-model" style="max-width:180px">${w.models.map(m=>`<option value="${m}" ${m===w.model?'selected':''}>${m}${m==='medium'?' — پیشنهادشده':''}</option>`).join('')}</select></label>
    <button class="sm" id="wh-save">ذخیره مدل</button>
    <button class="sm" id="wh-bench">بنچمارک با صدای فارسی</button><span id="wh-state" class="small muted"></span></div>
+   <label>صدای آپلودشده برای بنچمارک<select id="wh-sample"><option value="">یک صدای کوتاه انتخاب کنید</option></select></label>
+   <label>متن صحیح نمونه (برای مقایسهٔ دقت)<textarea id="wh-reference" rows="2"></textarea></label>
    ${w.benchmarks.length?`<div class="table-wrap"><table class="table"><thead><tr><th>مدل</th><th>دستگاه</th><th>مدت صوت</th><th>زمان پردازش</th><th>RTF</th><th>هم‌پوشانی متن</th><th>نمونه</th></tr></thead><tbody>
    ${w.benchmarks.map(b=>`<tr><td>${esc(b.model)}</td><td>${esc(b.device)}</td><td>${b.audio_seconds?b.audio_seconds+'s':'—'}</td><td>${b.transcribe_seconds}s</td><td>${b.rtf}</td><td>%${fa(b.rough_overlap)}</td><td class="small muted">${esc(b.sample_name)}</td></tr>`).join('')}</tbody></table></div>`
    :'<p class="small muted">هنوز بنچمارکی ثبت نشده؛ دکمهٔ بنچمارک با نمونهٔ فارسی واقعی اجرا می‌کند.</p>'}
-   <p class="small muted">RTF کمتر از ۱ یعنی سریع‌تر از زمان واقعی. پیش‌فرض پیشنهادی این دستگاه بر اساس بنچمارک واقعی فارسی ثبت شده است.</p>`;
+   <p class="small muted">RTF کمتر از ۱ یعنی سریع‌تر از زمان واقعی. هم‌پوشانی واژه‌ها فقط یک مقایسهٔ تقریبی با متن مرجع است.</p>`;
+   const samples=(await api('/api/media')).filter(m=>m.kind==='voice' && m.exists!==false);
+   $('#wh-sample').innerHTML+=samples.map(m=>`<option value="${esc(m.id)}">${esc(m.orig_name)}</option>`).join('');
    $('#wh-save').onclick=async()=>{try{await api('/api/whisper/model',{model:$('#wh-model').value});toast('مدل ذخیره شد؛ تبدیل‌های بعدی با همین مدل اجرا می‌شود','ok');}catch(e){toast(e.message,'err');}};
    $('#wh-bench').onclick=async()=>{
     try{
-     const j=await api('/api/whisper/benchmark',{models:['small','medium'],audio_path:'work/persian-sample.mp3',reference_text:'سلام دوستان. در این ویدیو می‌خواهیم تنظیمات مودم را به صورت کامل بررسی کنیم.'});
+     if(!$('#wh-sample').value)throw new Error('ابتدا صدای کوتاه فارسی را در رسانه‌ها آپلود و اینجا انتخاب کنید.');
+     if(!$('#wh-reference').value.trim())throw new Error('متن صحیح نمونه را برای مقایسهٔ دقت وارد کنید.');
+     const j=await api('/api/whisper/benchmark',{models:['small','medium'],media_id:$('#wh-sample').value,reference_text:$('#wh-reference').value.trim()});
      $('#wh-state').textContent='بنچمارک در جریان است…';
      await trackJob(j.id); await loadAI();
     }catch(e){toast(e.message,'err');}
@@ -1623,6 +1651,7 @@ async function boot(){
   // (overwriting here used to replace the session token with the CSRF token -> 401 cascade)
   if(!authed||!token||token.length<40)token=sess.token;
   authRequired=!!sess.auth_required;
+  if(sess.authenticated){authed=true;token=sess.token;}
   if(authRequired&&!authed){showLogin();return;}
   const [sk,pol]=await Promise.all([api('/api/skills'),api('/api/policy')]);
   skills=sk;policy=pol.text;
@@ -1630,7 +1659,7 @@ async function boot(){
   window.addEventListener('hashchange',route);
   route();
  }catch(err){
-  $('#view').innerHTML=`<div class="banner warn"><strong>اتصال به سرور پنل برقرار نشد</strong>${esc(err.message)} — پنل را با Open-Panel.cmd اجرا کنید و نشانی http://127.0.0.1:8766 را باز کنید.</div>`;
+  $('#view').innerHTML=`<div class="banner warn"><strong>اتصال به سرور پنل برقرار نشد</strong>${esc(err.message)} — پنل را با Start-Tolid-Docker.cmd اجرا کنید و ${esc(location.origin)} را دوباره باز کنید.</div>`;
  }
 }
 boot();

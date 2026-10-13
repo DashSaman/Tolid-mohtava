@@ -1,3 +1,5 @@
+راهنمای نسخهٔ روزانه و محدودیت‌های فعلی: [DAILY-READY.fa.md](docs/DAILY-READY.fa.md).
+
 # اتاق محتوای تهران نتورک و MyTel
 
 [English README](README.en.md) · [راهنمای روزانه](outputs/README.fa.md) · [گزارش بررسی سیستم](outputs/audit.fa.md) · [نتایج آزمون](outputs/verification.fa.md)

@@ -99,6 +99,10 @@ def archive_copy_handler(ctx):
     if not item: raise ValueError('محتوا پیدا نشد.')
     items=media.list(content_id)
     if not items: raise ValueError('این پروژه رسانه‌ای برای آرشیو ندارد.')
+    missing=[m for m in items if not Path(m['path']).is_file()]
+    if missing:
+        for m in missing:arch.set(uuid.uuid4().hex,content_id,m['id'],'source_missing')
+        raise DependencyMissing('فایل بعضی رسانه‌های پروژه موجود نیست؛ آرشیو کامل تأیید نشد و حذفی انجام نمی‌شود.')
     safe=re.sub(r'[^\w\-]','_',item['title'])[:60]
     dest=Path(passport)/'content-factory'/f"{content_id}_{safe}"
     dest.mkdir(parents=True,exist_ok=True)
@@ -111,9 +115,10 @@ def archive_copy_handler(ctx):
             arch.set(uuid.uuid4().hex,content_id,m['id'],'source_missing'); continue
         dst=dest/src.name
         shutil.copy2(src,dst)
-        h1=hl.sha256(src.read_bytes()).hexdigest()
-        h2=hl.sha256(dst.read_bytes()).hexdigest()
-        ok=h1==h2 and h1==m['sha256']
+        digest=hl.sha256()
+        with dst.open('rb') as stream:
+            for chunk in iter(lambda:stream.read(1024*1024),b''):digest.update(chunk)
+        ok=media.verify(m['id']) and digest.hexdigest()==m['sha256']
         arch.set(uuid.uuid4().hex,content_id,m['id'],'copied_verified' if ok else 'checksum_mismatch',str(dst),1 if ok else 0)
         copied.append({'media':m['orig_name'],'verified':ok})
         ctx.progress(int((i+1)/len(items)*100))
