@@ -1,5 +1,14 @@
 # Work log / سابقه کار
 
+## 2026-10-13 — Single-video educational editing
+
+- Reused existing FFmpeg, cached Whisper medium and local Ollama; vendored only pinned MIT subtitle serializers from OpenCut-AI.
+- Added word timestamps, cut-aware SRT/VTT/ASS, conservative repeat/silence protection, sampled screen activity and validated removable zoom regions.
+- Added immutable review plans, stale-plan rejection, guarded transcript/cut mutations and validation before a render becomes visible. Finals require explicit approval; Shorts inherit the reviewed final timeline.
+- Fixed cumulative frame rounding across fractional cuts. Real fixtures verify visible/audible markers remain aligned throughout twelve cuts, and rejected renders leave no rows or sidecars.
+- Added Persian controls, preview/download links, final approval preview and selection of actual project videos.
+- Browser and real local CUDA/NVENC workflow checks are recorded in the current delivery report. External account requirements and multicamera limitations remain explicit in both daily guides.
+
 ## 2026-09-26 — Original workstation work
 
 1. Read the supplied 53-section master prompt and confirmed scope: install 17 skills and deliver a local Persian panel without changing existing services.

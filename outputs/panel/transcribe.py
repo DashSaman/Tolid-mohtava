@@ -72,10 +72,14 @@ def load_model(model_size='small'):
         raise
 
 def _transcribe_with(model,path,segments_cb=None):
-    seg_iter,info=model.transcribe(str(path),language=LANG,vad_filter=True)
+    seg_iter,info=model.transcribe(str(path),language=LANG,vad_filter=True,word_timestamps=True)
     segments=[]; last=time.time()
     for s in seg_iter:
-        segments.append({'start':round(s.start,3),'end':round(s.end,3),'text':s.text.strip()})
+        row={'start':round(s.start,3),'end':round(s.end,3),'text':s.text.strip()}
+        if getattr(s,'words',None):
+            row['words']=[{'start':round(w.start,3),'end':round(w.end,3),'word':w.word.strip(),
+                           'probability':round(w.probability,3)} for w in s.words]
+        segments.append(row)
         if segments_cb and time.time()-last>2:
             segments_cb(min(99,int(s.end/max(info.duration,0.001)*100))); last=time.time()
     return segments,info

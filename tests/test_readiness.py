@@ -17,6 +17,20 @@ class Provider(BaseHTTPRequestHandler):
     def log_message(self,*args): pass
 
 class ReadinessHTTP(unittest.TestCase):
+    def test_auto_edit_api_reports_missing_inputs_and_subtitle_format(self):
+        self.assertEqual(self.api('/api/auto-edit?media_id=missing'),(200,None))
+        for kind,payload in [('auto_edit_video',{'media_id':'missing'}),('auto_edit_final',{'plan_id':'missing','approved':True})]:
+            code,out=self.api('/api/jobs',{'kind':kind,'payload':payload})
+            self.assertEqual(code,400,out)
+        self.assertEqual(self.api('/api/renders/subtitles?id=missing&format=srt')[0],404)
+        self.assertEqual(self.api('/api/renders/subtitles?id=missing&format=exe')[0],400)
+    def test_final_auto_edit_cannot_submit_its_own_approval(self):
+        from auto_video import AutoEditPlans
+        plan=AutoEditPlans(Path(self.tmp.name)/'test.sqlite').save({'media_id':'approval-fixture','raw_sha':'test',
+            'transcript_revision':1,'cuts':[],'options':{},'zooms':[],'preview_id':'preview','source_duration':10})
+        code,out=self.api('/api/jobs',{'kind':'auto_edit_final','payload':{'plan_id':plan['id'],'approved':True}})
+        self.assertEqual(code,200,out)
+        self.assertNotIn('approved',out['payload'])
     @classmethod
     def setUpClass(cls):
         cls.tmp=tempfile.TemporaryDirectory()

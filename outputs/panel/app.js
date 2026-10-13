@@ -15,6 +15,7 @@ const icon=(id,cls='icon')=>`<svg class="${cls}"><use href="#${id}"/></svg>`;
 const mediaKinds={voice:'صوت ایده/دیکته',screen:'ضبط صفحه',face:'فیس‌کم',external_audio:'صدای جدا',broll:'برول',thumbnail:'تصویر/Thumbnail'};
 const jobKinds={transcribe_audio:'تبدیل گفتار به متن',edit_detect:'تحلیل تدوین',render_cut:'رندر',render_short:'رندر عمودی (Short)',publish_dryrun:'بسته پیش‌نمایش انتشار',website_publish:'پیش‌نویس وردپرس',research_topic:'تحقیق موضوع',technical_verification:'بررسی فنی',generate_script:'تولید سناریو',generate_hooks:'تولید هوک',generate_title_packages:'بسته‌های عنوان/کاور',generate_social:'نسخهٔ شبکه‌ها',generate_article:'مقاله و سئو',generate_pinned:'کامنت پین',content_pipeline:'خط تولید کامل AI',seo_scan:'اسکن سئوی سایت',seo_proposals:'پیشنهادهای اصلاح سئو',shorts_v2:'رتبه‌بندی هوشمند Shorts',optimize_content:'بهینه‌سازی محتوا',sync_content:'همگام‌سازی تراک‌ها',enhance_audio:'بهبود صدا',weekly_plan:'برنامهٔ هفتگی'};
 Object.assign(jobKinds,{youtube_upload:'آپلود خصوصی یوتیوب',gsc_ingest:'دریافت دادهٔ Search Console',gemini_image:'تولید تصویر'});
+Object.assign(jobKinds,{auto_edit_video:'تدوین خودکار و پیش‌نمایش',auto_edit_final:'نسخهٔ نهایی تدوین خودکار'});
 function jobErrShort(j){
  const e=j&&j.error||'';
  if(!e)return '';
@@ -115,7 +116,10 @@ function route(){
   loadCore().catch(()=>{}).finally(()=>render());
  }else render();
 }
+let renderingPage=false,renderAgain=false;
 async function render(){
+ if(renderingPage){renderAgain=true;return;}
+ renderingPage=true;
  const def=pagesDef[page]||{t:'داشبورد',s:'',i:'i-home'};
  $('#pagetitle').textContent=def.t;
  $('#pagesub').textContent=def.s;
@@ -144,6 +148,7 @@ async function render(){
   else if(page==='skills')await pageSkills(view);
   else if(page==='settings')await pageSettings(view);
  }catch(err){view.innerHTML=`<div class="banner warn"><strong>بارگذاری این بخش ناموفق بود</strong>${esc(err.message)}</div>`;}
+ finally{renderingPage=false;if(renderAgain){renderAgain=false;await render();}}
 }
 
 /* ── dashboard ───────────────────────────────────────────────── */
@@ -587,6 +592,11 @@ async function renderProjTab(tab,x,media){
  }
  else if(tab==='edit'){
   if(!media.length){el.innerHTML=`<div class="card">${empty('i-film','رسانه‌ای برای تدوین نیست','اول ضبط اصلی را در تب رسانه آپلود کنید.')}</div>`;return;}
+  const video=media.find(m=>(m.mime||'').startsWith('video/')||['screen','face','broll'].includes(m.kind));
+  if(video){
+   el.innerHTML=`<div class="card"><h2>تدوین خودکار ویدیوی آموزشی</h2><p>ویدیوی دارای تصویر و صدا را انتخاب کنید؛ پیش‌نمایش را بررسی کنید و سپس نسخهٔ نهایی را تأیید کنید.</p><div class="rows">${media.filter(m=>(m.mime||'').startsWith('video/')||['screen','face','broll'].includes(m.kind)).map(m=>`<div class="rowitem"><strong>${esc(m.orig_name)}</strong><button class="sm primary" data-mediadetail="${esc(m.id)}">تدوین و پیش‌نمایش</button></div>`).join('')}</div></div>`;
+   return;
+  }
   el.innerHTML=`<div class="card"><h2>تدوین غیرمخرب — ${esc(media[0].orig_name)}</h2>
   <div class="row"><button class="sm" data-editdetect="${esc(media[0].id)}">تحلیل تدوین</button>
   <button class="sm" data-renderkind="preview" data-media="${esc(media[0].id)}">ساخت Preview</button>
@@ -833,7 +843,7 @@ async function pageApprovals(view){
  </div>
  <div class="card"><div class="cardhead"><h2>${icon('i-activity')} تأیید کارها (رندر نهایی و …)</h2></div>
  <div class="rows">${waiting.map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</strong><small>${esc(j.result?.question||faDate(j.created_at))}</small></div>
-  <div class="actions"><button class="sm primary" data-jobaction="approve" data-id="${esc(j.id)}">تأیید</button><button class="sm danger" data-jobaction="reject" data-id="${esc(j.id)}">رد</button></div></div>`).join('')||empty('i-activity','کاری منتظر تأیید نیست','رندرهای نهایی قبل از اجرا از اینجا تأیید می‌شوند.')}</div></div>`;
+  <div class="actions">${j.result?.preview_id?`<a class="sm" href="/api/renders/file?id=${esc(j.result.preview_id)}" target="_blank" rel="noopener">مشاهدهٔ پیش‌نمایش</a>`:''}<button class="sm primary" data-jobaction="approve" data-id="${esc(j.id)}">تأیید</button><button class="sm danger" data-jobaction="reject" data-id="${esc(j.id)}">رد</button></div></div>`).join('')||empty('i-activity','کاری منتظر تأیید نیست','رندرهای نهایی قبل از اجرا از اینجا تأیید می‌شوند.')}</div></div>`;
  $$('[data-decide2]').forEach(b=>b.onclick=async()=>{await decideGate(b.dataset.id,Number(b.dataset.revision),b.dataset.gate,b.dataset.status);});
  $$('[data-jobaction]').forEach(b=>b.onclick=async()=>{await jobAction(b.dataset.jobaction,b.dataset.id);await render();});
 }
@@ -1387,37 +1397,57 @@ function makePrompt(id){
 
 /* ── media workspace dialog ──────────────────────────────────── */
 async function mediaDetail(id){
- currentMedia=id;currentTrev=null;
+ if(currentMedia!==id)currentTrev=null;currentMedia=id;
  mediaItems=mediaItems.length?mediaItems:await api('/api/media');
  const m=mediaItems.find(x=>x.id===id)||await api('/api/media').then(a=>a.find(x=>x.id===id));
  if(!m)return;
  $('#media-dialog-title').textContent=m.orig_name;
- const [trevs,report,renders]=await Promise.all([api('/api/transcripts?media_id='+id+'&all=1'),api('/api/editreport?media_id='+id),api('/api/renders?media_id='+id)]);
- renderMediaDetail(m,trevs,report,renders);
+ const [trevs,report,renders,plan,allJobs]=await Promise.all([api('/api/transcripts?media_id='+id+'&all=1'),api('/api/editreport?media_id='+id),api('/api/renders?media_id='+id),api('/api/auto-edit?media_id='+id),api('/api/jobs')]);
+ renderMediaDetail(m,trevs,report,renders,plan,allJobs);
  if(!$('#media-dialog').open)$('#media-dialog').showModal();
 }
-function renderMediaDetail(m,trevs,report,renders){
+function renderMediaDetail(m,trevs,report,renders,plan,allJobs=[]){
  const t=trevs.find(x=>x.revision===(currentTrev||trevs[0]?.revision));
  $('#media-detail').innerHTML=`
  <video controls preload="metadata" id="media-player" src="/api/media/file?id=${esc(m.id)}"></video>
+ ${autoEditCard(m,plan,allJobs)}
+ <details><summary>ابزارهای جداگانه و تدوین دستی</summary>
  <div class="row" style="margin:12px 0"><button class="sm" data-transcribe="${esc(m.id)}">تبدیل گفتار به متن</button>
  <button class="sm" data-editdetect="${esc(m.id)}">تحلیل تدوین</button>
  <button class="sm" data-enhanceaudio="${esc(m.id)}">بهبود صوت</button>
  <button class="sm" data-renderkind="preview" data-media="${esc(m.id)}">ساخت Preview</button>
  <button class="sm primary" data-renderkind="final" data-media="${esc(m.id)}">نسخه نهایی (تأیید در مرکز تأیید)</button>
- <span class="badge accent">GPU/CPU انتخاب خودکار</span></div>
+ <span class="badge accent">GPU/CPU انتخاب خودکار</span></div></details>
  <div class="card"><h2>متن‌ها ${trevs.length?'· '+fa(trevs.length)+' نسخه':''}</h2>
  ${trevs.length?`<div class="chiprow">${trevs.map(v=>`<button class="${t&&v.revision===t.revision?'active':''}" data-trev="${v.revision}">نسخه ${fa(v.revision)} · ${{automatic:'خودکار',manual_import:'دستی'}[v.source]||v.source}</button>`).join('')}</div>
  <div id="seglist" style="margin-top:10px">${segListHtml(t?.segments)}</div>`:empty('i-script','متنی ثبت نشده','با «تبدیل گفتار به متن» شروع کنید.')}
  <details style="margin-top:10px"><summary>${trevs.length?'ویرایش متن (نسخه تازه)':'افزودن متن دستی'}</summary>
- <textarea id="transcript-edit" rows="6">${esc(t?.text||'')}</textarea>
+ <textarea id="transcript-edit" rows="6">${esc(t?.segments?.length?t.segments.map(s=>mmss(s.start)+' '+s.text).join('\n'):t?.text||'')}</textarea>
  <p class="small muted">قالب زمان: هر خط «1:23 متن»</p>
  <button class="sm primary" id="transcript-save" data-media="${esc(m.id)}">ذخیره نسخه تازه</button></details></div>
- <div class="card"><h2>گزارش تدوین</h2>${reportHtml(report,renders)}
+ <div class="card"><h2>گزارش تدوین</h2>${plan&&!(report.lines||[]).length?'<p class="small muted">تحلیل انجام شد؛ برش خودکار مطمئنی تشخیص داده نشد و تصویر و صدا حفظ شدند.</p>':reportHtml(report,renders)}
  <details><summary>افزودن برش دستی</summary><div class="row"><input id="cut-start" placeholder="از 0:00" style="max-width:110px"><input id="cut-end" placeholder="تا 0:00" style="max-width:110px"><button class="sm" id="cut-add" data-media="${esc(m.id)}">ثبت برش</button></div></details></div>
  <div class="card"><h2>نسخه‌ها</h2>${[...renders].reverse().map(r=>`<div class="rowitem"><div class="t"><strong>${esc(r.label)}</strong><small>${({preview:'پیش‌نمایش',final:'نهایی',short:'عمودی ۹:۱۶'})[r.kind]||r.kind} · ${mmss(r.duration)} · ${humanSize(r.size)} · <code>${esc(r.encoder)}</code></small></div><div class="actions"><a class="sm" href="/api/renders/file?id=${esc(r.id)}" target="_blank" rel="noopener">${icon('i-play','icon sm')} پخش</a></div></div>`).join('')||'<p class="small muted">هنوز نسخه‌ای رندر نشده.</p>'}
  <p class="small muted">RAW تغییرناپذیر است؛ حذف نسخه‌های رندر فعلاً از پنل انجام نمی‌شود.</p></div>`;
  bindDecisionButtons($('#media-detail'));
+}
+
+function autoEditCard(m,plan,allJobs){
+ if(!(m.mime||'').startsWith('video/')&&!['screen','face','broll'].includes(m.kind))return '';
+ const active=allJobs.find(j=>j.payload?.media_id===m.id&&['auto_edit_video','auto_edit_final'].includes(j.kind)&&['queued','running','waiting_approval'].includes(j.status));
+ const recent=allJobs.find(j=>j.payload?.media_id===m.id&&['auto_edit_video','auto_edit_final'].includes(j.kind));
+ const opts=plan?.options||{semantic:true,zooms:true,subtitles:true,denoise:true,shorts:true};
+ const labels={semantic:'بررسی تکرارها در تحلیل تازه',zooms:'زوم محدود روی تنظیمات',subtitles:'زیرنویس فارسی روی تصویر',denoise:'کاهش نویز و تنظیم بلندی صدا',shorts:'ساخت حداکثر دو Short از نسخهٔ نهایی'};
+ return `<div class="card"><h2>تدوین خودکار آموزشی</h2><p class="small muted">مدل محلی مکث‌ها و تکرارها را بررسی می‌کند؛ فعالیت صفحه و مراحل آموزش حفظ می‌شوند. فایل اصلی تغییر نمی‌کند.</p>
+ <div class="chiprow">${Object.entries(labels).map(([key,label])=>`<label><input type="checkbox" data-auto-option="${key}" ${opts[key]?'checked':''}> ${label}</label>`).join('')}</div>
+ <div class="row" style="margin:12px 0"><button class="sm primary" data-autoedit="${esc(m.id)}" ${active?'disabled':''}>تحلیل و ساخت پیش‌نمایش</button>${plan?`<button class="sm" data-autoedit="${esc(m.id)}" data-refresh="1" ${active?'disabled':''}>پیش‌نمایش تازه با تغییرات من</button><button class="sm primary" data-autofinal="${esc(plan.id)}" ${active?'disabled':''}>درخواست نسخهٔ نهایی</button>`:''}</div>
+ <p id="auto-edit-state" class="small" role="status" aria-live="polite" style="color:var(--danger)">${recent?.status==='failed'?esc(jobErrShort(recent)):''}</p>
+ ${active?`<p>${badge(active.status)} ${fa(active.progress)}٪ <button class="sm" data-job="${esc(active.id)}">مشاهدهٔ کار</button>${active.status==='waiting_approval'?'<button class="sm" data-goto="approvals">مرکز تأیید</button>':''}</p>`:''}
+ ${plan?`<p class="small muted">پیش‌نمایش ${faDate(plan.created_at)} · ${mmss(plan.duration)}. پس از تغییر متن، برش یا گزینه‌ها، پیش‌نمایش تازه بسازید.</p>
+ <video controls preload="metadata" style="width:100%;max-height:360px" src="/api/renders/file?id=${esc(plan.preview_id)}"></video>
+ <div class="row">${['srt','vtt'].map(fmt=>`<a class="sm" download="subtitles.${fmt}" href="/api/renders/subtitles?id=${esc(plan.preview_id)}&format=${fmt}">دریافت ${fmt.toUpperCase()}</a>`).join('')}</div>
+ <details style="margin-top:10px"><summary>زوم‌های پیشنهادی: ${fa(plan.zooms.length)} — برای حذف، تیک را بردارید و پیش‌نمایش تازه بسازید</summary>${plan.zooms.map((z,i)=>`<label class="row"><input type="checkbox" data-auto-zoom="${i}" checked> ${mmss(z.start)}–${mmss(z.end)} · ${esc(z.reason)} · ${z.scale}×</label>`).join('')||'<p class="small muted">ناحیهٔ واضحی برای زوم تأیید نشد؛ تصویر کامل حفظ شده است.</p>'}</details>`:''}
+ <p class="small muted">فرایند روی سیستم اجرا می‌شود. خروجی نهایی پس از بازبینی پیش‌نمایش، در مرکز تأیید ساخته می‌شود.</p></div>`;
 }
 
 /* ── media/jobs actions ──────────────────────────────────────── */
@@ -1428,18 +1458,21 @@ async function enqueueJob(kind,payload,key){
   return j;
  }catch(e){toast(e.message,'err');return null;}
 }
-async function trackJob(id){
- for(let i=0;i<200;i++){
+async function trackJob(id,onProgress=null,attempts=200){
+ for(let i=0;i<attempts;i++){
   try{
    const j=await api('/api/job?id='+id);
-   if(['completed','failed','cancelled'].includes(j.status)){
+   if(onProgress)onProgress(j);
+   if(['completed','failed','cancelled','waiting_approval'].includes(j.status)){
     if(j.status==='completed'){toast('کار کامل شد و نتیجه بارگذاری شد','ok');await render();}
+    else if(j.status==='waiting_approval')toast('کار در مرکز تأیید منتظر شماست','ok');
     else toast('کار ناموفق بود: '+(j.error||''),'err');
     return j;
    }
   }catch{}
   await new Promise(r=>setTimeout(r,1500));
  }
+ toast('کار ادامه دارد؛ وضعیت آن در بخش کارها قابل مشاهده است.');
 }
 function idempotencyKey(prefix,mediaId){return prefix+':'+mediaId;}
 async function refreshMedia(){mediaItems=await api('/api/media');}
@@ -1468,7 +1501,7 @@ document.addEventListener('toggle',e=>{
 document.addEventListener('click',async e=>{
  const b=e.target.closest('button');if(!b)return;
  try{
-  if(b.dataset.goto){go('#/'+b.dataset.goto);}
+  if(b.dataset.goto){$$('dialog[open]').forEach(d=>d.close());go('#/'+b.dataset.goto);}
   else if(b.id==='new'||b.hasAttribute('data-new')){go('#/create');}
   else if(b.dataset.close)$('#'+b.dataset.close).close();
   else if(b.dataset.openproject){go('#/project/'+b.dataset.openproject);$$('dialog[open]').forEach(d=>d.close());}
@@ -1480,6 +1513,30 @@ document.addEventListener('click',async e=>{
   else if(b.dataset.skill)skill(b.dataset.skill);
   else if(b.dataset.prompt)makePrompt(b.dataset.prompt);
   else if(b.dataset.mediadetail)await mediaDetail(b.dataset.mediadetail);
+  else if(b.dataset.autoedit){
+   b.disabled=true;
+   const opts=Object.fromEntries([...$('#media-detail').querySelectorAll('[data-auto-option]')].map(c=>[c.dataset.autoOption,c.checked]));
+   const zoomIndices=[...$('#media-detail').querySelectorAll('[data-auto-zoom]:checked')].map(c=>Number(c.dataset.autoZoom));
+   const mid=b.dataset.autoedit;
+   const payload={media_id:mid,options:opts,refresh:!!b.dataset.refresh};
+   if(payload.refresh)payload.zoom_indices=zoomIndices;
+   try{
+    if(payload.refresh){const previous=await api('/api/auto-edit?media_id='+mid);if(opts.semantic!==previous?.options.semantic)throw new Error('برای تغییر بررسی تکرارها، «تحلیل و ساخت پیش‌نمایش» را اجرا کنید.');}
+    const j=await enqueueJob('auto_edit_video',payload);
+    if(j)await trackJob(j.id,row=>{b.textContent=jobStatus[row.status]+' · '+fa(row.progress)+'٪';},2000);
+    await mediaDetail(mid);
+   }catch(err){const state=$('#auto-edit-state');if(state)state.textContent=err.message;else toast(err.message,'err');}finally{b.disabled=false;}
+  }
+  else if(b.dataset.autofinal){
+   b.disabled=true;
+   try{
+    const plan=await api('/api/auto-edit?media_id='+currentMedia);
+    const changed=[...$('#media-detail').querySelectorAll('[data-auto-option]')].some(c=>c.checked!==plan?.options[c.dataset.autoOption])||[...$('#media-detail').querySelectorAll('[data-auto-zoom]')].some(c=>!c.checked);
+    if(changed||plan?.id!==b.dataset.autofinal)throw new Error('ابتدا پیش‌نمایش تازه با گزینه‌ها و زوم‌های انتخاب‌شده بسازید.');
+    const j=await enqueueJob('auto_edit_final',{plan_id:b.dataset.autofinal},'auto-final:'+b.dataset.autofinal);
+    if(j){await trackJob(j.id);$('#media-dialog').close();go('#/approvals');}
+   }catch(err){const state=$('#auto-edit-state');if(state)state.textContent=err.message;else toast(err.message,'err');}finally{b.disabled=false;}
+  }
   else if(b.dataset.seek){const p=$('#media-player');if(p)p.currentTime=Number(b.dataset.seek);}
   else if(b.dataset.trev){currentTrev=Number(b.dataset.trev);await mediaDetail(currentMedia);}
   else if(b.dataset.transcribe){b.disabled=true;const j=await enqueueJob('transcribe_audio',{media_id:b.dataset.transcribe},'transcribe:'+b.dataset.transcribe);if(j)await trackJob(j.id);b.disabled=false;}
@@ -1574,6 +1631,9 @@ async function jobDetail(id){
 /* ── boot ────────────────────────────────────────────────────── */
 let authRequired=false,authed=false;
 function showLogin(){
+ authed=false;
+ if($('#loginbox'))return;
+ $$('dialog[open]').forEach(d=>d.close());
  const d=document.createElement('div');d.id='loginbox';
  d.innerHTML=`<div class="loginwrap"><div class="logincard">
   <div class="sidebrand" style="padding:0 0 14px"><span class="monogram">TN</span><div><strong style="color:#fff">کارخانهٔ محتوا</strong><small>Tehran Network × MyTel</small></div></div>

@@ -6,8 +6,8 @@ from store import Store
 from registry import skill_registry
 from jobs import JobManager, DependencyMissing
 from media import MediaLibrary, KINDS as MEDIA_KINDS
-from transcribe import Transcripts
-from editing import EditDecisions, report_lines
+from transcribe import Transcripts,transcribe_audio_handler
+from editing import EditDecisions, report_lines,edit_detect_handler
 from render import Renders
 from triggers import on_publish_approved
 from transcribe import parse_timed_text
@@ -31,6 +31,7 @@ import urllib.parse as uparse
 from knowledge import KnowledgeBase, index_project
 from content_intel import check_topic, refresh_candidates, optimize_content
 from handlers import build_handlers
+from auto_video import AutoEditPlans,auto_edit_video_handler,auto_edit_final_handler,options as auto_options,edit_mutation,locked_handler
 import handlers as HandlersMod
 
 ROOT=Path(__file__).resolve().parent
@@ -41,6 +42,7 @@ MEDIA=MediaLibrary(DB.path,DATA/'media')
 TRANSCRIPTS=Transcripts(DB.path)
 DECISIONS=EditDecisions(DB.path)
 RENDERS=Renders(DB.path,DATA/'renders')
+AUTO_PLANS=AutoEditPlans(DB.path)
 AISTORE=AIStore(DB.path)
 WSSET=WhisperSettings(DB.path)
 SYNCSTORE=SyncStore(DB.path)
@@ -59,7 +61,9 @@ JM=JobManager(DB.path,handlers=build_handlers()|{
   'enhance_audio':enhance_audio_handler,'seo_scan':seo_scan_handler,'archive_copy':archive_copy_handler,
   'analytics_sync':analytics_sync_handler,'optimize_content':optimize_content_handler,
   'weekly_plan':weekly_plan_handler,'seo_proposals':seo_proposals_handler,'shorts_v2':shorts_v2_handler,
-  'gsc_ingest':gsc_ingest_handler,'gemini_image':gemini_image_handler},workers=2,
+  'gsc_ingest':gsc_ingest_handler,'gemini_image':gemini_image_handler,
+  'auto_edit_video':auto_edit_video_handler,'auto_edit_final':auto_edit_final_handler,
+  'transcribe_audio':locked_handler(transcribe_audio_handler),'edit_detect':locked_handler(edit_detect_handler)},workers=2,
               services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
                         'store':DB,'dryrun_root':str(DATA/'dryrun'),
                         'ai':AISTORE,'policy':POLICY_TEXT,
@@ -116,7 +120,7 @@ def ai_preflight(kind=None):
     tasks={'research_topic':'research','technical_verification':'verification',
            'generate_script':'script','generate_hooks':'hooks','generate_title_packages':'thumbnail',
            'generate_social':'social','generate_article':'seo','generate_pinned':'social',
-           'content_pipeline':'research'}
+           'content_pipeline':'research','auto_edit_video':'analysis'}
     if kind is not None and kind not in tasks: return None
     p=AISTORE.provider_for_task(tasks.get(kind,'research'))
     result=readiness(p)
@@ -135,7 +139,7 @@ def delete_media_row(mid,lib,ts,dec,rd):
     if root not in path.parents: raise ValueError('مسیر فایل خارج از فضای امن است.')
     import sqlite3 as sq
     with sq.connect(lib.path) as c:
-        for tbl in ('edit_decisions','transcripts','renders','sync_offsets','assets'):
+        for tbl in ('edit_decisions','transcripts','renders','sync_offsets','assets','auto_edit_plans'):
             try: c.execute(f'DELETE FROM {tbl} WHERE media_id=?',(mid,))
             except Exception: pass
         c.execute('DELETE FROM media WHERE id=?',(mid,))
@@ -153,7 +157,7 @@ def project_dependencies(pid,jm):
         mids=[r[0] for r in rows] or ['-']
         qmarks=','.join('?'*len(mids))
         for tbl,key in (('transcripts','media_id'),('edit_decisions','media_id'),
-                        ('renders','media_id'),('sync_offsets','media_id')):
+                        ('renders','media_id'),('sync_offsets','media_id'),('auto_edit_plans','media_id')):
             try: counts[tbl]=c.execute(f"SELECT COUNT(*) FROM {tbl} WHERE {key} IN ({qmarks})",mids).fetchone()[0]
             except Exception: counts[tbl]=0
         try: counts['ai_outputs']=c.execute("SELECT COUNT(*) FROM ai_outputs WHERE content_id=?",(pid,)).fetchone()[0]
@@ -180,7 +184,7 @@ def delete_project_files(deps,db):
                 p=Path(path).resolve()
                 if rroot in p.parents: p.unlink()
             except OSError: pass
-        for tbl in ('transcripts','edit_decisions','renders','sync_offsets','assets'):
+        for tbl in ('transcripts','edit_decisions','renders','sync_offsets','assets','auto_edit_plans'):
             try: c.execute(f"DELETE FROM {tbl} WHERE media_id NOT IN (SELECT id FROM media)")
             except Exception: pass
         try: c.execute("DELETE FROM ai_outputs WHERE content_id NOT IN (SELECT id FROM content)")
@@ -255,6 +259,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
             if url.path=='/api/assets': return self.respond(MEDIA.list_assets(q.get('state',[None])[0]))
+            if url.path=='/api/auto-edit':return self.respond(AUTO_PLANS.latest(q.get('media_id',[''])[0]))
             if url.path=='/api/shorts':
                 mid=q.get('media_id',[''])[0]
                 m=MEDIA.get(mid)
@@ -365,6 +370,13 @@ class Handler(BaseHTTPRequestHandler):
                 r=RENDERS.get(q.get('id',[''])[0])
                 if not r or not Path(r['path']).exists(): return self.respond({'error':'خروجی پیدا نشد.'},404)
                 return self.stream_file(r['path'],r['size'],'video/mp4')
+            if url.path=='/api/renders/subtitles':
+                fmt=q.get('format',['srt'])[0]
+                if fmt not in ('srt','vtt','ass'):raise ValueError('قالب زیرنویس معتبر نیست.')
+                row=RENDERS.get(q.get('id',[''])[0])
+                target=Path(row['path']).with_suffix('.'+fmt) if row else None
+                if not target or not target.is_file():return self.respond({'error':'زیرنویس پیدا نشد.'},404)
+                return self.stream_file(target,target.stat().st_size,'text/vtt; charset=utf-8' if fmt=='vtt' else 'text/plain; charset=utf-8')
             if url.path=='/api/decisions': return self.respond(DECISIONS.list(q.get('media_id',[''])[0],q.get('state',[None])[0]))
             if url.path=='/api/editreport': return self.respond({'media_id':q.get('media_id',[''])[0],'lines':report_lines(DECISIONS,q.get('media_id',[''])[0])})
             if url.path=='/api/transcripts':
@@ -507,7 +519,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(item)
             if self.path=='/api/jobs':
                 kind=data.get('kind'); payload=data.get('payload') if isinstance(data.get('payload'),dict) else {}
-                try: ai_preflight(kind)
+                if kind=='auto_edit_video':
+                    m=MEDIA.get(payload.get('media_id') or '')
+                    if not m:raise ValueError('رسانه پیدا نشد.')
+                    from video_render import probe_streams
+                    info=probe_streams(m['path'])
+                    if not info['video'] or not info['audio']:raise ValueError('یک ویدیوی دارای تصویر و صدا انتخاب کنید.')
+                    opts=auto_options(payload)
+                    payload['content_id']=m.get('content_id')
+                if kind=='auto_edit_final':
+                    plan=AUTO_PLANS.get(payload.get('plan_id'))
+                    if not plan:raise ValueError('ابتدا پیش‌نمایش تدوین خودکار را بسازید.')
+                    payload.pop('approved',None)
+                    payload['media_id']=plan['media_id']
+                    m=MEDIA.get(plan['media_id'])
+                    payload['content_id']=(m or {}).get('content_id')
+                try:
+                    if kind!='auto_edit_video' or (not payload.get('refresh') and (opts['semantic'] or opts['zooms'])):ai_preflight(kind)
                 except ValueError as e: return self.respond({'error':str(e),'blocked_dependency':True},409)
                 if kind=='seo_scan':
                     import re as _re
@@ -532,7 +560,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not m: raise ValueError('رسانه پیدا نشد.')
                 text=data.get('text')
                 if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
-                t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
+                with edit_mutation(m['id']):t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
                 return self.respond(t)
             if self.path=='/api/whisper/model':
                 return self.respond({'model':WSSET.set_whisper_model(data.get('model'))})
@@ -646,10 +674,15 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/media/validate':
                 return self.respond(validate_audio(data.get('media_id')))
             if self.path=='/api/decisions/manual':
-                return self.respond(DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
-                    'manual',1.0,'manual','active',reason=data.get('reason')))
+                with edit_mutation(data.get('media_id')):
+                    row=DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
+                        'manual',1.0,'manual','active',reason=data.get('reason'))
+                return self.respond(row)
             if self.path=='/api/decisions/state':
-                return self.respond(DECISIONS.set_state(data.get('id'),data.get('state')))
+                decision=DECISIONS.get(data.get('id'))
+                if not decision:raise ValueError('تصمیم پیدا نشد.')
+                with edit_mutation(decision['media_id']):row=DECISIONS.set_state(decision['id'],data.get('state'))
+                return self.respond(row)
             if self.path=='/api/jobs/cancel': return self.respond(JM.cancel(data.get('id')))
             if self.path=='/api/jobs/retry':
                 try: ai_preflight(get_job_kind_safe(data.get('id')))
@@ -707,7 +740,7 @@ def _watch_jobs():
                         NOTIF.add('job_failed',(jobKinds_fa().get(kind,kind)+' ناموفق بود'),j.get('error') or '',j['id'])
                     elif j['status']=='waiting_approval':
                         NOTIF.add('approval_needed',(jobKinds_fa().get(kind,kind)+' منتظر تأیید شماست'),'',j['id'])
-                    elif j['status']=='completed' and kind in ('render_cut','render_short','content_pipeline','generate_script','research_topic'):
+                    elif j['status']=='completed' and kind in ('render_cut','render_short','auto_edit_video','auto_edit_final','content_pipeline','generate_script','research_topic'):
                         NOTIF.add('render_done' if kind.startswith('render') else 'ai_done',(jobKinds_fa().get(kind,kind)+' کامل شد'),'',j['id'])
                 _JOB_STATES[j['id']]=j['status']
         except Exception:
@@ -715,7 +748,7 @@ def _watch_jobs():
         time.sleep(8)
 
 def jobKinds_fa():
-    return {'transcribe_audio':'تبدیل گفتار به متن','edit_detect':'تحلیل تدوین','render_cut':'رندر','render_short':'رندر عمودی','publish_dryrun':'بسته انتشار','website_publish':'پیش‌نویس وردپرس','research_topic':'تحقیق','technical_verification':'بررسی فنی','generate_script':'سناریو','generate_hooks':'هوک‌ها','generate_title_packages':'بسته‌های عنوان/کاور','generate_social':'نسخهٔ شبکه‌ها','generate_article':'مقاله','generate_pinned':'کامنت پین','content_pipeline':'خط تولید'}
+    return {'auto_edit_video':'تدوین خودکار و پیش‌نمایش','auto_edit_final':'نسخهٔ نهایی تدوین خودکار','transcribe_audio':'تبدیل گفتار به متن','edit_detect':'تحلیل تدوین','render_cut':'رندر','render_short':'رندر عمودی','publish_dryrun':'بسته انتشار','website_publish':'پیش‌نویس وردپرس','research_topic':'تحقیق','technical_verification':'بررسی فنی','generate_script':'سناریو','generate_hooks':'هوک‌ها','generate_title_packages':'بسته‌های عنوان/کاور','generate_social':'نسخهٔ شبکه‌ها','generate_article':'مقاله','generate_pinned':'کامنت پین','content_pipeline':'خط تولید'}
 
 if __name__=='__main__':
     import threading
