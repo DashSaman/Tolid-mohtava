@@ -11,3 +11,10 @@ A ready YouTube channel is not an API connection. `Connect-YouTube.cmd` records 
 WordPress drafts, GSC, GA4 and Gemini require their credentials. Instagram/Facebook/LinkedIn currently provide review packages and manual analytics; OAuth alone does not implement automated publishing/ingestion. No local image-generation model was installed. Semantic autonomous editing, intelligent screen zoom and full multicamera composition are not complete capabilities; track synchronization stores offsets.
 
 Existing FFmpeg, faster-whisper, cached models and Ollama were reused. [Auto-Editor](https://github.com/WyattBlue/auto-editor) overlaps with existing silence removal, so no duplicate stack was installed. [OpenCut-AI](https://github.com/Ekaanth/OpenCut-AI) is a future text/multicamera option, unverified for Persian/RTL on this machine. Sixteen pre-existing missing-media records and historical job failures were preserved.
+
+
+## Docker storage relocation on this installation
+
+With owner approval, the Docker Desktop disk now resides under D:\DockerDesktopData\disk. The former C: disk directory redirects through an NTFS junction. Source/destination SHA256 matched before restart, and the original disk remains under D:\DockerDesktopData\rollback-20261013. All previously running containers were restarted. Do not modify either directory while Docker runs.
+
+Existing panel credentials are in Documents\Tolid-Mohtava-Admin-Credentials.txt under the same Windows account; the password was preserved.

@@ -356,9 +356,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not o: return self.respond({'error':'خروجی پیدا نشد.'},404)
                 return self.respond(o)
             if url.path=='/api/health':
-                qc={}
-                for st in ('queued','running','waiting_approval','completed','failed','cancelled'):
-                    qc[st]=len(JM.list(status=st))
+                qc=dict.fromkeys(('queued','running','waiting_approval','completed','failed','cancelled'),0)
+                with JM.connect() as c:qc.update(dict(c.execute('SELECT status,COUNT(*) FROM jobs GROUP BY status')))
                 return self.respond(health_payload(DB.path,qc,len(JM._threads),AISTORE.provider_for_task('research')))
             if url.path=='/api/media/file': return self.serve_media(q)
             if url.path=='/api/renders': return self.respond(RENDERS.list(q.get('media_id',[''])[0]))
