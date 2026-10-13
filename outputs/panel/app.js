@@ -33,7 +33,7 @@ function toast(msg,kind=''){const t=document.createElement('div');t.className='t
 function confirmBox(title,text){return new Promise(res=>{const d=$('#confirm-dialog');$('#confirm-title').textContent=title;$('#confirm-text').textContent=text;d.showModal();$('#confirm-yes').onclick=()=>{d.close();res(true);};$('#confirm-no').onclick=()=>{d.close();res(false);};d.oncancel=()=>res(false);});}
 
 /* ── state ───────────────────────────────────────────────────── */
-let brand='tehran-network',page='dashboard',token='',items=[],skills=[],mediaItems=[],jobs=[],policy='',profile={};
+let brand='tehran-network',page='dashboard',token='',items=[],skills=[],mediaItems=[],jobs=[],jobCounts=null,policy='',profile={};
 let editing=null,currentMedia=null,currentTrev=null,jobsTimer=null,healthData=null;
 let wizard={step:1,brand:'tehran-network',type:'text',title:'',topic:'',file:null,job:null,projectId:null};
 let proj={id:null,tab:'overview'},showArchived=false;
@@ -83,11 +83,14 @@ async function loadCore(){
  const [a,b,p]=await Promise.all([api('/api/items?brand='+brand),api('/api/profile?brand='+brand),api('/api/policy')]);
  items=a;profile=b;policy=p.text;
 }
-async function loadJobs(){try{jobs=await api('/api/jobs');}catch{}}
+async function loadJobs(status=null,limit=100){try{
+ const [rows,counts]=await Promise.all([api('/api/jobs?limit='+limit+(status?'&status='+encodeURIComponent(status):'')),api('/api/jobs/counts')]);
+ jobs=rows;jobCounts=counts;
+}catch{}}
 function navCounts(){
  const pending=items.filter(x=>x.script_status!=='approved'||x.publish_status!=='approved').length;
- const waiting=jobs.filter(j=>j.status==='waiting_approval').length;
- const failed=jobs.filter(j=>j.status==='failed').length;
+ const waiting=jobCounts?.waiting_approval??jobs.filter(j=>j.status==='waiting_approval').length;
+ const failed=jobCounts?.failed??jobs.filter(j=>j.status==='failed').length;
  return {approvals:pending+waiting,jobs:failed?failed:null};
 }
 function renderNav(){
@@ -98,7 +101,7 @@ function renderNav(){
   let cnt='';
   if(id==='approvals'&&counts.approvals)cnt=`<span class="count">${fa(counts.approvals)}</span>`;
   if(id==='jobs'&&counts.jobs)cnt=`<span class="count">${fa(counts.jobs)}</span>`;
-  return `<a href="#/${id}" class="${page===id?'active':''}">${icon(d.i)}<span class="lbl">${d.t}</span>${cnt}</a>`;
+  return `<a href="#/${id}" aria-label="${esc(d.t)}" title="${esc(d.t)}" class="${page===id||(page==='project'&&id==='projects')?'active':''}">${icon(d.i)}<span class="lbl">${d.t}</span>${cnt}</a>`;
  }).join('')).join('');
  $('#brandlabel').innerHTML=`${icon('i-folder','icon sm')} ${names[brand]} · ${domains[brand]}`;
 }
@@ -120,11 +123,12 @@ let renderingPage=false,renderAgain=false;
 async function render(){
  if(renderingPage){renderAgain=true;return;}
  renderingPage=true;
- const def=pagesDef[page]||{t:'داشبورد',s:'',i:'i-home'};
+ const def=page==='project'?{t:'فضای پروژه',s:'مراحل تولید محتوا',i:'i-folder'}:pagesDef[page]||{t:'داشبورد',s:'',i:'i-home'};
  $('#pagetitle').textContent=def.t;
  $('#pagesub').textContent=def.s;
  renderNav();
  const view=$('#view');
+ view.setAttribute('aria-busy','true');
  try{
   if(page==='dashboard')await pageDashboard(view);
   else if(page==='create')await pageWizard(view);
@@ -148,27 +152,27 @@ async function render(){
   else if(page==='skills')await pageSkills(view);
   else if(page==='settings')await pageSettings(view);
  }catch(err){view.innerHTML=`<div class="banner warn"><strong>بارگذاری این بخش ناموفق بود</strong>${esc(err.message)}</div>`;}
- finally{renderingPage=false;if(renderAgain){renderAgain=false;await render();}}
+ finally{view.setAttribute('aria-busy','false');renderingPage=false;if(renderAgain){renderAgain=false;await render();}}
 }
 
 /* ── dashboard ───────────────────────────────────────────────── */
 async function pageDashboard(view){
- const [jobsAll,health,media]=await Promise.all([api('/api/jobs'),api('/api/health'),api('/api/media')]);
- jobs=jobsAll;healthData=health;
+ const [jobsAll,health,media,counts,active,queued,waiting]=await Promise.all([api('/api/jobs'),api('/api/health'),api('/api/media'),api('/api/jobs/counts'),api('/api/jobs?status=running'),api('/api/jobs?status=queued'),api('/api/jobs?status=waiting_approval')]);
+ jobs=jobsAll;jobCounts=counts;healthData=health;
  const inProd=items.filter(x=>!['ایده','آماده بررسی'].includes(x.stage));
  const pend=items.filter(x=>x.script_status!=='approved'||x.publish_status!=='approved');
  const editN=items.filter(x=>['تدوین','ضبط'].includes(x.stage)).length;
  const ready=items.filter(x=>x.publish_status==='approved').length;
- const failedJobs=jobs.filter(j=>j.status==='failed'||j.status==='possibly_stuck');
- const running=jobs.filter(j=>['running','queued'].includes(j.status));
- const waitAppJobs=jobs.filter(j=>j.status==='waiting_approval');
+ const failedCount=(counts.failed||0)+(counts.possibly_stuck||0);
+ const running=active.concat(queued),runningCount=(counts.running||0)+(counts.queued||0);
+ const waitAppJobs=waiting;
  const credMiss=health.filter(h=>h.status==='credential').length;
  const llmH=health.find(h=>h.name.includes('LLM'))||{status:'warn'};
  const gpuH=health.find(h=>h.name.includes('GPU'))||{status:'limited'};
  const last=items[0];
  const stages=['ایده','پژوهش','بررسی فنی','سناریو','ضبط','تدوین','بازآفرینی','SEO','آماده بررسی'];
  const stageCount={};stages.forEach(st=>stageCount[st]=items.filter(x=>x.stage===st).length);
- const waitApp=waitAppJobs.length;
+ const waitApp=counts.waiting_approval||0;
  const fdef=[
   {k:'idea',t:'ایده',i:'i-bulb',go:'ideas',st:stageCount['ایده']>0||items.length===0?'active':'done',n:fa(items.length)+' پروژه'},
   {k:'research',t:'تحقیق',i:'i-search',go:'projects',st:stageCount['پژوهش']>0?'active':items.length?'done':'',n:'تحقیق و منابع'},
@@ -189,7 +193,7 @@ async function pageDashboard(view){
    <div class="row" style="margin-top:12px">
      <span class="chip ${llmH.status==='ok'?'ok':'warn'}"><span class="dot"></span> AI محلی: ${llmH.status==='ok'?'آماده':'بررسی کنید'}</span>
      <span class="chip ${gpuH.status==='ok'?'ok':'info'}"><span class="dot"></span> GPU: ${gpuH.status==='ok'?'فعال':'پردازش روی CPU'}</span>
-     <span class="chip ${failedJobs.length?'warn':'ok'}"><span class="dot"></span> ${failedJobs.length?fa(failedJobs.length)+' کار نیازمند توجه':'صف سالم'}</span>
+     <span class="chip ${failedCount?'warn':'ok'}"><span class="dot"></span> ${failedCount?fa(failedCount)+' کار نیازمند توجه':'صف سالم'}</span>
    </div></div>
    <div class="row" style="flex-direction:column;align-items:stretch;min-width:210px">
      <button class="primary" id="hero-new"><svg class="icon sm"><use href="#i-plus"/></svg>محتوای جدید</button>
@@ -199,17 +203,17 @@ async function pageDashboard(view){
    <div class="kpi"><div class="kico">${icon('i-folder')}</div><div><b>${fa(inProd.length)}</b><span>محتوای در جریان</span></div></div>
    <div class="kpi ${pend.length+waitApp?'warn':''}"><div class="kico">${icon('i-check')}</div><div><b>${fa(pend.length+waitApp)}</b><span>منتظر تأیید شما</span></div></div>
    <div class="kpi ok"><div class="kico">${icon('i-send')}</div><div><b>${fa(ready)}</b><span>آمادهٔ انتشار</span></div></div>
-   <div class="kpi ${failedJobs.length?'danger':'ok'}"><div class="kico">${icon('i-activity')}</div><div><b>${fa(running.length)}</b><span>کار فعال · ${fa(failedJobs.length)} خطا</span></div></div>
+   <div class="kpi ${failedCount?'danger':'ok'}"><div class="kico">${icon('i-activity')}</div><div><b>${fa(runningCount)}</b><span>کار فعال · ${fa(failedCount)} خطا</span></div></div>
  </div>
  <div class="card"><div class="cardhead"><h2>${icon('i-grid')} خط تولید</h2><span class="small muted">روی هر مرحله کلیک کنید</span></div>
   <div class="flowwrap"><div class="flow">${fdef.map(f=>`<div class="fnode ${f.st}" data-page="${f.go}"><div class="fico">${icon(f.i)}</div><b>${f.t}</b><small>${f.n}</small></div>`).join('')}</div></div></div>
  <div class="grid2">
   <div>
    <div class="card"><div class="cardhead"><h2>${icon('i-alert')} نیازمند توجه شما</h2></div>
-    ${(pend.length+waitApp+failedJobs.length+credMiss)?`<div class="rows">
+    ${(pend.length+waitApp+failedCount+credMiss)?`<div class="rows">
      ${pend.length?`<div class="rowitem"><div class="t"><strong>${fa(pend.length)} محتوای منتظر تأیید</strong><small>سناریو یا انتشار — تا تأیید نکنید، مرحلهٔ بعد فعال نمی‌شود</small></div><div class="actions"><button class="sm primary" data-page="approvals">برو به تأییدها</button></div></div>`:''}
      ${waitApp?`<div class="rowitem"><div class="t"><strong>${fa(waitApp)} کار منتظر تصمیم</strong><small>رندر نهایی پیش از اجرا تأیید می‌خواهد</small></div><div class="actions"><button class="sm primary" data-page="approvals">تصمیم بده</button></div></div>`:''}
-     ${failedJobs.length?`<div class="rowitem"><div class="t"><strong>${fa(failedJobs.length)} کار ناموفق</strong><small>از صفحهٔ کارها «تلاش دوباره» — دلیل خطا همان‌جاست</small></div><div class="actions"><button class="sm" data-page="jobs">صف کارها</button></div></div>`:''}
+     ${failedCount?`<div class="rowitem"><div class="t"><strong>${fa(failedCount)} کار ناموفق</strong><small>از صفحهٔ کارها «تلاش دوباره» — دلیل خطا همان‌جاست</small></div><div class="actions"><button class="sm" data-page="jobs">صف کارها</button></div></div>`:''}
      ${credMiss?`<div class="rowitem"><div class="t"><strong>اتصال سرویس‌های بیرونی نیازمند تنظیم است</strong><small>اتصال حساب‌ها → هر کارت می‌گوید دقیقاً چه متغیری لازم است</small></div><div class="actions"><button class="sm" data-page="integrations">اتصال حساب‌ها</button></div></div>`:''}
     </div>`:empty('i-check','چیزی نیازمند توجه نیست','همهٔ تأییدها انجام شده و صف کارها سالم است.')}
    </div>
@@ -220,7 +224,7 @@ async function pageDashboard(view){
   </div>
   <div>
    <div class="card"><div class="cardhead"><h2>${icon('i-activity')} کارهای زنده</h2><button class="sm" data-page="jobs">صف کارها</button></div>
-    ${running.length||waitApp?`<div class="rows">${running.concat(waitAppJobs).slice(0,4).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</strong>${j.status==='running'?`<div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div>`:''}</div><div class="actions">${badge(j.status)}</div></div>`).join('')}</div>`:empty('i-activity','کاری در جریان نیست','پس از درخواست تبدیل/رندر اینجا می‌آید.')}
+    ${runningCount||waitApp?`<div class="rows">${running.concat(waitAppJobs).slice(0,4).map(j=>`<div class="rowitem"><div class="t"><strong>${jobKinds[j.kind]||("فرآیند: "+j.kind)}</strong>${j.status==='running'?`<div class="progress"><div class="progressfill" data-w="${j.progress}"></div></div>`:''}</div><div class="actions">${badge(j.status)}</div></div>`).join('')}</div>`:empty('i-activity','کاری در جریان نیست','پس از درخواست تبدیل/رندر اینجا می‌آید.')}
    </div>
    <div class="card"><div class="cardhead"><h2>${icon('i-cpu')} سیستم</h2><button class="sm" data-page="services">جزئیات</button></div>
     <div class="chiprow" style="gap:6px">${health.map(x=>`<span class="badge ${x.status==='ok'?'ok':x.status==='limited'?'warn':x.status==='credential'?'':'danger'}">${esc(x.name)}</span>`).join('')}</div>
@@ -830,7 +834,7 @@ async function pageThumbs(view){
 
 /* ── approvals ───────────────────────────────────────────────── */
 async function pageApprovals(view){
- await loadJobs();
+ await loadJobs('waiting_approval',500);
  const waiting=jobs.filter(j=>j.status==='waiting_approval');
  const scriptPend=items.filter(x=>x.script_status!=='approved');
  const pubPend=items.filter(x=>x.script_status==='approved'&&x.publish_status!=='approved');
@@ -1010,14 +1014,16 @@ async function pageSeo(view){
 /* ── jobs ────────────────────────────────────────────────────── */
 let jobFilter='';
 async function pageJobs(view){
- await loadJobs();
- const items=await api('/api/items?brand='+brand).catch(()=>[]);
- const knownIds=new Set(items.map(x=>x.id));
+ const status=['current_fail','failed'].includes(jobFilter)?'failed':['queued','running','waiting_approval','completed','cancelled'].includes(jobFilter)?jobFilter:null;
+ await loadJobs(status,500);
+ const allItems=(await Promise.all(['tehran-network','mytel'].map(b=>api('/api/items?brand='+b+'&archived=1')))).flat();
+ const knownIds=new Set(allItems.map(x=>x.id));
  const isOld=j=>j.created_at&&j.created_at<'2026-10-03T15:45'; // pre-repair era
  const list=jobFilter==='old'?jobs.filter(j=>isOld(j)):
             jobFilter==='current_fail'?jobs.filter(j=>j.status==='failed'&&!isOld(j)):
             jobFilter?jobs.filter(j=>j.status===jobFilter):jobs;
  view.innerHTML=`
+ <p class="small muted">جدیدترین ۵۰۰ کارِ فیلتر انتخاب‌شده نمایش داده می‌شود؛ تعداد وضعیت‌ها از کل تاریخچه محاسبه می‌شود.</p>
  <div class="chiprow" style="margin-bottom:16px">${[['','همه'],['queued','در صف'],['running','در حال اجرا'],['waiting_approval','منتظر تأیید'],['completed','کامل'],['failed','ناموفق'],['cancelled','لغو'],['current_fail','ناموفقِ جدید'],['old','قدیمی / نیازمند بررسی']].map(([v,l])=>`<button class="${jobFilter===v?'active':''}" data-jfilter="${v}">${l}</button>`).join('')}
  <button id="jobs-refresh">${icon('i-refresh','icon sm')}به‌روزرسانی</button></div>
  <div class="table-wrap"><table class="table"><thead><tr><th>کار</th><th>وضعیت</th><th>پیشرفت</th><th>شروع</th><th>مدت</th><th>تلاش مجدد</th><th></th></tr></thead>
@@ -1080,7 +1086,7 @@ async function pageServices(view){
 
 /* ── notifications / sources / settings ──────────────────────── */
 async function pageNotifications(view){
- await loadJobs();await loadCore();
+ await loadJobs(null,500);await loadCore();
  const [notif,]=await Promise.all([api('/api/notifications')]);
  const pending=items.filter(x=>x.script_status!=='approved'||x.publish_status!=='approved');
  const failed=jobs.filter(j=>j.status==='failed');
@@ -1595,7 +1601,8 @@ $$('[data-brand]').forEach(b=>b.addEventListener('click',async()=>{
  if(b.dataset.brand===brand)return;
  brand=b.dataset.brand;
  $$('[data-brand]').forEach(x=>x.classList.toggle('active',x===b));
- await loadCore();go('#/dashboard');
+ await loadCore();
+ if(location.hash==='#/dashboard')await render();else go('#/dashboard');
  toast('فضای کاری به '+names[brand]+' تغییر کرد');
 }));
 $('#content-form').addEventListener('submit',async e=>{

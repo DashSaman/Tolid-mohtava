@@ -120,6 +120,10 @@ class JobManager:
         q+=' ORDER BY created_at DESC LIMIT ?'; args+=(limit,)
         with self.connect() as c:
             return [self._row(r) for r in c.execute(q,args).fetchall()]
+    def counts(self):
+        counts=dict.fromkeys(STATES,0)
+        with self.connect() as c:counts.update(dict(c.execute('SELECT status,COUNT(*) FROM jobs GROUP BY status')))
+        return counts
     def _update(self,jid,**fields):
         sets=[]; args=[]
         for k,v in fields.items(): sets.append(f'{k}=?'); args.append(v)

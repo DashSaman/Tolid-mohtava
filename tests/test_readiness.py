@@ -17,6 +17,19 @@ class Provider(BaseHTTPRequestHandler):
     def log_message(self,*args): pass
 
 class ReadinessHTTP(unittest.TestCase):
+    def test_job_counts_and_status_filter_include_older_failures(self):
+        import sqlite3
+        from contextlib import closing
+        with closing(sqlite3.connect(Path(self.tmp.name)/'test.sqlite')) as c:
+            c.executemany('INSERT INTO jobs(id,kind,payload,status,logs,created_at) VALUES(?,?,?,?,?,?)',
+                [(f'history-fixture-{i}','fixture','{}','completed','[]','2026-10-13T00:00:00') for i in range(120)]+
+                [('older-filtered-failure','fixture','{}','failed','[]','2020-01-01T00:00:00')])
+            c.commit()
+        self.assertNotIn('older-filtered-failure',[j['id'] for j in self.api('/api/jobs')[1]])
+        code,counts=self.api('/api/jobs/counts');self.assertEqual(code,200,counts)
+        self.assertGreaterEqual(counts['failed'],1)
+        self.assertIn('older-filtered-failure',[j['id'] for j in self.api('/api/jobs?status=failed&limit=500')[1]])
+        self.assertEqual(self.api('/api/jobs?limit=10000')[0],400)
     def test_auto_edit_api_reports_missing_inputs_and_subtitle_format(self):
         self.assertEqual(self.api('/api/auto-edit?media_id=missing'),(200,None))
         for kind,payload in [('auto_edit_video',{'media_id':'missing'}),('auto_edit_final',{'plan_id':'missing','approved':True})]:

@@ -361,9 +361,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not o: return self.respond({'error':'خروجی پیدا نشد.'},404)
                 return self.respond(o)
             if url.path=='/api/health':
-                qc=dict.fromkeys(('queued','running','waiting_approval','completed','failed','cancelled'),0)
-                with JM.connect() as c:qc.update(dict(c.execute('SELECT status,COUNT(*) FROM jobs GROUP BY status')))
-                return self.respond(health_payload(DB.path,qc,len(JM._threads),AISTORE.provider_for_task('research')))
+                return self.respond(health_payload(DB.path,JM.counts(),len(JM._threads),AISTORE.provider_for_task('research')))
             if url.path=='/api/media/file': return self.serve_media(q)
             if url.path=='/api/renders': return self.respond(RENDERS.list(q.get('media_id',[''])[0]))
             if url.path=='/api/renders/file':
@@ -386,7 +384,11 @@ class Handler(BaseHTTPRequestHandler):
                 t=TRANSCRIPTS.get(mid,int(q['revision'][0]) if 'revision' in q else None)
                 if not t: return self.respond({'error':'متن پیدا نشد.'},404)
                 return self.respond(t)
-            if url.path=='/api/jobs': return self.respond(JM.list(q.get('status',[None])[0]))
+            if url.path=='/api/jobs/counts':return self.respond(JM.counts())
+            if url.path=='/api/jobs':
+                limit=int(q.get('limit',['100'])[0])
+                if not 1<=limit<=500:raise ValueError('تعداد کارهای درخواستی باید بین ۱ و ۵۰۰ باشد.')
+                return self.respond(JM.list(q.get('status',[None])[0],limit=limit))
             if url.path=='/api/job':
                 job=JM.get(q.get('id',[''])[0])
                 if not job: return self.respond({'error':'کار پیدا نشد.'},404)

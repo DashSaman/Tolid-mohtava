@@ -1,5 +1,13 @@
 # Work log / سابقه کار
 
+## 2026-10-13 — Menu and item audit
+
+- Checked all 22 navigation sections for both brands and all 13 project tabs in the browser.
+- Kept readable navigation labels and both brand selectors available in narrow layouts; added accessible link names and corrected the project header/active navigation state.
+- Fixed switching brands while already on the dashboard. Exposed the page loading state to assistive technology.
+- Added full-history job counts and bounded status-filtered history queries. Failed/waiting jobs remain visible beyond the default 100 recent records; existing archived or other-brand projects are no longer mislabeled as missing.
+- Fresh suite: 173 passing tests. Live failed-job filter shows all 26 pre-existing failures; no historical jobs or missing-media records were deleted or retried. Details: [menu audit](MENU-AUDIT.md).
+
 ## 2026-10-13 — Single-video educational editing
 
 - Reused existing FFmpeg, cached Whisper medium and local Ollama; vendored only pinned MIT subtitle serializers from OpenCut-AI.
