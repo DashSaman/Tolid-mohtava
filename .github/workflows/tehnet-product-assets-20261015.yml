@@ -1,0 +1,61 @@
+name: TehNet product assets 2026-10-15
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/assets/import_tehnet_products_20261015.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tehnet-product-assets-20261015
+  cancel-in-progress: false
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      OPENCV_FOR_THREADS_NUM: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated image-processing dependencies
+        run: python -m pip install --disable-pip-version-check Pillow numpy opencv-python-headless
+      - name: Fetch verified sources, remove seller labels and render exact domain
+        run: python scripts/assets/import_tehnet_products_20261015.py
+      - name: Commit only the requested static image collection
+        shell: bash
+        run: |
+          set -euo pipefail
+          target='assets/tehran-network/products/2026-10-15'
+          test -f "$target/qa.json"
+          git add -- "$target"
+          python - <<'PY'
+          import subprocess
+          names = subprocess.check_output(['git', 'diff', '--cached', '--name-only'], text=True).splitlines()
+          assert names and all(n.startswith('assets/tehran-network/products/2026-10-15/') for n in names), names
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --cached --quiet; then
+            git commit -m 'assets(tehnet): add 23 branded images mapped to 25 products'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Export the deliverable
+        uses: actions/upload-artifact@v4
+        with:
+          name: tehnet-products-20261015
+          path: assets/tehran-network/products/2026-10-15/
+          if-no-files-found: error
+          retention-days: 30
