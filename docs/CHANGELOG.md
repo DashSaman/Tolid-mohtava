@@ -1,5 +1,22 @@
 # Work log / سابقه کار
 
+## 2026-10-13 — Menu and item audit
+
+- Checked all 22 navigation sections for both brands and all 13 project tabs in the browser.
+- Kept readable navigation labels and both brand selectors available in narrow layouts; added accessible link names and corrected the project header/active navigation state.
+- Fixed switching brands while already on the dashboard. Exposed the page loading state to assistive technology.
+- Added full-history job counts and bounded status-filtered history queries. Failed/waiting jobs remain visible beyond the default 100 recent records; existing archived or other-brand projects are no longer mislabeled as missing.
+- Fresh suite: 173 passing tests. Live failed-job filter shows all 26 pre-existing failures; no historical jobs or missing-media records were deleted or retried. Details: [menu audit](MENU-AUDIT.md).
+
+## 2026-10-13 — Single-video educational editing
+
+- Reused existing FFmpeg, cached Whisper medium and local Ollama; vendored only pinned MIT subtitle serializers from OpenCut-AI.
+- Added word timestamps, cut-aware SRT/VTT/ASS, conservative repeat/silence protection, sampled screen activity and validated removable zoom regions.
+- Added immutable review plans, stale-plan rejection, guarded transcript/cut mutations and validation before a render becomes visible. Finals require explicit approval; Shorts inherit the reviewed final timeline.
+- Fixed cumulative frame rounding across fractional cuts. Real fixtures verify visible/audible markers remain aligned throughout twelve cuts, and rejected renders leave no rows or sidecars.
+- Added Persian controls, preview/download links, final approval preview and selection of actual project videos.
+- Browser and real local CUDA/NVENC workflow checks are recorded in the current delivery report. External account requirements and multicamera limitations remain explicit in both daily guides.
+
 ## 2026-09-26 — Original workstation work
 
 1. Read the supplied 53-section master prompt and confirmed scope: install 17 skills and deliver a local Persian panel without changing existing services.

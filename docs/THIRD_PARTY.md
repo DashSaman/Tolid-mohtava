@@ -1,5 +1,15 @@
 # Third-party provenance / منبع اسکیل‌ها
 
+## OpenCut-AI subtitle export
+
+- Repository: [Ekaanth/OpenCut-AI](https://github.com/Ekaanth/OpenCut-AI)
+- Pinned commit: `eb8aef9f971648980673b207fc28eb76955883b3`
+- Scope: unchanged `services/ai-backend/app/services/subtitle_service.py`, copied to [opencut_subtitles.py](../outputs/panel/vendor/opencut_subtitles.py)
+- License: [MIT, copyright 2025 OpenCut-AI](../outputs/panel/vendor/OpenCut-AI-LICENSE.txt)
+- Local wrapper: [captions.py](../outputs/panel/captions.py), handling cut retiming, timestamp quantization and ASS text sanitization. No full application/server was installed.
+
+## Social media skills
+
 - Repository: https://github.com/charlie947/social-media-skills
 - Pinned commit: `8cefb5b6d03757885faa6918bd8bfaef202a83db`
 - Author/copyright: Charlie Hills, 2026

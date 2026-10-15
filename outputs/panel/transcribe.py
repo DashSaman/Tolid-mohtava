@@ -72,10 +72,14 @@ def load_model(model_size='small'):
         raise
 
 def _transcribe_with(model,path,segments_cb=None):
-    seg_iter,info=model.transcribe(str(path),language=LANG,vad_filter=True)
+    seg_iter,info=model.transcribe(str(path),language=LANG,vad_filter=True,word_timestamps=True)
     segments=[]; last=time.time()
     for s in seg_iter:
-        segments.append({'start':round(s.start,3),'end':round(s.end,3),'text':s.text.strip()})
+        row={'start':round(s.start,3),'end':round(s.end,3),'text':s.text.strip()}
+        if getattr(s,'words',None):
+            row['words']=[{'start':round(w.start,3),'end':round(w.end,3),'word':w.word.strip(),
+                           'probability':round(w.probability,3)} for w in s.words]
+        segments.append(row)
         if segments_cb and time.time()-last>2:
             segments_cb(min(99,int(s.end/max(info.duration,0.001)*100))); last=time.time()
     return segments,info
@@ -151,7 +155,9 @@ def transcribe_audio_handler(ctx):
     if not engine_available():
         raise DependencyMissing('faster-whisper نصب نیست؛ هیچ متن جعلی ساخته نمی‌شود.')
     def cb(pct): ctx.progress(pct)
-    result=run_engine(m['path'],segments_cb=cb,model_size=ctx.payload.get('model_size','small'))
+    settings=ctx.services.get('whisper_settings')
+    model_size=ctx.payload.get('model_size') or (settings.whisper_model() if settings else 'small')
+    result=run_engine(m['path'],segments_cb=cb,model_size=model_size)
     t=store.add(m['id'],result['text'],result['segments'],'automatic',engine=result['engine'],job_id=ctx.id)
     ctx.log(f"پردازش کامل شد: {len(result['segments'])} قطعه، زبان {result['language']}")
     return {'transcript_id':t['id'],'media_id':m['id'],'revision':t['revision'],

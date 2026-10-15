@@ -478,11 +478,16 @@ summary{cursor:pointer;color:var(--teal);font-weight:500}
 /* ── responsive ── */
 @media(max-width:1100px){.grid3{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){
-  body{grid-template-columns:64px minmax(0,1fr)}
-  .sidebrand strong,.sidebrand small,.navgroup,.sidefoot,.workspaces{display:none}
-  nav a span.lbl{display:none}
-  nav a{justify-content:center;padding:11px 8px}
-  nav a .count{position:absolute;transform:translate(14px,-11px)}
+  body{grid-template-columns:88px minmax(0,1fr)}
+  .sidebrand strong,.sidebrand small,.navgroup,.sidefoot{display:none}
+  .sidebrand{padding:12px 8px;justify-content:center}
+  .monogram{flex-shrink:0}
+  .workspaces{grid-template-columns:1fr;margin:0 6px 8px;padding:3px}
+  .workspaces button{font-size:.72rem;padding:7px 3px;white-space:normal}
+  nav{padding:2px 6px 10px}
+  nav a span.lbl{display:block;font-size:.66rem;line-height:1.45;text-align:center}
+  nav a{flex-direction:column;gap:4px;justify-content:center;padding:8px 4px}
+  nav a .count{position:absolute;top:4px;inset-inline-end:3px;transform:none}
   .grid2,.grid3,.formgrid,.twocol{grid-template-columns:1fr}
   .typegrid{grid-template-columns:1fr}
   .atmo i{display:none}

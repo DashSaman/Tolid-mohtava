@@ -6,6 +6,7 @@ env credentials per project architecture. All external actions require the
 existing approval semantics; DRAFT/read is the default.
 """
 import base64, hashlib, json, os, secrets, sqlite3, time, urllib.parse, urllib.request
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -64,11 +65,20 @@ class OAuthStore:
         return st
     def pop_state(self,state):
         with self.connect() as c:
-            r=c.execute('SELECT provider FROM oauth_states WHERE state=? AND used=0',(state,)).fetchone()
-            if r: c.execute('UPDATE oauth_states SET used=1 WHERE state=?',(state,))
+            r=c.execute('SELECT provider,created_at FROM oauth_states WHERE state=? AND used=0',(state,)).fetchone()
+            if not r:return None
+            try:
+                age=time.time()-datetime.fromisoformat(r[1]).timestamp()
+                if not 0<=age<=600:return None
+            except (TypeError,ValueError):return None
+            updated=c.execute('UPDATE oauth_states SET used=1 WHERE state=? AND used=0',(state,))
+            if updated.rowcount!=1:return None
         return r[0] if r else None
     def save_token(self,provider,access,refresh='',scope='',expires_in=3600):
         with self.connect() as c:
+            if not refresh:
+                old=c.execute('SELECT refresh_token FROM oauth_tokens WHERE provider=?',(provider,)).fetchone()
+                refresh=old[0] if old else ''
             c.execute('''INSERT INTO oauth_tokens VALUES(?,?,?,?,?,?)
                          ON CONFLICT(provider) DO UPDATE SET access_token=?,refresh_token=?,
                          expires_at=?,scope=?,updated_at=?''',
@@ -92,6 +102,7 @@ def oauth_status(provider):
             'auth_url':cfg['auth_url'],'detail':'OAuth مرورگری آماده'}
 
 def oauth_start_url(provider,store,redirect_base=None):
+    if provider not in OAUTH_PROVIDERS: raise ValueError('سرویس اتصال پشتیبانی نمی‌شود.')
     cfg=OAUTH_PROVIDERS[provider]
     cid=os.environ.get(cfg['client_env'][0])
     if not cid: raise DependencyMissing(f'{provider}: {cfg["client_env"][0]} تنظیم نشده (BLOCKED_BY_CREDENTIAL).')
@@ -103,9 +114,11 @@ def oauth_start_url(provider,store,redirect_base=None):
     return cfg['auth_url']+'?'+q
 
 def oauth_callback(provider,store,code,state,redirect_base=None):
-    cfg=OAUTH_PROVIDERS[provider]
-    if not state or store.pop_state(state)!=provider:
+    resolved=store.pop_state(state) if state else None
+    if not resolved or (provider and provider!=resolved):
         raise PermissionError('state نامعتبر است (CSRF).')
+    provider=resolved
+    cfg=OAUTH_PROVIDERS[provider]
     cid=os.environ.get(cfg['client_env'][0]); sec=os.environ.get(cfg['client_env'][1])
     if not cid or not sec: raise DependencyMissing(f'{provider}: متغیرهای client تنظیم نشده‌اند.')
     base=redirect_base or os.environ.get(cfg['redirect_env']) or 'http://127.0.0.1:8767'
@@ -155,8 +168,17 @@ def gemini_image_handler(ctx):
 
 # ── GSC + Google Ads adapters (request builders, credential-gated) ──
 def gsc_search_analytics(site_url,start,end,token=None):
-    tok=token or os.environ.get('GSC_CREDENTIALS')  # service-account JSON path handled upstream
+    tok=token or os.environ.get('GSC_CREDENTIALS')
     if not tok: raise DependencyMissing('GSC: GSC_CREDENTIALS تنظیم نشده (BLOCKED_BY_CREDENTIAL).')
+    if Path(tok).is_file():
+        try:
+            import google.auth
+            from google.auth.transport.requests import Request
+            credentials,_=google.auth.load_credentials_from_file(tok,scopes=['https://www.googleapis.com/auth/webmasters.readonly'])
+            credentials.refresh(Request())
+            tok=credentials.token
+        except Exception:
+            raise DependencyMissing('GSC: فایل اتصال Google معتبر نیست یا اجازهٔ خواندن این سایت را ندارد.')
     body=json.dumps({'startDate':start,'endDate':end,'dimensions':['query','page'],
                      'rowLimit':250}).encode()
     req=urllib.request.Request(

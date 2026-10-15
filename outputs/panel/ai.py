@@ -126,6 +126,24 @@ def api_key_for(provider):
         raise DependencyMissing(f"متغیر محیطی {provider['api_key_env']} تنظیم نشده؛ provider آماده است ولی Credential لازم دارد (BLOCKED_BY_CREDENTIAL).")
     return key
 
+def readiness(provider,timeout=3):
+    """Read the provider's real model inventory, without a completion or fallback."""
+    if not provider or not provider.get('base_url') or not provider.get('model'):
+        return {'ok':False,'detail':'مدل و نشانی سرویس هوش مصنوعی را در تنظیمات انتخاب کنید.'}
+    try:
+        key=api_key_for(provider)
+        req=urllib.request.Request(provider['base_url'].rstrip('/')+'/models',headers={'Authorization':'Bearer '+key} if key else {})
+        with urllib.request.urlopen(req,timeout=timeout) as r:
+            models=json.load(r).get('data',[])
+        ids=[m.get('id') for m in models]
+        if provider['model'] not in ids:
+            return {'ok':False,'detail':f'مدل انتخابی {provider["model"]} در سرویس {provider["name"]} موجود نیست.'}
+        return {'ok':True,'detail':provider['name']+' · '+provider['model']}
+    except DependencyMissing as e:
+        return {'ok':False,'detail':str(e)}
+    except Exception:
+        return {'ok':False,'detail':f'سرویس هوش مصنوعی ({provider["name"]}) در دسترس نیست؛ اتصال آن را در تنظیمات بررسی کنید.'}
+
 def provider_health(store,name,timeout=6):
     p=store.get_provider(name)
     if not p: raise ValueError('پرووایدر پیدا نشد.')
@@ -159,6 +177,9 @@ def chat(store,task,messages,max_tokens=900,temperature=0.6,timeout=600,provider
     key=api_key_for(p)
     model=p['model'] or None
     payload={'messages':messages,'max_tokens':max_tokens,'temperature':temperature}
+    if p['name']=='ollama':
+        payload['reasoning_effort']='none'
+        if task!='script': payload['response_format']={'type':'json_object'}
     if model: payload['model']=model
     try:
         out=_request(p['base_url'].rstrip('/')+'/chat/completions',payload,timeout,key)

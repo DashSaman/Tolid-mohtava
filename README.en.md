@@ -1,3 +1,7 @@
+Current daily setup and capability limits: [DAILY-READY.en.md](docs/DAILY-READY.en.md).
+
+Version 1.4 adds an integrated single-video workflow: local analysis, reviewable preview, Persian captions, removable settings-panel zooms, plan-approved final rendering and Shorts. The daily guide describes this Docker installation on port 18767 and account requirements; native setup instructions below are the alternative installation path.
+
 # Tehran Network & MyTel Content Room
 
 [فارسی](README.md) · [Technical reference](docs/TECHNICAL.md) · [Work log](docs/CHANGELOG.md)

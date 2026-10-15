@@ -63,7 +63,7 @@ def _silent_wav():
             w.writeframes(b'\x00\x00'*16000)
     return p
 
-def health_payload(db_path,queue_counts,workers):
+def health_payload(db_path,queue_counts,workers,provider=None):
     ff=avtools.ffmpeg_path()
     whisper_ok=transcribe.engine_available()
     try:
@@ -73,26 +73,43 @@ def health_payload(db_path,queue_counts,workers):
         wv=None
     db=Path(db_path)
     gpu=gpu_detected()
+    from ai import readiness
+    llm=readiness(provider)
     return [
       {'name':'پایتون','status':'ok','detail':platform.python_version()+' · '+platform.platform()},
       {'name':'تبدیل‌کنندهٔ ویدیو (FFmpeg)','status':'ok' if ff else 'setup','detail':ffmpeg_version() or avtools.ffmpeg_missing()},
       {'name':'بررسی رسانه (FFprobe)','status':'ok' if avtools.ffprobe_path() else 'setup','detail':avtools.ffprobe_path() or ''},
       {'name':'تبدیل گفتار (Whisper)','status':'ok' if whisper_ok else 'setup',
        'detail':('v'+wv) if wv else 'نصب نشده؛ متن دستی یا نصب بسته'},
-      {'name':'پردازندهٔ گرافیکی (GPU)','status':'limited' if gpu else 'off',
+      {'name':'پردازندهٔ گرافیکی (GPU)','status':'ok' if gpu and transcribe.detect_device()=='cuda' else ('limited' if gpu else 'off'),
        'detail':(gpu['name']+' · '+gpu['driver']) if gpu else 'GPU مخصوص پیدا نشد؛ پردازش روی CPU انجام می‌شود'},
       {'name':'رمزگذاری ویدیو (NVENC)','status':'ok' if avtools.nvenc_available() else 'limited',
        'detail':'رندر نهایی با NVENC' if avtools.nvenc_available() else 'رندر نهایی با CPU انجام می‌شود'},
       {'name':'پایگاه داده','status':'ok' if db.exists() else 'setup','detail':str(db)+' · '+(db.stat().st_size//1024 if db.exists() else 0).__str__()+' KB'},
       {'name':'صف کارها','status':'ok','detail':f'{workers} worker · '+' · '.join(f'{k}: {v}' for k,v in queue_counts.items())},
-      {'name':'مدل زبانی محلی (LLM)','status':'credential','detail':'هیچ اتصال مدل زبانی پیکربندی نشده است'},
-      {'name':'سرویس‌های سئو','status':'credential','detail':'DispatchSEO در GrowthOS ارجاع شده؛ اتصال زنده تأیید نشده'},
+      {'name':'مدل زبانی محلی (LLM)','status':'ok' if llm['ok'] else 'setup','detail':llm['detail']},
+      {'name':'سرویس‌های سئو','status':'ok','detail':'خزنده و تحلیل محلی فعال است؛ دادهٔ زندهٔ Google به اتصال حساب نیاز دارد.'},
       {'name':'انتشار در شبکه‌ها','status':'credential','detail':'OAuth لازم است؛ فعلاً فقط بسته dry-run'},
     ]
 
 def drives():
     """Real local drives: letter, label, free/total bytes, type."""
     out=[]
+    if platform.system()!='Windows':
+        import shutil
+        try:
+            paths=json.loads(os.environ.get('TEHNET_STORAGE_PATHS','[]'))
+        except (TypeError,ValueError): paths=[]
+        if not paths:
+            paths=[{'path':str(Path(os.environ.get('TEHNET_PANEL_DB','/app/outputs/panel/data/content.sqlite')).parent),'label':'فضای برنامه','type':'fixed'}]
+        for entry in paths:
+            try:
+                p=Path(entry['path'])
+                if not p.is_dir(): continue
+                usage=shutil.disk_usage(p)
+                out.append({'letter':str(p),'label':entry.get('label',''),'free':usage.free,'total':usage.total,'type':entry.get('type','fixed')})
+            except (OSError,KeyError,TypeError): continue
+        return out
     try:
         bitmask=ctypes.windll.kernel32.GetLogicalDrives()
     except Exception:

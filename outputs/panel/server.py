@@ -4,10 +4,10 @@ from urllib.parse import urlsplit,parse_qs
 import json, mimetypes, os, secrets, socket, uuid, sqlite3, subprocess
 from store import Store
 from registry import skill_registry
-from jobs import JobManager
+from jobs import JobManager, DependencyMissing
 from media import MediaLibrary, KINDS as MEDIA_KINDS
-from transcribe import Transcripts
-from editing import EditDecisions, report_lines
+from transcribe import Transcripts,transcribe_audio_handler
+from editing import EditDecisions, report_lines,edit_detect_handler
 from render import Renders
 from triggers import on_publish_approved
 from transcribe import parse_timed_text
@@ -31,6 +31,7 @@ import urllib.parse as uparse
 from knowledge import KnowledgeBase, index_project
 from content_intel import check_topic, refresh_candidates, optimize_content
 from handlers import build_handlers
+from auto_video import AutoEditPlans,auto_edit_video_handler,auto_edit_final_handler,options as auto_options,edit_mutation,locked_handler
 import handlers as HandlersMod
 
 ROOT=Path(__file__).resolve().parent
@@ -41,6 +42,7 @@ MEDIA=MediaLibrary(DB.path,DATA/'media')
 TRANSCRIPTS=Transcripts(DB.path)
 DECISIONS=EditDecisions(DB.path)
 RENDERS=Renders(DB.path,DATA/'renders')
+AUTO_PLANS=AutoEditPlans(DB.path)
 AISTORE=AIStore(DB.path)
 WSSET=WhisperSettings(DB.path)
 SYNCSTORE=SyncStore(DB.path)
@@ -58,12 +60,15 @@ JM=JobManager(DB.path,handlers=build_handlers()|{
   'whisper_benchmark':benchmark_handler,'sync_content':sync_content_handler,
   'enhance_audio':enhance_audio_handler,'seo_scan':seo_scan_handler,'archive_copy':archive_copy_handler,
   'analytics_sync':analytics_sync_handler,'optimize_content':optimize_content_handler,
-  'weekly_plan':weekly_plan_handler,'seo_proposals':seo_proposals_handler,'shorts_v2':shorts_v2_handler},workers=2,
+  'weekly_plan':weekly_plan_handler,'seo_proposals':seo_proposals_handler,'shorts_v2':shorts_v2_handler,
+  'gsc_ingest':gsc_ingest_handler,'gemini_image':gemini_image_handler,
+  'auto_edit_video':auto_edit_video_handler,'auto_edit_final':auto_edit_final_handler,
+  'transcribe_audio':locked_handler(transcribe_audio_handler),'edit_detect':locked_handler(edit_detect_handler)},workers=2,
               services={'media':MEDIA,'transcripts':TRANSCRIPTS,'decisions':DECISIONS,'renders':RENDERS,
                         'store':DB,'dryrun_root':str(DATA/'dryrun'),
                         'ai':AISTORE,'policy':POLICY_TEXT,
                         'whisper_settings':WSSET,'sync':SYNCSTORE,'seo':SEOSTORE,'archive':ARCHIVE,
-                        'analytics':ANALYTICS,'keywords':KWSTORE,'kb':KB})
+                        'analytics':ANALYTICS,'keywords':KWSTORE,'kb':KB,'oauth':OAUTH})
 MAX_UPLOAD=20*1024*1024*1024
 TOKEN=secrets.token_urlsafe(32)
 def brand_default(): return 'tehran-network'
@@ -110,39 +115,20 @@ def get_job_kind_safe(jid):
     except Exception: return None
 
 def ai_preflight(kind=None):
-    """OPS-002/BUG-002: cheap readiness probe before enqueueing/retrying AI jobs.
-    Returns None when the LM Studio provider answers; raises ValueError with a Persian
-    BLOCKED_BY_DEPENDENCY message otherwise. NOT a guarantee (TOCTOU-safe by design —
-    worker-side handling stays authoritative)."""
-    import socket as _sk, urllib.request as _u
-    AI_KINDS={'research_topic','technical_verification','generate_script','generate_hooks',
-              'generate_title_packages','generate_social','generate_article','generate_pinned','content_pipeline'}
-    if kind is not None and kind not in AI_KINDS: return None
-    try:
-        p=None
-        with DB_conn() as c:
-            pass
-    except Exception:
-        pass
-    try:
-        import ai as _ai
-        url=''
-        # provider for the task
-        try:
-            ps=AI.providers()
-            cand=[x for x in ps if x.get('enabled',1) and x.get('tasks') and ('research' in (x.get('tasks') or []) or not x.get('model'))]
-            url=((cand[0].get('base_url') or '') if cand else '')
-        except Exception: url=''
-        if not url: url='http://host.docker.internal:1234/v1'
-        host_port=url.split('//')[-1].split('/v1')[0]
-        host,port=(host_port.split(':')+['80'])[:2] if ':' in host_port else (host_port,'1234')
-        with _sk.create_connection((host,int(port)),timeout=2): pass
-        try:
-            _u.urlopen(url.rstrip('/')+'/models',timeout=3)
-        except Exception: pass
-        return None
-    except Exception:
-        raise ValueError('سرویس هوش مصنوعی (LM Studio) روشن نیست — کار AI صف نمی‌شود (BLOCKED_BY_DEPENDENCY). ابتدا LM Studio و سرور آن را روشن کنید.')
+    """Probe the same task provider the worker will use; never silently reroute."""
+    from ai import readiness
+    tasks={'research_topic':'research','technical_verification':'verification',
+           'generate_script':'script','generate_hooks':'hooks','generate_title_packages':'thumbnail',
+           'generate_social':'social','generate_article':'seo','generate_pinned':'social',
+           'content_pipeline':'research','auto_edit_video':'analysis'}
+    if kind is not None and kind not in tasks: return None
+    p=AISTORE.provider_for_task(tasks.get(kind,'research'))
+    result=readiness(p)
+    if not result['ok']:
+        raise ValueError(result['detail']+' (BLOCKED_BY_DEPENDENCY)')
+
+def oauth_public_base():
+    return os.environ.get('OAUTH_REDIRECT_BASE') or ('http://127.0.0.1:18767' if os.environ.get('TEHNET_PANEL_BIND')=='0.0.0.0' else f'http://127.0.0.1:{PORT}')
 
 def delete_media_row(mid,lib,ts,dec,rd):
     """Shared safe recording delete: related rows + file (path-verified)."""
@@ -153,7 +139,7 @@ def delete_media_row(mid,lib,ts,dec,rd):
     if root not in path.parents: raise ValueError('مسیر فایل خارج از فضای امن است.')
     import sqlite3 as sq
     with sq.connect(lib.path) as c:
-        for tbl in ('edit_decisions','transcripts','renders','sync_offsets','assets'):
+        for tbl in ('edit_decisions','transcripts','renders','sync_offsets','assets','auto_edit_plans'):
             try: c.execute(f'DELETE FROM {tbl} WHERE media_id=?',(mid,))
             except Exception: pass
         c.execute('DELETE FROM media WHERE id=?',(mid,))
@@ -171,7 +157,7 @@ def project_dependencies(pid,jm):
         mids=[r[0] for r in rows] or ['-']
         qmarks=','.join('?'*len(mids))
         for tbl,key in (('transcripts','media_id'),('edit_decisions','media_id'),
-                        ('renders','media_id'),('sync_offsets','media_id')):
+                        ('renders','media_id'),('sync_offsets','media_id'),('auto_edit_plans','media_id')):
             try: counts[tbl]=c.execute(f"SELECT COUNT(*) FROM {tbl} WHERE {key} IN ({qmarks})",mids).fetchone()[0]
             except Exception: counts[tbl]=0
         try: counts['ai_outputs']=c.execute("SELECT COUNT(*) FROM ai_outputs WHERE content_id=?",(pid,)).fetchone()[0]
@@ -198,7 +184,7 @@ def delete_project_files(deps,db):
                 p=Path(path).resolve()
                 if rroot in p.parents: p.unlink()
             except OSError: pass
-        for tbl in ('transcripts','edit_decisions','renders','sync_offsets','assets'):
+        for tbl in ('transcripts','edit_decisions','renders','sync_offsets','assets','auto_edit_plans'):
             try: c.execute(f"DELETE FROM {tbl} WHERE media_id NOT IN (SELECT id FROM media)")
             except Exception: pass
         try: c.execute("DELETE FROM ai_outputs WHERE content_id NOT IN (SELECT id FROM content)")
@@ -215,6 +201,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length',str(len(data)))
         self.send_header('Cache-Control','no-store')
         self.send_header('X-Content-Type-Options','nosniff')
+        if getattr(self,'session_cookie',None): self.send_header('Set-Cookie',self.session_cookie)
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.end_headers(); self.wfile.write(data)
     def valid_host(self):
@@ -259,11 +246,20 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.valid_host(): return self.respond({'error':'میزبان مجاز نیست.'},403)
         url=urlsplit(self.path); q=parse_qs(url.query)
+        if url.path.startswith('/api/') and url.path not in ('/api/session','/api/health') and self.require_auth(): return
         try:
-            if url.path=='/api/session': return self.respond({'token':TOKEN,'app':'tehnet-content-panel','auth_required':AUTH.enabled})
+            if url.path=='/api/session':
+                from http.cookies import SimpleCookie
+                cookie=SimpleCookie()
+                try:cookie.load(self.headers.get('Cookie',''))
+                except Exception:pass
+                saved=cookie.get('tehnet_session')
+                authenticated=bool(AUTH.enabled and saved and AUTH.check(saved.value))
+                return self.respond({'token':TOKEN,'app':'tehnet-content-panel','auth_required':AUTH.enabled,'authenticated':authenticated})
             if url.path=='/api/skills': return self.respond(skill_registry())
             if url.path=='/api/media': return self.respond(MEDIA.list(q.get('content_id',[None])[0],q.get('kind',[None])[0]))
             if url.path=='/api/assets': return self.respond(MEDIA.list_assets(q.get('state',[None])[0]))
+            if url.path=='/api/auto-edit':return self.respond(AUTO_PLANS.latest(q.get('media_id',[''])[0]))
             if url.path=='/api/shorts':
                 mid=q.get('media_id',[''])[0]
                 m=MEDIA.get(mid)
@@ -286,7 +282,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path=='/api/archive': return self.respond(ARCHIVE.list())
             if url.path=='/api/sync': return self.respond(SYNCSTORE.for_content(q.get('content_id',[''])[0]))
             if url.path=='/api/analytics/status':
-                rows=adapter_status()
+                rows=adapter_status(OAUTH)
                 for r in rows:
                     snaps=ANALYTICS.snapshots(r['platform'],limit=5)
                     r['snapshots']=len(ANALYTICS.snapshots(r['platform'],limit=1000))
@@ -301,18 +297,22 @@ class Handler(BaseHTTPRequestHandler):
             if url.path.startswith('/oauth/callback'):
                 q=parse_qs(url.query)
                 try:
-                    r=oauth_callback(q.get('provider',[''])[0],OAUTH,q.get('code',[''])[0],q.get('state',[''])[0])
-                    return self.respond(r)
+                    r=oauth_callback(q.get('provider',[None])[0],OAUTH,q.get('code',[''])[0],q.get('state',[''])[0],oauth_public_base())
+                    self.send_response(303); self.send_header('Location','/#/integrations'); self.end_headers(); return
                 except Exception as e:
                     return self.respond({'error':str(e)[:200]},400)
             if url.path=='/api/oauth/start':
-                prov=data.get('provider'); base='http://127.0.0.1:'+str(PORT)
+                if self.require_auth(): return
+                prov=q.get('provider',[''])[0]; base=oauth_public_base()
                 try: return self.respond({'url':oauth_start_url(prov,OAUTH,base)})
                 except DependencyMissing as e: return self.respond({'error':str(e)},400)
             if url.path=='/api/oauth/status':
                 return self.respond({k:oauth_status(k) for k in OAUTH_PROVIDERS})
+            if url.path=='/api/youtube/status':
+                from youtube_adapter import connection_status
+                return self.respond(connection_status(OAUTH))
             if url.path=='/api/integrations':
-                return self.respond({'core':adapter_status(),'optional':all_optional_integrations()})
+                return self.respond({'core':adapter_status(OAUTH),'optional':all_optional_integrations()})
             if url.path=='/api/ops/observability':
                 JM.mark_stale_running()
                 return self.respond(JM.observability())
@@ -361,16 +361,20 @@ class Handler(BaseHTTPRequestHandler):
                 if not o: return self.respond({'error':'خروجی پیدا نشد.'},404)
                 return self.respond(o)
             if url.path=='/api/health':
-                qc={}
-                for st in ('queued','running','waiting_approval','completed','failed','cancelled'):
-                    qc[st]=len(JM.list(status=st))
-                return self.respond(health_payload(DB.path,qc,len(JM._threads)))
+                return self.respond(health_payload(DB.path,JM.counts(),len(JM._threads),AISTORE.provider_for_task('research')))
             if url.path=='/api/media/file': return self.serve_media(q)
             if url.path=='/api/renders': return self.respond(RENDERS.list(q.get('media_id',[''])[0]))
             if url.path=='/api/renders/file':
                 r=RENDERS.get(q.get('id',[''])[0])
                 if not r or not Path(r['path']).exists(): return self.respond({'error':'خروجی پیدا نشد.'},404)
                 return self.stream_file(r['path'],r['size'],'video/mp4')
+            if url.path=='/api/renders/subtitles':
+                fmt=q.get('format',['srt'])[0]
+                if fmt not in ('srt','vtt','ass'):raise ValueError('قالب زیرنویس معتبر نیست.')
+                row=RENDERS.get(q.get('id',[''])[0])
+                target=Path(row['path']).with_suffix('.'+fmt) if row else None
+                if not target or not target.is_file():return self.respond({'error':'زیرنویس پیدا نشد.'},404)
+                return self.stream_file(target,target.stat().st_size,'text/vtt; charset=utf-8' if fmt=='vtt' else 'text/plain; charset=utf-8')
             if url.path=='/api/decisions': return self.respond(DECISIONS.list(q.get('media_id',[''])[0],q.get('state',[None])[0]))
             if url.path=='/api/editreport': return self.respond({'media_id':q.get('media_id',[''])[0],'lines':report_lines(DECISIONS,q.get('media_id',[''])[0])})
             if url.path=='/api/transcripts':
@@ -380,7 +384,11 @@ class Handler(BaseHTTPRequestHandler):
                 t=TRANSCRIPTS.get(mid,int(q['revision'][0]) if 'revision' in q else None)
                 if not t: return self.respond({'error':'متن پیدا نشد.'},404)
                 return self.respond(t)
-            if url.path=='/api/jobs': return self.respond(JM.list(q.get('status',[None])[0]))
+            if url.path=='/api/jobs/counts':return self.respond(JM.counts())
+            if url.path=='/api/jobs':
+                limit=int(q.get('limit',['100'])[0])
+                if not 1<=limit<=500:raise ValueError('تعداد کارهای درخواستی باید بین ۱ و ۵۰۰ باشد.')
+                return self.respond(JM.list(q.get('status',[None])[0],limit=limit))
             if url.path=='/api/job':
                 job=JM.get(q.get('id',[''])[0])
                 if not job: return self.respond({'error':'کار پیدا نشد.'},404)
@@ -417,6 +425,14 @@ class Handler(BaseHTTPRequestHandler):
         unauthenticated but let the login route through."""
         if not AUTH.enabled: return False
         tok=self.headers.get('X-Panel-Token')
+        if not tok or tok==TOKEN:
+            from http.cookies import SimpleCookie
+            cookie=SimpleCookie()
+            try:
+                cookie.load(self.headers.get('Cookie',''))
+                saved=cookie.get('tehnet_session')
+                if saved and AUTH.check(saved.value):tok=saved.value
+            except Exception:pass
         if tok==TOKEN:  # CSRF-level caller, not a logged session
             if urlsplit(self.path).path=='/api/auth/login': return False
             self.respond({'error':'برای این عملیات باید وارد شوید.'},401)
@@ -459,7 +475,18 @@ class Handler(BaseHTTPRequestHandler):
         try:
             size=int(self.headers.get('Content-Length','0'))
             if path=='/api/auth/logout':
-                AUTH.logout(self.headers.get('X-Panel-Token')); return self.respond({'ok':True})
+                session_token=self.headers.get('X-Panel-Token')
+                if not session_token or session_token==TOKEN:
+                    from http.cookies import SimpleCookie
+                    cookie=SimpleCookie()
+                    try:
+                        cookie.load(self.headers.get('Cookie',''))
+                        saved=cookie.get('tehnet_session')
+                        if saved:session_token=saved.value
+                    except Exception:pass
+                AUTH.logout(session_token)
+                self.session_cookie='tehnet_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
+                return self.respond({'ok':True})
             if size<1 or size>1500000: raise ValueError('حجم درخواست معتبر نیست.')
             data=json.loads(self.rfile.read(size))
             if not isinstance(data,dict): raise ValueError('درخواست معتبر نیست.')
@@ -467,6 +494,7 @@ class Handler(BaseHTTPRequestHandler):
                 # reachable without a session (CSRF token above already gates it)
                 if not AUTH.enabled: return self.respond({'ok':True,'note':'احراز هویت فعال نیست؛ پنل فقط روی loopback است.'})
                 r=AUTH.login(data.get('username'),data.get('password'),self.client_address[0])
+                if r.get('ok'):self.session_cookie='tehnet_session='+r['token']+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200'
                 return self.respond(r,200 if r.get('ok') else 401)
             if self.path=='/api/items': return self.respond(DB.save(data))
             if self.path=='/api/project/archive': return self.respond(DB.set_archived(data.get('id'),bool(data.get('archived',True))))
@@ -493,7 +521,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(item)
             if self.path=='/api/jobs':
                 kind=data.get('kind'); payload=data.get('payload') if isinstance(data.get('payload'),dict) else {}
-                try: ai_preflight(kind)
+                if kind=='auto_edit_video':
+                    m=MEDIA.get(payload.get('media_id') or '')
+                    if not m:raise ValueError('رسانه پیدا نشد.')
+                    from video_render import probe_streams
+                    info=probe_streams(m['path'])
+                    if not info['video'] or not info['audio']:raise ValueError('یک ویدیوی دارای تصویر و صدا انتخاب کنید.')
+                    opts=auto_options(payload)
+                    payload['content_id']=m.get('content_id')
+                if kind=='auto_edit_final':
+                    plan=AUTO_PLANS.get(payload.get('plan_id'))
+                    if not plan:raise ValueError('ابتدا پیش‌نمایش تدوین خودکار را بسازید.')
+                    payload.pop('approved',None)
+                    payload['media_id']=plan['media_id']
+                    m=MEDIA.get(plan['media_id'])
+                    payload['content_id']=(m or {}).get('content_id')
+                try:
+                    if kind!='auto_edit_video' or (not payload.get('refresh') and (opts['semantic'] or opts['zooms'])):ai_preflight(kind)
                 except ValueError as e: return self.respond({'error':str(e),'blocked_dependency':True},409)
                 if kind=='seo_scan':
                     import re as _re
@@ -518,7 +562,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not m: raise ValueError('رسانه پیدا نشد.')
                 text=data.get('text')
                 if not isinstance(text,str) or not text.strip(): raise ValueError('متن خالی قابل ذخیره نیست.')
-                t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
+                with edit_mutation(m['id']):t=TRANSCRIPTS.add(m['id'],text,parse_timed_text(text),'manual_import')
                 return self.respond(t)
             if self.path=='/api/whisper/model':
                 return self.respond({'model':WSSET.set_whisper_model(data.get('model'))})
@@ -536,7 +580,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(JM.enqueue('archive_copy',{'content_id':data.get('content_id'),'passport_path':data.get('passport_path'),'approved':data.get('approved')},
                     idempotency_key='archive:'+data.get('content_id','')+':'+uuid.uuid4().hex))
             if self.path=='/api/analytics/sync':
-                return self.respond(JM.enqueue('analytics_sync',{'platform':data.get('platform')},idempotency_key='as:'+str(data.get('platform'))+':'+uuid.uuid4().hex))
+                return self.respond(JM.enqueue('analytics_sync',{'platform':data.get('platform'),'brand':data.get('brand',brand_default())},idempotency_key='as:'+str(data.get('platform'))+':'+uuid.uuid4().hex))
             if self.path=='/api/analytics/optimize':
                 return self.respond(JM.enqueue('optimize_content',data,idempotency_key='opt:'+str(data.get('content_id'))+':'+uuid.uuid4().hex))
             if self.path=='/api/analytics/record':
@@ -553,7 +597,7 @@ class Handler(BaseHTTPRequestHandler):
                                        data.get('metrics') or {},data.get('source','manual'))
                 return self.respond({'ok':True})
             if self.path=='/api/gsc/ingest':
-                return self.respond(JM.enqueue('gsc_ingest',{'site':data.get('site'),'start':data.get('start'),'end':data.get('end')},
+                return self.respond(JM.enqueue('gsc_ingest',{'site':data.get('site'),'start':data.get('start'),'end':data.get('end'),'brand':data.get('brand',brand_default())},
                     idempotency_key='gsc:'+uuid.uuid4().hex))
             if self.path=='/api/gemini/generate':
                 return self.respond(JM.enqueue('gemini_image',{'prompt':data.get('prompt'),'content_id':data.get('content_id')},
@@ -569,13 +613,39 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/ga4/fetch':
                 try:
                     metrics=ga4_fetch()
-                    ANALYTICS.add_snapshot('ga4',brand,None,
+                    ANALYTICS.add_snapshot('ga4',data.get('brand',brand_default()),None,
                         {k:v for k,v in metrics.items()},'ga4-api')
                     return self.respond({'ok':True,'metrics':metrics})
                 except DependencyMissing as e:
                     return self.respond({'error':str(e)},400)
             if self.path=='/api/integrations/test':
-                return self.respond(adapter_health(data.get('platform')))
+                platform=data.get('platform')
+                if platform in ('ga4','google_ads','gemini'):
+                    try:
+                        if platform=='ga4':
+                            from integrations import ga4_status
+                            if ga4_status()['state']!='ready': raise DependencyMissing('GA4_PROPERTY_ID و GA4_ACCESS_TOKEN را تنظیم کنید.')
+                            ga4_fetch()
+                        elif platform=='google_ads':
+                            from providers import ads_keyword_ideas
+                            ads_keyword_ideas('network training',max_rows=1)
+                        else:
+                            key=os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_AI_API_KEY')
+                            if not key: raise DependencyMissing('GEMINI_API_KEY را تنظیم کنید.')
+                            import urllib.request
+                            req=urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models',headers={'x-goog-api-key':key})
+                            with urllib.request.urlopen(req,timeout=10) as response: json.load(response)
+                        return self.respond({'ok':True,'detail':'ارتباط با سرویس تأیید شد.'})
+                    except DependencyMissing as e:return self.respond({'ok':False,'detail':str(e)})
+                    except Exception:return self.respond({'ok':False,'detail':'سرویس پاسخ معتبر نداد؛ تنظیمات حساب و دسترسی شبکه را بررسی کنید.'})
+                if data.get('platform')=='youtube':
+                    from youtube_adapter import channel_statistics
+                    try:
+                        channel,metrics=channel_statistics(OAUTH)
+                        return self.respond({'ok':True,'detail':'کانال متصل: '+channel})
+                    except Exception:return self.respond({'ok':False,'detail':'اتصال برنامهٔ Google و حساب YouTube را کامل کنید.'})
+                if platform not in PLATFORMS:return self.respond({'error':'سرویس ناشناخته است.'},400)
+                return self.respond(adapter_health(platform))
             if self.path=='/api/weekly-plan':
                 return self.respond(JM.enqueue('weekly_plan',{'brand':data.get('brand',brand_default())},idempotency_key='wp:'+str(data.get('brand'))+':'+uuid.uuid4().hex))
             if self.path=='/api/seo/proposals':
@@ -606,10 +676,15 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/media/validate':
                 return self.respond(validate_audio(data.get('media_id')))
             if self.path=='/api/decisions/manual':
-                return self.respond(DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
-                    'manual',1.0,'manual','active',reason=data.get('reason')))
+                with edit_mutation(data.get('media_id')):
+                    row=DECISIONS.add(data.get('media_id'),float(data.get('start')),float(data.get('end')),
+                        'manual',1.0,'manual','active',reason=data.get('reason'))
+                return self.respond(row)
             if self.path=='/api/decisions/state':
-                return self.respond(DECISIONS.set_state(data.get('id'),data.get('state')))
+                decision=DECISIONS.get(data.get('id'))
+                if not decision:raise ValueError('تصمیم پیدا نشد.')
+                with edit_mutation(decision['media_id']):row=DECISIONS.set_state(decision['id'],data.get('state'))
+                return self.respond(row)
             if self.path=='/api/jobs/cancel': return self.respond(JM.cancel(data.get('id')))
             if self.path=='/api/jobs/retry':
                 try: ai_preflight(get_job_kind_safe(data.get('id')))
@@ -667,7 +742,7 @@ def _watch_jobs():
                         NOTIF.add('job_failed',(jobKinds_fa().get(kind,kind)+' ناموفق بود'),j.get('error') or '',j['id'])
                     elif j['status']=='waiting_approval':
                         NOTIF.add('approval_needed',(jobKinds_fa().get(kind,kind)+' منتظر تأیید شماست'),'',j['id'])
-                    elif j['status']=='completed' and kind in ('render_cut','render_short','content_pipeline','generate_script','research_topic'):
+                    elif j['status']=='completed' and kind in ('render_cut','render_short','auto_edit_video','auto_edit_final','content_pipeline','generate_script','research_topic'):
                         NOTIF.add('render_done' if kind.startswith('render') else 'ai_done',(jobKinds_fa().get(kind,kind)+' کامل شد'),'',j['id'])
                 _JOB_STATES[j['id']]=j['status']
         except Exception:
@@ -675,7 +750,7 @@ def _watch_jobs():
         time.sleep(8)
 
 def jobKinds_fa():
-    return {'transcribe_audio':'تبدیل گفتار به متن','edit_detect':'تحلیل تدوین','render_cut':'رندر','render_short':'رندر عمودی','publish_dryrun':'بسته انتشار','website_publish':'پیش‌نویس وردپرس','research_topic':'تحقیق','technical_verification':'بررسی فنی','generate_script':'سناریو','generate_hooks':'هوک‌ها','generate_title_packages':'بسته‌های عنوان/کاور','generate_social':'نسخهٔ شبکه‌ها','generate_article':'مقاله','generate_pinned':'کامنت پین','content_pipeline':'خط تولید'}
+    return {'auto_edit_video':'تدوین خودکار و پیش‌نمایش','auto_edit_final':'نسخهٔ نهایی تدوین خودکار','transcribe_audio':'تبدیل گفتار به متن','edit_detect':'تحلیل تدوین','render_cut':'رندر','render_short':'رندر عمودی','publish_dryrun':'بسته انتشار','website_publish':'پیش‌نویس وردپرس','research_topic':'تحقیق','technical_verification':'بررسی فنی','generate_script':'سناریو','generate_hooks':'هوک‌ها','generate_title_packages':'بسته‌های عنوان/کاور','generate_social':'نسخهٔ شبکه‌ها','generate_article':'مقاله','generate_pinned':'کامنت پین','content_pipeline':'خط تولید'}
 
 if __name__=='__main__':
     import threading

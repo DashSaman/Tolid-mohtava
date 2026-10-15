@@ -99,6 +99,10 @@ def benchmark_handler(ctx):
     services=ctx.services
     ws=services['whisper_settings']
     audio=ctx.payload.get('audio_path'); ref=ctx.payload.get('reference_text') or ''
+    if ctx.payload.get('media_id'):
+        media=services['media'].get(ctx.payload['media_id'])
+        if not media:raise ValueError('رسانهٔ بنچمارک پیدا نشد.')
+        audio=media['path']
     models=ctx.payload.get('models') or [ws.whisper_model()]
     if not audio or not Path(audio).exists(): raise ValueError('فایل صوتی بنچمارک پیدا نشد.')
     results=[]

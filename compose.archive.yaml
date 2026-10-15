@@ -1,0 +1,4 @@
+services:
+  tolid-web:
+    volumes:
+      - ${TOLID_ARCHIVE_DIR:-E:/Tolid-Mohtava-Archive}:/archive

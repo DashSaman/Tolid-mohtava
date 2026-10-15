@@ -15,7 +15,8 @@ PLATFORMS=('youtube','instagram','facebook','linkedin','telegram','tehnet.ir','m
 PLATFORM_FA={'youtube':'YouTube','instagram':'Instagram','facebook':'Facebook','linkedin':'LinkedIn',
              'telegram':'Telegram','tehnet.ir':'وب tehnet.ir','mytel.one':'وب mytel.one','gsc':'Google Search Console'}
 METRICS=('views','impressions','ctr','watch_time_minutes','retention_avg','engagement','clicks',
-         'conversions','followers_delta','short_to_long')
+         'conversions','followers_delta','short_to_long','users','sessions','engaged_sessions',
+         'engagement_rate','events','sessions_per_user','subscribers_total','videos_total')
 
 def now(): return datetime.now(timezone.utc).isoformat()
 
@@ -133,7 +134,7 @@ ADAPTERS={
  'mytel.one': {'kind':'wordpress','env':('WP_MYTEL_USER','WP_MYTEL_APP_PASSWORD'),'scopes':'Application Password (WP REST)','endpoint':'https://mytel.one/wp-json'},
 }
 
-def adapter_status():
+def adapter_status(oauth=None):
     rows=[]
     for platform in PLATFORMS:
         a=ADAPTERS[platform]
@@ -142,6 +143,14 @@ def adapter_status():
         rows.append({'platform':platform,'platform_fa':PLATFORM_FA[platform],**a,
                      'missing_env':missing,'state':state,
                      'state_fa':'آماده (Credential ثبت شده)' if state=='ready' else 'BLOCKED_BY_CREDENTIAL'})
+    if oauth:
+        from youtube_adapter import connection_status
+        status=connection_status(oauth)
+        row=next(r for r in rows if r['platform']=='youtube')
+        row.update(state='ready' if status['connected'] else 'blocked_by_credential',
+                   state_fa='متصل' if status['connected'] else status['detail'],
+                   env=('YOUTUBE_CLIENT_ID','YOUTUBE_CLIENT_SECRET'),
+                   missing_env=[v for v in ('YOUTUBE_CLIENT_ID','YOUTUBE_CLIENT_SECRET') if not os.environ.get(v)])
     return rows
 
 def health_check(platform,timeout=10):
@@ -161,7 +170,11 @@ def gsc_ingest_handler(ctx):
     """GSC search-analytics ingestion job (credential-gated; real API)."""
     from providers import gsc_search_analytics as _g
     site=ctx.payload.get('site') or 'https://tehnet.ir/'
-    start=ctx.payload.get('start') or '7daysAgo'; end=ctx.payload.get('end') or 'today'
+    from datetime import date
+    yesterday=date.today()-timedelta(days=1)
+    end=ctx.payload.get('end') or yesterday.isoformat()
+    start=ctx.payload.get('start') or (yesterday-timedelta(days=6)).isoformat()
+    if date.fromisoformat(start)>date.fromisoformat(end):raise ValueError('بازهٔ تاریخ معتبر نیست.')
     ctx.log(f'GSC: دریافت عملکرد جست‌وجو {site} ({start} تا {end})')
     ctx.progress(30)
     try:
@@ -176,7 +189,9 @@ def gsc_ingest_handler(ctx):
         ks=r.get('keys',[]); m=r.get('clicks',0); mi=r.get('impressions',0)
         tot['search_clicks']+=m; tot['search_impressions']+=mi
     ANAL=ctx.services['analytics']
-    ANAL.add_snapshot('gsc',None,site,{'views':tot['search_clicks'],'impressions':tot['search_impressions']},'gsc-api',ctx.id)
+    impressions=tot['search_impressions'];clicks=tot['search_clicks']
+    ANAL.add_snapshot('gsc',ctx.payload.get('brand','tehran-network'),site,
+                      {'clicks':clicks,'impressions':impressions,'ctr':100*clicks/impressions if impressions else 0},'gsc-api',ctx.id)
     ctx.log(f'{len(rows)} سطر دریافت شد؛ snapshot ثبت شد')
     return {'rows':len(rows),'totals':tot}
 
@@ -184,6 +199,13 @@ def analytics_sync_handler(ctx):
     """Job: sync one platform. Without credentials -> honest BLOCKED_BY_CREDENTIAL."""
     platform=ctx.payload.get('platform')
     if platform not in ADAPTERS: raise ValueError('پلتفرم پشتیبانی نمی‌شود.')
+    if platform=='youtube':
+        from youtube_adapter import channel_statistics
+        channel,metrics=channel_statistics(ctx.services['oauth'])
+        ctx.services['analytics'].add_snapshot('youtube',ctx.payload.get('brand','tehran-network'),channel,metrics,'youtube-data-api',ctx.id)
+        return {'channel_id':channel,'metrics':metrics}
+    if platform=='gsc':
+        return gsc_ingest_handler(ctx)
     st=health_check(platform)
     if not st['ok']:
         raise DependencyMissing(f"Analytics {PLATFORM_FA[platform]}: {st['detail']}")

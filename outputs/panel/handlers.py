@@ -9,6 +9,7 @@ from ai_jobs import (research_topic_handler, technical_verification_handler, gen
     generate_hooks_handler, generate_title_packages_handler, generate_social_handler,
     generate_article_handler, generate_pinned_handler, content_pipeline_handler)
 from triggers import publish_dryrun_handler
+from youtube_adapter import youtube_upload_handler
 
 def build_handlers():
     return {'transcribe_audio': transcribe_audio_handler,
@@ -17,6 +18,7 @@ def build_handlers():
             'render_short': render_short_handler,
             'publish_dryrun': publish_dryrun_handler,
             'website_publish': website_publish_handler,
+            'youtube_upload': youtube_upload_handler,
             'research_topic': research_topic_handler,
             'technical_verification': technical_verification_handler,
             'generate_script': generate_script_handler,
