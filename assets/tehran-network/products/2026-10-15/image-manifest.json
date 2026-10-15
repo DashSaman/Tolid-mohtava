@@ -1,0 +1,966 @@
+[
+  {
+    "image_id": 17999,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/08/RDCxHdnVudDj9haxKyXBJcULHKc-D9UNhmkIQY6T3J_iuo3W6w.jpg",
+    "products": [
+      {
+        "product_id": 18002,
+        "position": 1
+      }
+    ],
+    "source_sha256": "52019247f419567234562c9a28919d669962f68138d8f51b88d7f549203b68ad",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17999.png",
+    "webp": "webp/tehnet-17999.webp",
+    "master_sha256": "e1370b0232a235c2b9162283e9123e3d1151da8437e7a34a117cc21c8a8218ea",
+    "webp_sha256": "c2649f27e553550b943615885bb1e28c71d880b64addc0ec9aa03201338e3914",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          287,
+          191
+        ],
+        [
+          755,
+          191
+        ],
+        [
+          755,
+          320
+        ],
+        [
+          287,
+          320
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17998,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/08/cCs9azU_rg6wzs5d5L-4sK29_A4-WlSx5NkGSlWvtbf44WN2EA.png",
+    "products": [
+      {
+        "product_id": 18002,
+        "position": 2
+      }
+    ],
+    "source_sha256": "4f5490263e977da1f07804e92f8ec51e443528c2c2baebfbb44068c12ea46671",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17998.png",
+    "webp": "webp/tehnet-17998.webp",
+    "master_sha256": "9624c1b262e7506fc028eaff59cbc35c5d75689a77434de5795fab61d9ae8728",
+    "webp_sha256": "0d0e897488b650861fe41cd8d4c816a8268678fcf19667ff886b8f3f89e7f9b8",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          308,
+          163
+        ],
+        [
+          740,
+          163
+        ],
+        [
+          740,
+          278
+        ],
+        [
+          308,
+          278
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17992,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/08/س.jpg",
+    "products": [
+      {
+        "product_id": 17991,
+        "position": 1
+      }
+    ],
+    "source_sha256": "4cf83fd97f812b1d0ef5c25844a10439f5194c7ba05a0b5d43cbe411c2ffa2a9",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17992.png",
+    "webp": "webp/tehnet-17992.webp",
+    "master_sha256": "1d4cf499d0b0dd6223cb93d4d5abb442841362033ece8f9c98fa70fe2659aa8f",
+    "webp_sha256": "a75445b2b9e13dbe001545823a6fb8a935916f3549e4954044d338031ff753cf",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          65,
+          144
+        ],
+        [
+          970,
+          144
+        ],
+        [
+          970,
+          278
+        ],
+        [
+          65,
+          278
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17977,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/08/کابل-شبکه-Legrand-Cat6-SFTP-PVC-متراژ-500-متر-تست-فلوک-پرمننت.png",
+    "products": [
+      {
+        "product_id": 17989,
+        "position": 1
+      }
+    ],
+    "source_sha256": "a4b1d26b8aa160bd724de5c7774f4d109898ae94c5b6369bafe21dc5dec1ac83",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17977.png",
+    "webp": "webp/tehnet-17977.webp",
+    "master_sha256": "39772da6ca6e1eb35b337035a79b10f39ab9f4c93d24962eb34642bf72b493bb",
+    "webp_sha256": "0f149ca1421b1ce0680befdff3d282f80ccd4c7ce7cb0ce34329f3efe6ca1515",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          158,
+          726
+        ],
+        [
+          880,
+          726
+        ],
+        [
+          880,
+          881
+        ],
+        [
+          158,
+          881
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17987,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/08/ffba6d62-acc4-43f9-9bbc-fc9c97afea90.png",
+    "products": [
+      {
+        "product_id": 17982,
+        "position": 1
+      }
+    ],
+    "source_sha256": "ab82eea17c2daaeb2e815a6f3f52b426fb045e838c4233250d307f8f584cbcc6",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17987.png",
+    "webp": "webp/tehnet-17987.webp",
+    "master_sha256": "a9d6033e8a69a2f228b17593be70eb3ee8cc4c1885f774a9dbc8039a468644c4",
+    "webp_sha256": "c00df63a31f2840377d42b43d92194dca2698b750d2848f6c0d380511e469f51",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          30,
+          117
+        ],
+        [
+          994,
+          117
+        ],
+        [
+          994,
+          287
+        ],
+        [
+          30,
+          287
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published",
+    "review_note": "Large background lettering was reconstructed; inspect remaining edge lighting before publication."
+  },
+  {
+    "image_id": 17943,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/b22308bc-4670-4c10-a335-76f01bf36c9b.jpg",
+    "products": [
+      {
+        "product_id": 17941,
+        "position": 1
+      }
+    ],
+    "source_sha256": "bb925d0c3989548e74abdbf308a5d2c9f45cc0d7ad27e17d518f70b94762cab9",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17943.png",
+    "webp": "webp/tehnet-17943.webp",
+    "master_sha256": "fbcb2161e4bf9162cff37176319ae600eceee49122df68a54d81ebcec42efa47",
+    "webp_sha256": "23790155fcb29c788641fb5053d3d026b5d3d9f43c5f469c93c3a7880f2a11c5",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          452,
+          689
+        ],
+        [
+          983,
+          812
+        ],
+        [
+          987,
+          874
+        ],
+        [
+          448,
+          753
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17945,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/8f357c25-b38d-498f-a503-d15a07f57ea5.jpg",
+    "products": [
+      {
+        "product_id": 17941,
+        "position": 2
+      }
+    ],
+    "source_sha256": "efbda3232f8082d0725c8a577042e24c1e41ab05da6b16b70451b13851a4b5e4",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17945.png",
+    "webp": "webp/tehnet-17945.webp",
+    "master_sha256": "f35a1d5cbf17532b3ffa5529a294d322fdfdbcac7f52e1fda4325b78d4a1c182",
+    "webp_sha256": "45cfa20ca058edd5c752e78ea00798dafc45a4dbb2f3ab6a6644fe6547fd8d68",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          57,
+          625
+        ],
+        [
+          985,
+          821
+        ],
+        [
+          994,
+          903
+        ],
+        [
+          57,
+          700
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17937,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/84ee2c99-69f6-4032-86d2-1bc102de0373.jpg",
+    "products": [
+      {
+        "product_id": 17935,
+        "position": 1
+      }
+    ],
+    "source_sha256": "a7a9e2bd0683409d25484e0e11eb050a8b9c6d1773759e9e5b71be0547ae29af",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17937.png",
+    "webp": "webp/tehnet-17937.webp",
+    "master_sha256": "739d2672353fbb77d6c7f7b28980d2cb03f23ca1ea81dc5b60f34d3bbfe448bb",
+    "webp_sha256": "2e52fcfe5b40ce1683ef8074c575f75c022027ee7055f84b4ce7c5bfe86d7a0c",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          182,
+          899
+        ],
+        [
+          975,
+          765
+        ],
+        [
+          994,
+          822
+        ],
+        [
+          198,
+          970
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17931,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/fde14b45-5b8c-422f-9684-cff146e3d2cb.jpg",
+    "products": [
+      {
+        "product_id": 17929,
+        "position": 1
+      }
+    ],
+    "source_sha256": "558b905defd7bb7b507cd79bf93d5c6e161efa0b0b8bc498bc1b23bbf502eb37",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17931.png",
+    "webp": "webp/tehnet-17931.webp",
+    "master_sha256": "86dbe86eb0581b46df455b45261e8ef6c2f6d2c5b9f04016cc32202e9956b193",
+    "webp_sha256": "a267bcda93171c84e2f26b2ec61f90f4bdf7270608a1eb7c86c216b880c095c1",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          83,
+          123
+        ],
+        [
+          968,
+          123
+        ],
+        [
+          968,
+          303
+        ],
+        [
+          83,
+          303
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17930,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/b8853bee-6017-420d-a5fd-b88f9a5d88a5-1.png",
+    "products": [
+      {
+        "product_id": 17929,
+        "position": 2
+      }
+    ],
+    "source_sha256": "5d9a1a58e85af4d27a3951ba721f06aef1169dbad956f8ff9fb52eacb66cac1c",
+    "width": 1194,
+    "height": 896,
+    "master": "masters/tehnet-17930.png",
+    "webp": "webp/tehnet-17930.webp",
+    "master_sha256": "9398ba018abc60c96cdb96e8a60f3f13734a5c17aa5632904c1a61dd74e26ef4",
+    "webp_sha256": "81500dfdae5913be10b37fa77939c2a774e1c317cf608698e816fd4aa31b362d",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      1009,
+      24,
+      1171,
+      72
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          120,
+          69
+        ],
+        [
+          1100,
+          69
+        ],
+        [
+          1100,
+          254
+        ],
+        [
+          120,
+          254
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published",
+    "review_note": "Large background lettering was reconstructed; inspect remaining edge lighting before publication."
+  },
+  {
+    "image_id": 17926,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/HooshaAI_2026_07_23_020415.png",
+    "products": [
+      {
+        "product_id": 17927,
+        "position": 1
+      }
+    ],
+    "source_sha256": "4c69aba5c3985e284a5c609d19dc01d2ee46b97dccc9e6a3a79daa812a26fad5",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17926.png",
+    "webp": "webp/tehnet-17926.webp",
+    "master_sha256": "80a3863d36aee9a491ceccd6d890434903b529224f6dd59c0aa83aa0d97774a0",
+    "webp_sha256": "c93365d2c66fef3c127606ad0cb784a502414246d3f18f7531a4e6e964ead986",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          553,
+          919
+        ],
+        [
+          1023,
+          919
+        ],
+        [
+          1023,
+          1007
+        ],
+        [
+          553,
+          1007
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17922,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/edited.png",
+    "products": [
+      {
+        "product_id": 17920,
+        "position": 1
+      },
+      {
+        "product_id": 17920,
+        "position": 2
+      }
+    ],
+    "source_sha256": "b1cac31686abec60daca9faae6832efb1d07c24f19684574259ade3aacd6245c",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17922.png",
+    "webp": "webp/tehnet-17922.webp",
+    "master_sha256": "f740552d362d892b9ae1073e86869ce3243d4670a54625296de4d699581df54f",
+    "webp_sha256": "b9d308688fd1396caa5af42802e27d060233e2738624fef65a0b4de38e4e844e",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          716,
+          981
+        ],
+        [
+          1023,
+          981
+        ],
+        [
+          1023,
+          1023
+        ],
+        [
+          716,
+          1023
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17921,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/79d7a9d178a9f2ba7fd7f5ebd0bde993.png",
+    "products": [
+      {
+        "product_id": 17920,
+        "position": 3
+      }
+    ],
+    "source_sha256": "4792fe02e7789590d7287ecc48fe22ddffcec0c27d0ebc3bfc91a722704c9d0f",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17921.png",
+    "webp": "webp/tehnet-17921.webp",
+    "master_sha256": "c5e9fb36a6e68fce0a3c720de4e3cc587e2eb8a37716fc61b12b3af1d5b5aa94",
+    "webp_sha256": "317a790674e58c2eba6ed90a168a4879090b75280ea658425be9592f24b00eba",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          718,
+          449
+        ],
+        [
+          947,
+          523
+        ],
+        [
+          947,
+          574
+        ],
+        [
+          718,
+          494
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17917,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/07/927f4d63-bdd2-45b8-8e49-e35f4ce0602a.jpg",
+    "products": [
+      {
+        "product_id": 17888,
+        "position": 1
+      }
+    ],
+    "source_sha256": "9bce2ca05ddc5909ed876cb28211c79541badc9a6b363d1580b36a0226048fc5",
+    "width": 1047,
+    "height": 1024,
+    "master": "masters/tehnet-17917.png",
+    "webp": "webp/tehnet-17917.webp",
+    "master_sha256": "8f7bf05794470a6ea8d3af2a930fd7c7f69f1b0ebefcdbcb635e0084b73c0da5",
+    "webp_sha256": "42665cf32c4a2975ef175b754bccc4ca4061d7a46ca79047fe0aae6eccd74095",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      830,
+      28,
+      1020,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          45,
+          147
+        ],
+        [
+          1025,
+          147
+        ],
+        [
+          1025,
+          328
+        ],
+        [
+          45,
+          328
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published",
+    "review_note": "Large background lettering was reconstructed; inspect remaining edge lighting before publication."
+  },
+  {
+    "image_id": 17874,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/کابل-شبکه-نگزنس-Cat6-SFTP-اوت-دور-تست-فلوک-پرمننت-قرقره-305-متری.jpg",
+    "products": [
+      {
+        "product_id": 17873,
+        "position": 1
+      }
+    ],
+    "source_sha256": "ab1863c055bb66d8823ca06478594033f5414568ede9b4639b3624b05de8eddb",
+    "width": 960,
+    "height": 1098,
+    "master": "masters/tehnet-17874.png",
+    "webp": "webp/tehnet-17874.webp",
+    "master_sha256": "0576265893e5e422af4322e87889e734cb2a9098f5cd36cc239fb6bd6e527b00",
+    "webp_sha256": "757b5264ac874e6651736de98c1295261ffb7e52556bc0019b311f0509155468",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      756,
+      26,
+      935,
+      78
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17869,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/کابل-شبکه-نگزنس-Cat6-SFTP-PVC-متراژ-500-متر-تست-چنل-نام.png",
+    "products": [
+      {
+        "product_id": 17871,
+        "position": 1
+      },
+      {
+        "product_id": 17868,
+        "position": 1
+      }
+    ],
+    "source_sha256": "020a31d98c6df47ecf83568eb50a9c144d22866e49998085641ed255339b54aa",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17869.png",
+    "webp": "webp/tehnet-17869.webp",
+    "master_sha256": "aa5b73d2c8ee4b75636239c13c04c8ed00cddaf1910c51f9500deb1086cf3dec",
+    "webp_sha256": "2a6143353a9013d4684674ab00a221fb5e9dae477d4b904100880f0108877bc7",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17885,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/b08e04bd-08be-44e6-9224-3ad438e3bf6c.png",
+    "products": [
+      {
+        "product_id": 17868,
+        "position": 2
+      }
+    ],
+    "source_sha256": "328f394963fd456521664fc1cbb77b775bbe2f01da29f6f609e44601ccaa252d",
+    "width": 848,
+    "height": 1264,
+    "master": "masters/tehnet-17885.png",
+    "webp": "webp/tehnet-17885.webp",
+    "master_sha256": "9d80e399811ee19edb209fe9e25ab379306e1dec8fe4ea68dae35f2a10d18130",
+    "webp_sha256": "b8bf7698f031b63817c6b4bc23af55d61f2cd5e8b544cee84a63504575bd4d71",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      669,
+      23,
+      826,
+      70
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17864,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/کابل-شبکه-Legrand-Cat6-SFTP-PVC-متراژ-500-متر-تست-فلوک-پرمننت.png",
+    "products": [
+      {
+        "product_id": 17866,
+        "position": 1
+      }
+    ],
+    "source_sha256": "7b0356edfc40616185624e440f9776cf2f00d66e25055bc57b2dfbc3ee240260",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17864.png",
+    "webp": "webp/tehnet-17864.webp",
+    "master_sha256": "78be28a9d82fe4eb146a40c3ba1144a5ba714bd03408c805fc5e741cdfb6e43c",
+    "webp_sha256": "c678baa1800866b1a7e36633c768d751e7032c0a893190f919163512287165c6",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17970,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/کابل-شبکه-Legrand-Cat6-SFTP-PVC-متراژ-500-متر-تست-فلوک-پرمننت.jpg",
+    "products": [
+      {
+        "product_id": 17863,
+        "position": 1
+      }
+    ],
+    "source_sha256": "d601c7cc1c1cd6967fdb551ab3964b2a24ef35e42299e5a87e221d50108e23e5",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17970.png",
+    "webp": "webp/tehnet-17970.webp",
+    "master_sha256": "16efab2a284bffab72ccd6d0f64d3c13f937d13dd69088d2f301fc89acdf243e",
+    "webp_sha256": "309a0ae791155946a57b50a71b3e7546ec5514cf6120346d3ae3c83923d24678",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": true,
+    "seller_mark_regions": [
+      [
+        [
+          22,
+          894
+        ],
+        [
+          1023,
+          894
+        ],
+        [
+          1023,
+          1002
+        ],
+        [
+          22,
+          1002
+        ]
+      ]
+    ],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17859,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/کابل-شبکه-نگزنس-Cat6-UTP-روکش-PVC-حلقه-305-متری-تست-چنل.png",
+    "products": [
+      {
+        "product_id": 17860,
+        "position": 1
+      },
+      {
+        "product_id": 17857,
+        "position": 1
+      }
+    ],
+    "source_sha256": "15b41891aa75ca17e4c5d2e7505e68fe52ae74d9d2bb4e9430a46d4b0519ff71",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-17859.png",
+    "webp": "webp/tehnet-17859.webp",
+    "master_sha256": "fab87e9549092a57dfc0ea24a6535156ff7bccd88f2cecd0700c63d7f05da950",
+    "webp_sha256": "eb58b672e5de8877e245393ec614dce021f224faaf23bf6dea73a4c3c16b428b",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 17852,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/کابل-شبکه-لگراند-Cat6-UTP-روکش-PVC-حلقه-305-متری-تست-فلوک-پرمننت-این-نام-محصول-رو-سئو-شده-اما-با-کمی-تغییر-برای-وبسایتم-بده.jpg",
+    "products": [
+      {
+        "product_id": 17855,
+        "position": 1
+      },
+      {
+        "product_id": 17851,
+        "position": 1
+      }
+    ],
+    "source_sha256": "4695c03d8db785e3c9435b406a484e42e0749224ff8b44b173888d601545c42e",
+    "width": 640,
+    "height": 640,
+    "master": "masters/tehnet-17852.png",
+    "webp": "webp/tehnet-17852.webp",
+    "master_sha256": "660c573f8ff5803f244572119b79fad8aaa3c42cd92171ec669c758da41d00a7",
+    "webp_sha256": "28abacfe23c60b7e7ecdf478b445f02b228fa34eb143898599071d5bc7ec22e2",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      504,
+      17,
+      624,
+      53
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 16602,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/de709dad-6a2d-4e20-ba0c-8017605555ae.png",
+    "products": [
+      {
+        "product_id": 17831,
+        "position": 1
+      },
+      {
+        "product_id": 17829,
+        "position": 1
+      },
+      {
+        "product_id": 17827,
+        "position": 1
+      },
+      {
+        "product_id": 16585,
+        "position": 1
+      }
+    ],
+    "source_sha256": "85dd4de82e92913577b3f61c2a8be4859b7b6a1b3e4c09ecc1ed0929082346de",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-16602.png",
+    "webp": "webp/tehnet-16602.webp",
+    "master_sha256": "fa85e7cc4346f6e957cc188860923e28df155b3214cc7ff046e260917bd71cac",
+    "webp_sha256": "52be6cada70e22ddd50bfb55d5f6f7096d2ec05704235b5bb083c6bfbc25820e",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  },
+  {
+    "image_id": 16605,
+    "source_url": "https://saieedshabake.ir/wp-content/uploads/2026/06/1f81da61-9bb6-4e5e-9f92-a79f5281d3ff.png",
+    "products": [
+      {
+        "product_id": 17824,
+        "position": 1
+      },
+      {
+        "product_id": 16584,
+        "position": 1
+      }
+    ],
+    "source_sha256": "f68e4cf522b57a82f9d75f16580a9601e3ed30ebc3c6f1e369fe699f4315277f",
+    "width": 1024,
+    "height": 1024,
+    "master": "masters/tehnet-16605.png",
+    "webp": "webp/tehnet-16605.webp",
+    "master_sha256": "a25dcde9b16c02d286e46528eae18cf703b4c6b664ae03569772d4552d37c5cb",
+    "webp_sha256": "2bf76bcfb2ca8c4d75ed8ec64f7ee1ab3dffafe55bec8914557c32a660c6de89",
+    "brand_text": "tehnet.ir",
+    "brand_box": [
+      807,
+      28,
+      997,
+      84
+    ],
+    "seller_mark_removed": false,
+    "seller_mark_regions": [],
+    "unchanged_outside_edit_mask": true,
+    "editorial_status": "prepared-for-human-review; not-published"
+  }
+]

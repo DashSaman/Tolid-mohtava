@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "collection_date": "2026-10-15",
+  "brand": "tehnet.ir",
+  "products": 25,
+  "image_references": 31,
+  "unique_images": 23,
+  "seller_mark_regions_removed": 15,
+  "png_files": 23,
+  "webp_files": 23,
+  "verified_source_hashes": 23,
+  "verified_native_dimensions": 23,
+  "verified_png_pixel_preservation": 23,
+  "artificial_upscaling": false,
+  "cropping": false,
+  "live_publication": false,
+  "human_review_recommended": [
+    17987,
+    17917,
+    17930
+  ],
+  "source_api_sha256": "69e2605faa7c6314a7956f43fd11c6cc7e06365c2e86546c64a0642263b46fe4",
+  "checks_scope": "Technical file/mask checks; not a claim of pixel-perfect hidden-background recovery or product authenticity"
+}
